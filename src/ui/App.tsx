@@ -6,6 +6,7 @@ import {
 } from '../engine';
 import { ProfileChart } from './ProfileChart';
 import { Lang, dict, initialLang } from './i18n';
+import logoUrl from '../assets/btt-logo.png';
 
 type Mode = 'standard' | 'inventory';
 type Theme = 'light' | 'dark';
@@ -126,7 +127,7 @@ export function App() {
       <div className="topbar">
         <div className="topbar-inner">
           <div className="brand">
-            <img src="/btt-logo.png" alt="BTT Explorers Hungary" />
+            <img src={logoUrl} alt="BTT Explorers Hungary" />
             <div>
               <h1>{t.appTitle}</h1>
               <div className="sub">{isGue ? t.subtitleGue : t.subtitleGeneric}</div>
@@ -355,7 +356,7 @@ export function App() {
         </div>
       </div>
       <footer className="footer">
-        <img src="/btt-logo.png" alt="" aria-hidden="true" />
+        <img src={logoUrl} alt="" aria-hidden="true" />
         <span className="motto">Mindig van lejjebb!!!</span>
         <span className="small">BTT Explorers Hungary · 2018</span>
       </footer>

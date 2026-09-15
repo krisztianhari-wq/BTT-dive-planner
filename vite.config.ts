@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['btt-logo.png', 'favicon.png', 'icons/apple-touch-icon.png'],
+      includeAssets: ['favicon.png', 'icons/apple-touch-icon.png'],
       manifest: {
         id: '/',
         name: 'BTT Dive Planner',
