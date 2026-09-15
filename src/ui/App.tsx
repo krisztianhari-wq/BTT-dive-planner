@@ -354,6 +354,11 @@ export function App() {
           )}
         </div>
       </div>
+      <footer className="footer">
+        <img src="/btt-logo.png" alt="" aria-hidden="true" />
+        <span className="motto">Mindig van lejjebb!!!</span>
+        <span className="small">BTT Explorers Hungary · 2018</span>
+      </footer>
     </div>
   );
 }
