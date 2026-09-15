@@ -122,7 +122,7 @@ export function App() {
   if (mode === 'standard') {
     if (L.maxEndM !== null && bottomEnd > L.maxEndM) warnings.push({ text: t.endOverLimit(bottomEnd, u), bad: true });
     else if (bottomEnd > L.warnEndM) warnings.push({ text: t.endOverLimitGeneric(bottomEnd, L.warnEndM, u), bad: false });
-    if (bg && !bg.ok) warnings.push({ text: t.backGasNotEnough, bad: true });
+    if (bg && !bg.ok) warnings.push({ text: t.backGasNotEnough(bg.shortBar, bg.shortLitres, u), bad: true });
     if (bottomGasIdx !== 'auto' && autoBottom && autoBottom.gas !== stdBottomGas) warnings.push({ text: isGue ? t.standardGasHint(maxDepth, autoBottom.gas.name!, u) : t.standardGasHintGeneric(maxDepth, autoBottom.gas.name!, u), bad: false });
   }
 
@@ -284,7 +284,7 @@ export function App() {
                       <div className="t">{p.cylinder.name}</div>
                       <div className="s">{p.gasLabel} · {roleLabel(p.role)} · {p.note.kind === 'includesMinGas' ? t.includesMinGas(p.note.minGasBar, u) : t.withReserve(p.note.factor)}</div>
                     </div>
-                    <div className={`fill ${p.overfill ? 'bad' : ''}`}>{u.pressure(p.fillBar)}<small>{p.overfill ? t.overfill : t.minFill}</small></div>
+                    <div className={`fill ${p.overfill ? 'bad' : ''}`}>{u.pressure(p.fillBar)}<small>{p.overfill ? `${t.overfill}, ${t.overfillBy(p.fillBar - p.cylinder.workingPressureBar, u)}` : t.minFill}</small></div>
                   </div>
                 ))}
               </div>
