@@ -189,3 +189,28 @@ describe('inventory mode', () => {
     for (const i of list.filter((x) => x.role === 'deco')) expect(i.fillBar).toBeLessThanOrEqual(i.cylinder.workingPressureBar);
   });
 });
+
+describe('gas standards', () => {
+  it('generic standard picks best nitrox mix at pO2 1.4 for recreational depths', async () => {
+    const { GENERIC_STANDARD } = await import('../src/engine');
+    expect(GENERIC_STANDARD.bottomGasFor(18)?.gas.name).toBe('EAN40');
+    expect(GENERIC_STANDARD.bottomGasFor(30)?.gas.name).toBe('EAN32');
+    expect(GENERIC_STANDARD.bottomGasFor(40)?.gas.name).toBe('Air');
+    expect(GENERIC_STANDARD.bottomGasFor(50)?.gas.name).toBe('21/35');
+  });
+  it('generic standard has no hard END limit but warns above 40 m END', async () => {
+    const { GENERIC_STANDARD, evaluateInventory } = await import('../src/engine');
+    const v = evaluateInventory([{ id: 'a', cylinder: CYLINDERS[0], count: 1, gas: AIR, pressureBar: 230, role: 'back' }], 45, 15, 20, 15, {}, 1.5, GENERIC_STANDARD);
+    expect(v.blockers.some((b) => b.code === 'backEndAboveLimit')).toBe(false);
+    expect(v.warnings.some((w) => w.code === 'endHigh')).toBe(true);
+  });
+  it('GUE standard blocks the same dive on END', async () => {
+    const { GUE_STANDARD, evaluateInventory } = await import('../src/engine');
+    const v = evaluateInventory([{ id: 'a', cylinder: CYLINDERS[0], count: 1, gas: AIR, pressureBar: 230, role: 'back' }], 45, 15, 20, 15, {}, 1.5, GUE_STANDARD);
+    expect(v.blockers.some((b) => b.code === 'backEndAboveLimit')).toBe(true);
+  });
+  it('EAN80 gets its standard 9 m switch depth in the generic standard', async () => {
+    const { GENERIC_STANDARD, switchDepthFor } = await import('../src/engine');
+    expect(switchDepthFor({ o2: 0.8, he: 0 }, GENERIC_STANDARD)).toBe(9);
+  });
+});

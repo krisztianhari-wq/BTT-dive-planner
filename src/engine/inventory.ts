@@ -1,4 +1,5 @@
-import { Gas, GUE_DECO_GASES, GUE_LIMITS, end, gasName, mod, ppO2 } from './gas';
+import { Gas, end, gasName, mod, ppO2 } from './gas';
+import { GUE_STANDARD, GasStandard } from './standards';
 import { DecoGasSpec, DivePlan, planDive, PlanSettings } from './planner';
 import { Cylinder, GasUsage, minimumGas, planConsumption, roundBar, segmentConsumption } from './gasPlan';
 import { Msg, msg } from './messages';
@@ -87,17 +88,18 @@ export interface InventoryVerdict {
 
 const availableLitres = (it: InventoryItem) => it.cylinder.volumeL * it.pressureBar * it.count;
 
-/** Switch depth for an arbitrary deco gas: standard depth if it is a GUE standard gas, else MOD(1.6) rounded down to 3 m. */
-export function switchDepthFor(gas: Gas): number {
-  const std = GUE_DECO_GASES.find((d) => Math.abs(d.gas.o2 - gas.o2) < 0.005 && Math.abs(d.gas.he - gas.he) < 0.005);
+/** Switch depth for an arbitrary deco gas: the standard's depth if it is a standard deco gas, else MOD(1.6) rounded down to 3 m. */
+export function switchDepthFor(gas: Gas, standard: GasStandard = GUE_STANDARD): number {
+  const std = standard.decoGases.find((d) => Math.abs(d.gas.o2 - gas.o2) < 0.005 && Math.abs(d.gas.he - gas.he) < 0.005);
   if (std) return std.switchDepth;
-  return Math.max(3, Math.floor(mod(gas, GUE_LIMITS.decoPpO2Max) / 3) * 3);
+  return Math.max(3, Math.floor(mod(gas, standard.limits.decoPpO2Max) / 3) * 3);
 }
 
 export function evaluateInventory(
   items: InventoryItem[], maxDepth: number, bottomTime: number,
-  bottomSac: number, decoSac: number, settings: Partial<PlanSettings>, reserveFactor = 1.5,
+  bottomSac: number, decoSac: number, settings: Partial<PlanSettings>, reserveFactor = 1.5, standard: GasStandard = GUE_STANDARD,
 ): InventoryVerdict {
+  const L = standard.limits;
   const blockers: Msg[] = [];
   const warnings: Msg[] = [];
   const back = items.filter((i) => i.role === 'back');
@@ -109,17 +111,18 @@ export function evaluateInventory(
 
   const bg = backItem.gas;
   const p = ppO2(bg, maxDepth);
-  if (p > GUE_LIMITS.bottomPpO2Max) blockers.push(msg('ppo2AboveMax', { gas: gasName(bg), ppo2: p.toFixed(2), depth: maxDepth, mod: mod(bg, 1.4).toFixed(0) }));
-  else if (p > GUE_LIMITS.bottomPpO2Working) warnings.push(msg('ppo2AboveWorking', { gas: gasName(bg), ppo2: p.toFixed(2) }));
+  if (p > L.bottomPpO2Max) blockers.push(msg('ppo2AboveMax', { gas: gasName(bg), ppo2: p.toFixed(2), depth: maxDepth, mod: mod(bg, L.bottomPpO2Max).toFixed(0), limit: L.bottomPpO2Max }));
+  else if (p > L.bottomPpO2Working) warnings.push(msg('ppo2AboveWorking', { gas: gasName(bg), ppo2: p.toFixed(2), limit: L.bottomPpO2Working }));
   const e = end(bg, maxDepth);
-  if (e > GUE_LIMITS.maxEndM) blockers.push(msg('backEndAboveLimit', { gas: gasName(bg), end: e.toFixed(0) }));
-  if (ppO2(bg, 0) < GUE_LIMITS.minPpO2) warnings.push(msg('backHypoxicAtSurface', { gas: gasName(bg), ppo2: ppO2(bg, 0).toFixed(2) }));
+  if (L.maxEndM !== null && e > L.maxEndM) blockers.push(msg('backEndAboveLimit', { gas: gasName(bg), end: e.toFixed(0), limit: L.maxEndM }));
+  else if (e > L.warnEndM) warnings.push(msg('endHigh', { gas: gasName(bg), end: e.toFixed(0), limit: L.warnEndM }));
+  if (ppO2(bg, 0) < L.minPpO2) warnings.push(msg('backHypoxicAtSurface', { gas: gasName(bg), ppo2: ppO2(bg, 0).toFixed(2) }));
 
   // deco gases: only those whose switch depth is shallower than max depth
   const decoItems = items.filter((i) => i.role === 'deco');
   const decoGasesUsed: DecoGasSpec[] = [];
   for (const d of decoItems) {
-    const sd = switchDepthFor(d.gas);
+    const sd = switchDepthFor(d.gas, standard);
     if (sd >= maxDepth) { warnings.push(msg('decoSwitchNotShallower', { gas: gasName(d.gas), depth: sd })); continue; }
     if (decoGasesUsed.some((x) => x.switchDepth === sd)) { warnings.push(msg('duplicateSwitchDepth', { gas: gasName(d.gas), depth: sd })); continue; }
     decoGasesUsed.push({ gas: d.gas, switchDepth: sd });
