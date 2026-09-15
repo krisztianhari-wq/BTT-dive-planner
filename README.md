@@ -47,6 +47,20 @@ Egyszeri beállítás:
 
 A base útvonalat a workflow a repó nevéből állítja be (`VITE_BASE=/<repó>/`); helyben `/` marad.
 
+## Asztali alkalmazás (macOS, Windows 11) – Tauri
+A `src-tauri/` mappa a natív csomagolás: a rendszer saját webmotorját használja, ezért 5–10 MB a telepítő.
+A buildeket a `.github/workflows/desktop.yml` készíti GitHub Actionsben, mert Windows-telepítő Macről nem fordítható:
+- macOS: `.dmg` Apple Silicon (aarch64) és Intel (x86_64)
+- Windows 11: `-setup.exe` (NSIS) és `.msi`
+
+Kiadás: `git tag v0.1.0 && git push origin v0.1.0` → a workflow draft GitHub Release-t készít a telepítőkkel.
+Kézzel is indítható a repó Actions fülén (workflow_dispatch), ekkor az Artifacts alá kerülnek a fájlok.
+
+Aláírás nélkül: macOS-en első indításkor jobb klikk → Megnyitás, vagy `xattr -cr "/Applications/BTT Dive Planner.app"`;
+Windowson a SmartScreen „További információ → Futtatás mindenképpen".
+
+Helyi build (Rust toolchain kell): `npm run tauri dev` / `npm run tauri build`.
+
 ## Egyfájlos, hordozható változat
 ```bash
 npm run build:single   # dist-single/index.html – minden beágyazva, dupla kattintással nyílik
