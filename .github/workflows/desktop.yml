@@ -17,9 +17,11 @@ jobs:
           - platform: macos-latest
             target: aarch64-apple-darwin
             label: macos-arm64
-          - platform: macos-13
-            target: x86_64-apple-darwin
-            label: macos-x64
+          # Universal DMG (Apple Silicon + Intel) cross-built on an arm64 runner;
+          # macos-13 Intel runners are deprecated and queue for a long time.
+          - platform: macos-latest
+            target: universal-apple-darwin
+            label: macos-universal
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
             label: windows-x64
@@ -32,7 +34,7 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ matrix.target == 'universal-apple-darwin' && 'aarch64-apple-darwin,x86_64-apple-darwin' || matrix.target }}
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
