@@ -23,5 +23,17 @@ npm test
 npm run dev
 ```
 
+## PWA (telepíthető, offline)
+A build `vite-plugin-pwa`-val manifestet és service workert is készít, ezért a `dist/` bármilyen HTTPS statikus tárhelyre
+feltöltve telepíthető alkalmazásként jelenik meg (Chrome/Edge: címsor „Telepítés” ikon; iOS Safari: Megosztás → Főképernyőhöz adás),
+és első betöltés után internet nélkül is fut.
+
+```bash
+npm run build      # dist/ előállítása
+npm run preview    # a build kipróbálása http://localhost:4173 címen
+```
+
+A service worker csak HTTPS-en vagy localhoston aktív. Ikonok: `public/icons/` (a logóból, fehér háttérrel iOS-hez).
+
 ## Validálás (teendő)
 Golden tesztesetek összevetése Subsurface / MultiDeco / DecoPlanner kimenetével, percre pontosan.
