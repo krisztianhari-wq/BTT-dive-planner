@@ -125,6 +125,9 @@ export interface BackGasPlan {
   turnPressureBar: number;
   ok: boolean;
   litresAvailable: number;
+  /** how much back gas is missing to complete the plan while keeping minimum gas (0 if ok) */
+  shortBar: number;
+  shortLitres: number;
 }
 
 export function backGasPlan(plan: DivePlan, cylinder: Cylinder, startBar: number, bottomSac: number, decoSac: number, minGasBar: number): BackGasPlan {
@@ -143,7 +146,8 @@ export function backGasPlan(plan: DivePlan, cylinder: Cylinder, startBar: number
   // a non-penetration dive so turn pressure = start − bottom phase (informational).
   const turnPressureBar = startBar - bottomPhaseBar;
   const ok = bottomPhaseBar + ascentOnBackGasBar <= usableBar;
-  return { startBar, minimumGasBar: minGasBar, usableBar, bottomPhaseBar, ascentOnBackGasBar, turnPressureBar, ok, litresAvailable: cylinder.volumeL * startBar };
+  const shortBar = Math.max(0, bottomPhaseBar + ascentOnBackGasBar - usableBar);
+  return { startBar, minimumGasBar: minGasBar, usableBar, bottomPhaseBar, ascentOnBackGasBar, turnPressureBar, ok, litresAvailable: cylinder.volumeL * startBar, shortBar, shortLitres: shortBar * cylinder.volumeL };
 }
 
 export interface DecoGasRequirement {
