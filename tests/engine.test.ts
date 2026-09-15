@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  GUE_DECO_GASES, ceilingDepth, end, initialTissues, loadSegment, minimumGas, mod, ndl,
+  GUE_DECO_GASES, ceilingDepth, end, gasName, initialTissues, loadSegment, minimumGas, mod, ndl,
   planDive, ppO2, recommendedDecoGasesFor, standardBottomGasFor, stopTable, CYLINDERS, planConsumption,
 } from '../src/engine';
 
@@ -212,5 +212,25 @@ describe('gas standards', () => {
   it('EAN80 gets its standard 9 m switch depth in the generic standard', async () => {
     const { GENERIC_STANDARD, switchDepthFor } = await import('../src/engine');
     expect(switchDepthFor({ o2: 0.8, he: 0 }, GENERIC_STANDARD)).toBe(9);
+  });
+});
+
+describe('itinerary', () => {
+  it('lists events chronologically from t=0 to the surface with switches and stops', async () => {
+    const { itinerary } = await import('../src/engine');
+    const p = planDive({ maxDepth: 45, bottomTime: 25, bottomGas: T2135, decoGases: [EAN50] });
+    const ev = itinerary(p);
+    expect(ev[0].kind).toBe('start');
+    expect(ev[0].runtime).toBe(0);
+    expect(ev[ev.length - 1].kind).toBe('surface');
+    expect(Math.abs(ev[ev.length - 1].runtime - p.runtime)).toBeLessThan(1e-6);
+    for (let i = 1; i < ev.length; i++) expect(ev[i].runtime).toBeGreaterThanOrEqual(ev[i - 1].runtime - 1e-9);
+    expect(ev.filter((e) => e.kind === 'stop').length).toBe(stopTable(p).length);
+    const sw = ev.find((e) => e.kind === 'switch')!;
+    expect(sw.depth).toBe(21);
+    expect(sw.gas.name).toBe('EAN50');
+    expect(sw.fromGas && gasName(sw.fromGas)).toBe('21/35');
+    expect(ev.filter((e) => e.kind === 'arriveBottom')).toHaveLength(1);
+    expect(ev.filter((e) => e.kind === 'leaveBottom')).toHaveLength(1);
   });
 });

@@ -6,3 +6,4 @@ export * from './gasPlan';
 export * from './inventory';
 export * from './messages';
 export * from './standards';
+export * from './itinerary';

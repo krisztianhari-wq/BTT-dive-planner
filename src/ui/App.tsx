@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   CYLINDERS, Cylinder, DEFAULT_SETTINGS, DecoGasSpec, DivePlan, Gas, GasUsage, STANDARDS, StandardId,
   InventoryItem, Msg, backGasPlan, end, evaluateInventory, gasName, minimumGas, mod, packingList, planConsumption, planDive, ppO2,
-  roundBar, stopTable,
+  roundBar, stopTable, itinerary, ItineraryEvent,
 } from '../engine';
 import { ProfileChart } from './ProfileChart';
 import { Lang, dict, initialLang } from './i18n';
@@ -102,6 +102,7 @@ export function App() {
   const decoGases = mode === 'standard' ? stdDecoGases : verdict.decoGasesUsed;
   const usage: GasUsage[] = plan ? (mode === 'standard' ? planConsumption(plan, sacBottom, sacDeco) : verdict.usage) : [];
   const stops = plan ? stopTable(plan) : [];
+  const events: ItineraryEvent[] = plan ? itinerary(plan) : [];
 
   const backCyl: Cylinder = mode === 'standard' ? cylinder : (backItem?.cylinder ?? cylinder);
   const backStart = mode === 'standard' ? startBar : (backItem?.pressureBar ?? startBar);
@@ -128,6 +129,16 @@ export function App() {
   const updateItem = (id: string, patch: Partial<InventoryItem>) => setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   const roleLabel = (r: 'back' | 'deco') => (r === 'back' ? t.roleBackShort : t.roleDecoShort);
   const cylShort = (c: Cylinder) => c.name.split(' (')[0];
+  const eventText = (e: ItineraryEvent): string => {
+    switch (e.kind) {
+      case 'start': return t.itStart(gasName(e.gas));
+      case 'arriveBottom': return t.itArrive;
+      case 'leaveBottom': return t.itLeave(gasName(e.gas));
+      case 'switch': return t.itSwitch(e.fromGas ? gasName(e.fromGas) : '—', gasName(e.gas), u, e.depth);
+      case 'stop': return t.itStop(Math.round(e.duration ?? 0), Math.round(e.until ?? 0), u, e.depth);
+      case 'surface': return t.itSurface;
+    }
+  };
 
   return (
     <div className="app">
@@ -332,6 +343,25 @@ export function App() {
               </table>
             )}
           </section>
+
+          {events.length > 0 && (
+            <section className="panel">
+              <h2>{t.itinerary}</h2>
+              <table className="itinerary">
+                <thead><tr><th className="num">{t.itTime}</th><th className="num">{t.itDepth(u)}</th><th>{t.itAction}</th><th>{t.itGas}</th></tr></thead>
+                <tbody>
+                  {events.map((e, i) => (
+                    <tr key={i} className={`ev-${e.kind}`}>
+                      <td className="num">{Math.round(e.runtime)}</td>
+                      <td className="num">{e.kind === 'stop' || e.kind === 'switch' ? u.stopDepthN(e.depth) : u.depthN(e.depth)}</td>
+                      <td>{eventText(e)}</td>
+                      <td>{gasName(e.gas)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
 
           {bg && (
             <section className="panel">
