@@ -95,6 +95,17 @@ const hu = {
   backGasNotEnough: 'A háti gáz nem elég a tervezett fenékidőre a minimum gáz megtartásával.',
   standardGasHint: (d: number, g: string, u: Units) => `A GUE standard fenékgáz ${u.depth(d)}-re: ${g}.`,
   standardGasHintGeneric: (d: number, g: string, u: Units) => `Ajánlott gáz ${u.depth(d)}-re: ${g}.`,
+  itinerary: 'Itiner',
+  itTime: 'Perc',
+  itDepth: (u: Units) => `Mélység (${u.d})`,
+  itAction: 'Teendő',
+  itGas: 'Gáz',
+  itStart: (g: string) => `Leszállás indul ${g} gázon (20 m/min)`,
+  itArrive: 'Fenékmélység elérve, fenékidő indul',
+  itLeave: (g: string) => `Fenékidő vége, felszállás indul ${g} gázon`,
+  itSwitch: (from: string, to: string, u: Units, d: number) => `Gázváltás ${u.stopDepth(d)}-en: ${from} → ${to}, palackváltás, ellenőrzés`,
+  itStop: (min: number, until: number, u: Units, d: number) => `Megállás ${u.stopDepth(d)}-en ${min} perc, indulás a ${until}. percben`,
+  itSurface: 'Felszín, merülés vége',
   msg: (m: Msg, u: Units): string => {
     const p = m.params;
     const n = (k: string) => Number(p[k]);
@@ -213,6 +224,17 @@ const en: Dict = {
   backGasNotEnough: 'Back gas is not enough for the planned bottom time while keeping minimum gas.',
   standardGasHint: (d, g, u) => `GUE standard bottom gas for ${u.depth(d)}: ${g}.`,
   standardGasHintGeneric: (d, g, u) => `Suggested gas for ${u.depth(d)}: ${g}.`,
+  itinerary: 'Itinerary',
+  itTime: 'Min',
+  itDepth: (u) => `Depth (${u.d})`,
+  itAction: 'Action',
+  itGas: 'Gas',
+  itStart: (g) => `Start descent on ${g} (20 m/min)`,
+  itArrive: 'Max depth reached, bottom time starts',
+  itLeave: (g) => `Bottom time over, start ascent on ${g}`,
+  itSwitch: (from, to, u, d) => `Gas switch at ${u.stopDepth(d)}: ${from} → ${to}, change cylinder, verify`,
+  itStop: (min, until, u, d) => `Stop at ${u.stopDepth(d)} for ${min} min, leave at minute ${until}`,
+  itSurface: 'Surface, dive complete',
   msg: (m, u) => {
     const p = m.params;
     const n = (k: string) => Number(p[k]);
