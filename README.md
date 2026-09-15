@@ -38,6 +38,15 @@ A service worker csak HTTPS-en vagy localhoston aktív. Ikonok: `public/icons/` 
 **Fontos:** a `dist/index.html` közvetlenül, fájlból megnyitva üres oldalt ad, mert a böngésző `file://`-ról nem tölt be
 ES-modulokat és abszolút útvonalakat. Webszerverről kell kiszolgálni, vagy az egyfájlos változatot használni.
 
+## GitHub Pages közzététel
+A `.github/workflows/pages.yml` minden `main`-re push után buildel, teszteket futtat és publikál.
+Egyszeri beállítás:
+1. Hozz létre egy (publikus) GitHub repót, és told fel a kódot: `git remote add origin <url> && git push -u origin main`
+2. A repóban Settings → Pages → Build and deployment → Source: **GitHub Actions**
+3. Az első futás után az app a `https://<felhasználó>.github.io/<repó>/` címen érhető el, PWA-ként telepíthető.
+
+A base útvonalat a workflow a repó nevéből állítja be (`VITE_BASE=/<repó>/`); helyben `/` marad.
+
 ## Egyfájlos, hordozható változat
 ```bash
 npm run build:single   # dist-single/index.html – minden beágyazva, dupla kattintással nyílik
