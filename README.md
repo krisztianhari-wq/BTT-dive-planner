@@ -35,5 +35,14 @@ npm run preview    # a build kipróbálása http://localhost:4173 címen
 
 A service worker csak HTTPS-en vagy localhoston aktív. Ikonok: `public/icons/` (a logóból, fehér háttérrel iOS-hez).
 
+**Fontos:** a `dist/index.html` közvetlenül, fájlból megnyitva üres oldalt ad, mert a böngésző `file://`-ról nem tölt be
+ES-modulokat és abszolút útvonalakat. Webszerverről kell kiszolgálni, vagy az egyfájlos változatot használni.
+
+## Egyfájlos, hordozható változat
+```bash
+npm run build:single   # dist-single/index.html – minden beágyazva, dupla kattintással nyílik
+```
+Ez a fájl pendrive-ról, e-mailből, `file://`-ról is fut, nincs benne service worker és nem telepíthető PWA-ként.
+
 ## Validálás (teendő)
 Golden tesztesetek összevetése Subsurface / MultiDeco / DecoPlanner kimenetével, percre pontosan.
