@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "build:single": "tsc --noEmit && vite build --config vite.single.config.ts",
+    "build:single": "tsc --noEmit && vite build --config vite.single.config.ts && node scripts/inline-icons.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
