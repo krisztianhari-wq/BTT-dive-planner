@@ -32,7 +32,22 @@ npm run tauri build    # natív app, Rust toolchain kell (rustup.rs)
   Utána a Releases oldalon „Publish release”.
 
 ## Szerkezet
-- `src/engine/` – számítómotor, UI-független (Bühlmann, gázok, gázterv, szabványok)
-- `src/ui/` – React felület, `i18n.ts` szótár, `units.ts` egységek
-- `src-tauri/` – asztali csomagolás
-- `tests/` – Vitest tesztek
+- `src/engine/` – számítómotor, UI-független TypeScript
+  - `constants.ts` – ZH-L16C kompartment konstansok, fizikai állandók
+  - `buhlmann.ts` – szöveti terhelés (Schreiner), ceiling gradient factorral, NDL
+  - `gas.ts` – gázmatek (MOD, END, pO2), GUE standard gázok és limitek
+  - `standards.ts` – gázszabványok: GUE és általános (PADI/SSI/TDI) készlet, limitek, ajánlások
+  - `planner.ts` – dekó-ütemterv generálás gázváltásokkal
+  - `gasPlan.ts` – fogyasztás, minimum gáz, palackok, dekógáz-igény
+  - `inventory.ts` – csomaglista és „saját gázaim” megvalósíthatóság
+  - `messages.ts` – nyelvfüggetlen üzenetkódok, a felület fordítja
+- `src/ui/` – React felület
+  - `App.tsx` – a teljes felület, kapcsolók (mód, szabvány, egység, nyelv, téma)
+  - `ProfileChart.tsx` – merülési profil SVG grafikon
+  - `i18n.ts` – magyar/angol szótár, üzenetfordítás
+  - `units.ts` – metrikus/angolszász átváltás
+  - `styles.css` – világos/sötét téma
+- `src-tauri/` – asztali csomagolás (Tauri v2), ikonok, konfiguráció
+- `scripts/inline-icons.mjs` – az egyfájlos build utófeldolgozása
+- `.github/workflows/` – `pages.yml` (web közzététel), `desktop.yml` (telepítők)
+- `tests/` – Vitest egység- és tulajdonságtesztek
