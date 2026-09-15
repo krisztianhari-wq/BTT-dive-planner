@@ -9,6 +9,7 @@ export type MsgCode =
   | 'noBackGas'
   | 'multipleBackGas'
   | 'backEndAboveLimit'
+  | 'endHigh'
   | 'backHypoxicAtSurface'
   | 'decoSwitchNotShallower'
   | 'duplicateSwitchDepth'

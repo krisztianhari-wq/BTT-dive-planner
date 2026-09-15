@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  CYLINDERS, Cylinder, DEFAULT_SETTINGS, DecoGasSpec, DivePlan, GUE_BOTTOM_GASES, GUE_DECO_GASES, GUE_LIMITS, Gas, GasUsage,
+  CYLINDERS, Cylinder, DEFAULT_SETTINGS, DecoGasSpec, DivePlan, Gas, GasUsage, STANDARDS, StandardId,
   InventoryItem, Msg, backGasPlan, end, evaluateInventory, gasName, minimumGas, mod, packingList, planConsumption, planDive, ppO2,
-  recommendedDecoGasesFor, roundBar, standardBottomGasFor, stopTable,
+  roundBar, stopTable,
 } from '../engine';
 import { ProfileChart } from './ProfileChart';
 import { Lang, dict, initialLang } from './i18n';
@@ -28,13 +28,17 @@ export function App() {
   const [lang, setLang] = useState<Lang>(initialLang);
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [mode, setMode] = useState<Mode>('standard');
+  const [stdId, setStdId] = useState<StandardId>(() => {
+    try { const v = localStorage.getItem('btt-std'); if (v === 'gue' || v === 'generic') return v; } catch { /* ignore */ }
+    return 'gue';
+  });
   const [maxDepth, setMaxDepth] = useState(45);
   const [bottomTime, setBottomTime] = useState(25);
   const [bottomGasIdx, setBottomGasIdx] = useState<number | 'auto'>('auto');
   const [decoOn, setDecoOn] = useState<Record<string, boolean> | null>(null);
   const [gfLow, setGfLow] = useState(20);
   const [gfHigh, setGfHigh] = useState(85);
-  const [lastStop, setLastStop] = useState(6);
+  const [lastStop, setLastStop] = useState<number | null>(null); // null → standard default
   const [cylIdx, setCylIdx] = useState(0);
   const [startBar, setStartBar] = useState(200);
   const [sacBottom, setSacBottom] = useState(20);
@@ -45,6 +49,12 @@ export function App() {
   ]);
 
   const t = dict[lang];
+  const std = STANDARDS[stdId];
+  const isGue = stdId === 'gue';
+  const L = std.limits;
+  const lastStopDepth = lastStop ?? std.lastStopDepth;
+  useEffect(() => { try { localStorage.setItem('btt-std', stdId); } catch { /* ignore */ } }, [stdId]);
+  const changeStandard = (id: StandardId) => { setStdId(id); setBottomGasIdx('auto'); setDecoOn(null); setLastStop(null); };
   const fmt = (v: number, d = 0) => v.toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: d, minimumFractionDigits: d });
 
   useEffect(() => {
@@ -57,24 +67,27 @@ export function App() {
     try { localStorage.setItem('btt-lang', lang); } catch { /* ignore */ }
   }, [lang]);
 
-  const settings = { ...DEFAULT_SETTINGS, gf: { low: gfLow / 100, high: gfHigh / 100 }, lastStopDepth: lastStop };
+  const settings = {
+    ...DEFAULT_SETTINGS, gf: { low: gfLow / 100, high: gfHigh / 100 }, lastStopDepth,
+    ascentRateShallowMpm: std.ascentRateShallowMpm, ppO2Working: L.bottomPpO2Working, ppO2Max: L.bottomPpO2Max, decoPpO2Max: L.decoPpO2Max,
+  };
 
   /* ---- standard mode ---- */
-  const autoBottom = standardBottomGasFor(maxDepth);
-  const stdBottomGas: Gas = bottomGasIdx === 'auto'
-    ? (autoBottom?.gas ?? GUE_BOTTOM_GASES[GUE_BOTTOM_GASES.length - 1].gas)
-    : GUE_BOTTOM_GASES[bottomGasIdx].gas;
-  const recommended = recommendedDecoGasesFor(maxDepth);
-  const decoSelection: Record<string, boolean> = decoOn ?? Object.fromEntries(GUE_DECO_GASES.map((d) => [d.gas.name!, recommended.includes(d)]));
-  const stdDecoGases: DecoGasSpec[] = GUE_DECO_GASES.filter((d) => decoSelection[d.gas.name!]).map((d) => ({ gas: d.gas, switchDepth: d.switchDepth }));
+  const autoBottom = std.bottomGasFor(maxDepth);
+  const stdBottomGas: Gas = bottomGasIdx === 'auto' || bottomGasIdx >= std.bottomGases.length
+    ? (autoBottom?.gas ?? std.bottomGases[std.bottomGases.length - 1].gas)
+    : std.bottomGases[bottomGasIdx].gas;
+  const recommended = std.recommendedDecoGasesFor(maxDepth);
+  const decoSelection: Record<string, boolean> = decoOn ?? Object.fromEntries(std.decoGases.map((d) => [d.gas.name!, recommended.includes(d)]));
+  const stdDecoGases: DecoGasSpec[] = std.decoGases.filter((d) => decoSelection[d.gas.name!]).map((d) => ({ gas: d.gas, switchDepth: d.switchDepth }));
   const cylinder = CYLINDERS[cylIdx];
 
   const stdPlan = useMemo(() => planDive({ maxDepth, bottomTime, bottomGas: stdBottomGas, decoGases: stdDecoGases, settings }),
-    [maxDepth, bottomTime, stdBottomGas, stdDecoGases, gfLow, gfHigh, lastStop]);
+    [maxDepth, bottomTime, stdBottomGas, stdDecoGases, gfLow, gfHigh, lastStopDepth, stdId]);
 
   /* ---- inventory mode ---- */
-  const verdict = useMemo(() => evaluateInventory(items, maxDepth, bottomTime, sacBottom, sacDeco, settings),
-    [items, maxDepth, bottomTime, sacBottom, sacDeco, gfLow, gfHigh, lastStop]);
+  const verdict = useMemo(() => evaluateInventory(items, maxDepth, bottomTime, sacBottom, sacDeco, settings, 1.5, std),
+    [items, maxDepth, bottomTime, sacBottom, sacDeco, gfLow, gfHigh, lastStopDepth, stdId]);
 
   const backItem = items.find((i) => i.role === 'back');
   const plan: DivePlan | null = mode === 'standard' ? stdPlan : verdict.plan;
@@ -93,15 +106,16 @@ export function App() {
 
   const bottomPpO2 = ppO2(bottomGas, maxDepth);
   const bottomEnd = end(bottomGas, maxDepth);
-  const ppo2Class = bottomPpO2 > GUE_LIMITS.bottomPpO2Max ? 'bad' : bottomPpO2 > GUE_LIMITS.bottomPpO2Working ? 'warn' : 'ok';
-  const endClass = bottomEnd > GUE_LIMITS.maxEndM ? 'bad' : 'ok';
+  const ppo2Class = bottomPpO2 > L.bottomPpO2Max ? 'bad' : bottomPpO2 > L.bottomPpO2Working ? 'warn' : 'ok';
+  const endClass = L.maxEndM !== null && bottomEnd > L.maxEndM ? 'bad' : bottomEnd > L.warnEndM ? 'warn' : 'ok';
 
   const engineMsgs: Msg[] = mode === 'standard' ? stdPlan.warnings : verdict.warnings;
   const warnings: { text: string; bad: boolean }[] = engineMsgs.map((m) => ({ text: t.msg(m), bad: t.isBlocking(m) }));
   if (mode === 'standard') {
-    if (bottomEnd > GUE_LIMITS.maxEndM) warnings.push({ text: t.endOverLimit(fmt(bottomEnd)), bad: true });
+    if (L.maxEndM !== null && bottomEnd > L.maxEndM) warnings.push({ text: t.endOverLimit(fmt(bottomEnd)), bad: true });
+    else if (bottomEnd > L.warnEndM) warnings.push({ text: t.endOverLimitGeneric(fmt(bottomEnd), L.warnEndM), bad: false });
     if (bg && !bg.ok) warnings.push({ text: t.backGasNotEnough, bad: true });
-    if (bottomGasIdx !== 'auto' && autoBottom && autoBottom.gas !== stdBottomGas) warnings.push({ text: t.standardGasHint(maxDepth, autoBottom.gas.name!), bad: false });
+    if (bottomGasIdx !== 'auto' && autoBottom && autoBottom.gas !== stdBottomGas) warnings.push({ text: isGue ? t.standardGasHint(maxDepth, autoBottom.gas.name!) : t.standardGasHintGeneric(maxDepth, autoBottom.gas.name!), bad: false });
   }
 
   const updateItem = (id: string, patch: Partial<InventoryItem>) => setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...patch } : x)));
@@ -115,13 +129,17 @@ export function App() {
             <img src="/btt-logo.png" alt="BTT Explorers Hungary" />
             <div>
               <h1>{t.appTitle}</h1>
-              <div className="sub">{t.subtitle}</div>
+              <div className="sub">{isGue ? t.subtitleGue : t.subtitleGeneric}</div>
             </div>
           </div>
           <div className="controls">
             <div className="seg" role="tablist">
               <button className={mode === 'standard' ? 'on' : ''} onClick={() => setMode('standard')}>{t.modeStandard}</button>
               <button className={mode === 'inventory' ? 'on' : ''} onClick={() => setMode('inventory')}>{t.modeInventory}</button>
+            </div>
+            <div className="seg lang" role="radiogroup" aria-label={t.stdTitle} title={t.stdTitle}>
+              <button className={isGue ? 'on' : ''} onClick={() => changeStandard('gue')}>{t.stdGue}</button>
+              <button className={!isGue ? 'on' : ''} onClick={() => changeStandard('generic')}>{t.stdGeneric}</button>
             </div>
             <div className="seg lang" role="radiogroup" aria-label="Language">
               <button className={lang === 'hu' ? 'on' : ''} onClick={() => setLang('hu')}>HU</button>
@@ -150,12 +168,12 @@ export function App() {
               <>
                 <label>{t.bottomGas}</label>
                 <select value={bottomGasIdx} onChange={(e) => setBottomGasIdx(e.target.value === 'auto' ? 'auto' : +e.target.value)}>
-                  <option value="auto">{t.autoBottomGas(autoBottom?.gas.name ?? '—')}</option>
-                  {GUE_BOTTOM_GASES.map((g, i) => <option key={g.gas.name} value={i}>{g.gas.name} ({g.minDepth}–{g.maxDepth} m)</option>)}
+                  <option value="auto">{isGue ? t.autoBottomGas(autoBottom?.gas.name ?? '—') : t.autoBottomGasGeneric(autoBottom?.gas.name ?? '—')}</option>
+                  {std.bottomGases.map((g, i) => <option key={g.gas.name} value={i}>{g.gas.name} ({isGue ? `${g.minDepth}–${g.maxDepth} m` : `MOD ${fmt(mod(g.gas, 1.4))} m`})</option>)}
                 </select>
                 <label>{t.decoGases}</label>
                 <div className="chips">
-                  {GUE_DECO_GASES.map((d) => {
+                  {std.decoGases.map((d) => {
                     const on = !!decoSelection[d.gas.name!];
                     return (
                       <span key={d.gas.name} className={`chip ${on ? 'on' : ''}`} onClick={() => setDecoOn({ ...decoSelection, [d.gas.name!]: !on })}>
@@ -168,7 +186,7 @@ export function App() {
               </>
             )}
             <div className="small" style={{ marginTop: 10 }}>
-              {gasName(bottomGas)}: pO2 <b className={ppo2Class}>{bottomPpO2.toFixed(2)}</b> bar · END <b className={endClass}>{fmt(bottomEnd)}</b> m · MOD(1.4) {fmt(mod(bottomGas, 1.4))} m
+              {gasName(bottomGas)}: pO2 <b className={ppo2Class}>{bottomPpO2.toFixed(2)}</b> bar · END <b className={endClass}>{fmt(bottomEnd)}</b> m · MOD({L.bottomPpO2Working.toFixed(1)}) {fmt(mod(bottomGas, L.bottomPpO2Working))} m
             </div>
           </section>
 
@@ -227,9 +245,9 @@ export function App() {
             <div className="row3">
               <div><label>{t.gfLow}</label><input type="number" min={5} max={100} value={gfLow} onChange={(e) => setGfLow(+e.target.value)} /></div>
               <div><label>{t.gfHigh}</label><input type="number" min={5} max={100} value={gfHigh} onChange={(e) => setGfHigh(+e.target.value)} /></div>
-              <div><label>{t.lastStop}</label><select value={lastStop} onChange={(e) => setLastStop(+e.target.value)}><option value={6}>6</option><option value={3}>3</option></select></div>
+              <div><label>{t.lastStop}</label><select value={lastStopDepth} onChange={(e) => setLastStop(+e.target.value)}><option value={6}>6</option><option value={3}>3</option></select></div>
             </div>
-            <div className="small" style={{ marginTop: 8 }}>{t.ratesNote}</div>
+            <div className="small" style={{ marginTop: 8 }}>{t.ratesNote(std.ascentRateShallowMpm)}</div>
           </section>
 
           {mode === 'standard' ? (
@@ -295,7 +313,7 @@ export function App() {
 
           <section className="panel">
             <h2>{t.stops}</h2>
-            {stops.length === 0 ? <div className="small">{t.noStops}</div> : (
+            {stops.length === 0 ? <div className="small">{t.noStops(isGue)}</div> : (
               <table>
                 <thead><tr><th className="num">{t.depth}</th><th className="num">{t.minutes}</th><th className="num">{t.runtimeCol}</th><th>{t.gas}</th></tr></thead>
                 <tbody>{stops.map((s, i) => <tr key={i}><td className="num">{s.depth}</td><td className="num">{s.minutes}</td><td className="num">{s.runtime}</td><td>{s.gas}</td></tr>)}</tbody>
