@@ -72,7 +72,7 @@ const hu = {
   needBackGas: 'Adj meg legalább egy háti palackot a tervhez.',
   stops: 'Dekompressziós megállók',
   noStops: (gue: boolean, u: Units): string => gue
-    ? `Nincs kötelező megálló. GUE „minimum deco" felszállás: ${u.depthN(9)} ${u.rate}, majd ${u.depthN(3)} ${u.rate} a felső ${u.depth(6)}-en, ${u.depth(6)}-en ajánlott 1–3 perc.`
+    ? `Nincs kötelező megálló. GUE „minimum deco" felszállás: ${u.depthN(9)} ${u.rate}, majd ${u.depthN(3)} ${u.rate} a felső ${u.stopDepth(6)}-en, ${u.stopDepth(6)}-en ajánlott 1–3 perc.`
     : `Nincs kötelező megálló. Ajánlott biztonsági megálló: 3 perc ${u.depth(5)}-en.`,
   depth: (u: Units) => `Mélység (${u.d})`,
   minutes: 'Idő (perc)',
@@ -190,7 +190,7 @@ const en: Dict = {
   needBackGas: 'Add at least one back cylinder to get a plan.',
   stops: 'Decompression stops',
   noStops: (gue, u) => gue
-    ? `No mandatory stops. GUE "minimum deco" ascent: ${u.depthN(9)} ${u.rate}, then ${u.depthN(3)} ${u.rate} over the last ${u.depth(6)}, 1–3 min at ${u.depth(6)} recommended.`
+    ? `No mandatory stops. GUE "minimum deco" ascent: ${u.depthN(9)} ${u.rate}, then ${u.depthN(3)} ${u.rate} over the last ${u.stopDepth(6)}, 1–3 min at ${u.stopDepth(6)} recommended.`
     : `No mandatory stops. Recommended safety stop: 3 min at ${u.depth(5)}.`,
   depth: (u) => `Depth (${u.d})`,
   minutes: 'Time (min)',

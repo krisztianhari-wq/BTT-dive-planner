@@ -189,7 +189,7 @@ export function App() {
                     const on = !!decoSelection[d.gas.name!];
                     return (
                       <span key={d.gas.name} className={`chip ${on ? 'on' : ''}`} onClick={() => setDecoOn({ ...decoSelection, [d.gas.name!]: !on })}>
-                        <span className="dot" /> {d.gas.name} · {u.depth(d.switchDepth)}
+                        <span className="dot" /> {d.gas.name} · {u.stopDepth(d.switchDepth)}
                       </span>
                     );
                   })}
@@ -257,7 +257,7 @@ export function App() {
             <div className="row3">
               <div><label>{t.gfLow}</label><input type="number" min={5} max={100} value={gfLow} onChange={(e) => setGfLow(+e.target.value)} /></div>
               <div><label>{t.gfHigh}</label><input type="number" min={5} max={100} value={gfHigh} onChange={(e) => setGfHigh(+e.target.value)} /></div>
-              <div><label>{t.lastStop(u)}</label><select value={lastStopDepth} onChange={(e) => setLastStop(+e.target.value)}><option value={6}>{u.depthN(6)}</option><option value={3}>{u.depthN(3)}</option></select></div>
+              <div><label>{t.lastStop(u)}</label><select value={lastStopDepth} onChange={(e) => setLastStop(+e.target.value)}><option value={6}>{u.stopDepthN(6)}</option><option value={3}>{u.stopDepthN(3)}</option></select></div>
             </div>
             <div className="small" style={{ marginTop: 8 }}>{t.ratesNote(std.ascentRateShallowMpm, u)}</div>
           </section>
@@ -314,7 +314,7 @@ export function App() {
                 <div className="kpis">
                   <div className="kpi"><div className="v">{fmt(plan.runtime)}</div><div className="l">{t.runtime}</div></div>
                   <div className="kpi"><div className="v">{fmt(plan.decoTime)}</div><div className="l">{t.decoTotal}</div></div>
-                  <div className="kpi"><div className="v">{plan.firstStopDepth === null ? '—' : u.depthN(plan.firstStopDepth)}</div><div className="l">{t.firstStop(u)}</div></div>
+                  <div className="kpi"><div className="v">{plan.firstStopDepth === null ? '—' : u.stopDepthN(plan.firstStopDepth)}</div><div className="l">{t.firstStop(u)}</div></div>
                   <div className="kpi"><div className="v">{stops.length}</div><div className="l">{t.stopCount}</div></div>
                 </div>
                 <ProfileChart plan={plan} unitLabel={lang === 'hu' ? 'perc' : 'min'} depthLabel={u.d} depthScale={u.sys === 'metric' ? 1 : 3.28084} />
@@ -328,7 +328,7 @@ export function App() {
             {stops.length === 0 ? <div className="small">{t.noStops(isGue, u)}</div> : (
               <table>
                 <thead><tr><th className="num">{t.depth(u)}</th><th className="num">{t.minutes}</th><th className="num">{t.runtimeCol}</th><th>{t.gas}</th></tr></thead>
-                <tbody>{stops.map((s, i) => <tr key={i}><td className="num">{u.depthN(s.depth)}</td><td className="num">{s.minutes}</td><td className="num">{s.runtime}</td><td>{s.gas}</td></tr>)}</tbody>
+                <tbody>{stops.map((s, i) => <tr key={i}><td className="num">{u.stopDepthN(s.depth)}</td><td className="num">{s.minutes}</td><td className="num">{s.runtime}</td><td>{s.gas}</td></tr>)}</tbody>
               </table>
             )}
           </section>

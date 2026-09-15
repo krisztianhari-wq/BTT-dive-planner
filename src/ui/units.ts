@@ -10,6 +10,9 @@ export interface Units {
   d: string; p: string; v: string; sac: string; rate: string;
   /** metric → display number */
   depthN(m: number): number;
+  /** stop/switch depth: metres as-is, feet rounded to the conventional 10 ft ladder */
+  stopDepthN(m: number): number;
+  stopDepth(m: number): string;
   pressureN(bar: number): number;
   volumeN(l: number): number;
   sacN(lpm: number): number;
@@ -31,7 +34,8 @@ export function makeUnits(sys: UnitSystem, locale: string): Units {
   if (sys === 'metric') {
     return {
       sys, d: 'm', p: 'bar', v: 'L', sac: 'l/min', rate: 'm/min',
-      depthN: (m) => Math.round(m), pressureN: (b) => Math.round(b), volumeN: (l) => Math.round(l), sacN: (s) => s,
+      depthN: (m) => Math.round(m), stopDepthN: (m) => Math.round(m), stopDepth: (m) => `${f(m)} m`,
+      pressureN: (b) => Math.round(b), volumeN: (l) => Math.round(l), sacN: (s) => s,
       depth: (m, digits = 0) => `${f(m, digits)} m`,
       pressure: (b, digits = 0) => `${f(b, digits)} bar`,
       volume: (l) => `${f(l)} L`,
@@ -41,7 +45,8 @@ export function makeUnits(sys: UnitSystem, locale: string): Units {
   }
   return {
     sys, d: 'ft', p: 'psi', v: 'cu ft', sac: 'cu ft/min', rate: 'ft/min',
-    depthN: (m) => Math.round(m * FT), pressureN: (b) => Math.round(b * PSI), volumeN: (l) => Math.round(l * CUFT * 10) / 10,
+    depthN: (m) => Math.round(m * FT), stopDepthN: (m) => Math.round((m * FT) / 10) * 10, stopDepth: (m) => `${f(Math.round((m * FT) / 10) * 10)} ft`,
+    pressureN: (b) => Math.round(b * PSI), volumeN: (l) => Math.round(l * CUFT * 10) / 10,
     sacN: (s) => Math.round(s * CUFT * 100) / 100,
     depth: (m, digits = 0) => `${f(m * FT, digits)} ft`,
     pressure: (b, digits = 0) => `${f(b * PSI, digits)} psi`,
