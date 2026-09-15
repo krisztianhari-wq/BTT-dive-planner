@@ -4,3 +4,4 @@ dist
 dist-single
 src-tauri/target
 src-tauri/gen
+.DS_Store
