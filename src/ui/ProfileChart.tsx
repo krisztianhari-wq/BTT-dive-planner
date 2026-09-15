@@ -1,11 +1,12 @@
 import { DivePlan } from '../engine';
 
-export function ProfileChart({ plan, unitLabel = 'min' }: { plan: DivePlan; unitLabel?: string }) {
+export function ProfileChart({ plan, unitLabel = 'min', depthLabel = 'm', depthScale = 1 }: { plan: DivePlan; unitLabel?: string; depthLabel?: string; depthScale?: number }) {
   const W = 800, H = 260, padL = 40, padR = 12, padT = 12, padB = 26;
   const maxT = Math.max(1, plan.runtime);
-  const maxD = Math.max(3, plan.maxDepth) * 1.1;
+  const maxD = Math.max(3, plan.maxDepth) * 1.1 * depthScale; // display units
   const x = (t: number) => padL + (t / maxT) * (W - padL - padR);
-  const y = (d: number) => padT + (d / maxD) * (H - padT - padB);
+  const y = (d: number) => padT + ((d * depthScale) / maxD) * (H - padT - padB);
+  const yD = (dDisplay: number) => padT + (dDisplay / maxD) * (H - padT - padB);
 
   const pts: string[] = [`${x(0)},${y(0)}`];
   let t = 0;
@@ -16,8 +17,8 @@ export function ProfileChart({ plan, unitLabel = 'min' }: { plan: DivePlan; unit
     <svg className="profile" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
       {niceTicks(maxD, 5).map((d) => (
         <g key={`d${d}`}>
-          <line className="gridline" x1={padL} x2={W - padR} y1={y(d)} y2={y(d)} />
-          <text className="tick" x={padL - 6} y={y(d) + 4} fontSize="11" textAnchor="end">{d}</text>
+          <line className="gridline" x1={padL} x2={W - padR} y1={yD(d)} y2={yD(d)} />
+          <text className="tick" x={padL - 6} y={yD(d) + 4} fontSize="11" textAnchor="end">{d}</text>
         </g>
       ))}
       {niceTicks(maxT, 6).map((tt) => (
@@ -31,7 +32,7 @@ export function ProfileChart({ plan, unitLabel = 'min' }: { plan: DivePlan; unit
         </g>
       ))}
       <text className="tick" x={W - padR} y={H - 8} fontSize="11" textAnchor="end">{unitLabel}</text>
-      <text className="tick" x={padL - 6} y={padT + 2} fontSize="11" textAnchor="end">m</text>
+      <text className="tick" x={padL - 6} y={padT + 2} fontSize="11" textAnchor="end">{depthLabel}</text>
     </svg>
   );
 }

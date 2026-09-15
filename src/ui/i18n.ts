@@ -1,37 +1,35 @@
 import { Msg } from '../engine';
+import { Units } from './units';
 
 export type Lang = 'hu' | 'en';
 
 const hu = {
   appTitle: 'BTT Dive Planner',
-  subtitle: 'Bühlmann ZH-L16C + gradient factor · GUE standard gázok · metrikus',
+  subtitle: (gue: boolean, u: Units): string => `Bühlmann ZH-L16C + gradient factor · ${gue ? 'GUE standard gázok' : 'általános (PADI/SSI/TDI) gázok'} · ${u.sys === 'metric' ? 'metrikus' : 'angolszász egységek'}`,
   modeStandard: 'Standard terv',
   modeInventory: 'Saját gázaim',
   stdGue: 'GUE',
   stdGeneric: 'PADI / SSI',
   stdTitle: 'Gázszabvány',
-  subtitleGue: 'Bühlmann ZH-L16C + gradient factor · GUE standard gázok · metrikus',
-  subtitleGeneric: 'Bühlmann ZH-L16C + gradient factor · általános (PADI/SSI/TDI) gázok · metrikus',
-  autoBottomGasGeneric: (g: string) => `Legjobb keverék automatikusan (${g})`,
-  endOverLimitGeneric: (e: string, lim: number) => `END ${e} m, ${lim} m felett a narkózis kockázata jelentős.`,
-  standardGasHintGeneric: (d: number, g: string) => `Ajánlott gáz ${d} m-re: ${g}.`,
+  unitsTitle: 'Mértékegység',
   themeLight: 'Világos',
   themeDark: 'Sötét',
   themeTitle: 'Sötét mód',
   disclaimer: 'Fejlesztés alatt álló, nem validált szoftver. Tényleges merülés tervezésére csak megfelelő képzés és egy független tervezővel (pl. Subsurface, DecoPlanner) történő ellenőrzés mellett használható. A dekompressziós betegség kockázata soha nem nulla.',
   dive: 'Merülés',
-  maxDepth: 'Max mélység (m)',
+  maxDepth: (u: Units) => `Max mélység (${u.d})`,
   bottomTime: 'Fenékidő (perc, leszállással)',
   bottomGas: 'Fenékgáz',
   autoBottomGas: (g: string) => `GUE standard automatikusan (${g})`,
+  autoBottomGasGeneric: (g: string) => `Legjobb keverék automatikusan (${g})`,
   decoGases: 'Dekógázok (váltómélység)',
   recommended: 'Ajánlott',
   noneMinDeco: 'nincs (minimum dekó)',
   backGasAndSac: 'Háti gáz és fogyasztás',
   backCylinder: 'Háti palack',
-  startPressure: 'Kezdőnyomás (bar)',
-  sacBottom: 'SAC fenék (l/min)',
-  sacDeco: 'SAC dekó (l/min)',
+  startPressure: (u: Units) => `Kezdőnyomás (${u.p})`,
+  sacBottom: (u: Units) => `SAC fenék (${u.sac})`,
+  sacDeco: (u: Units) => `SAC dekó (${u.sac})`,
   myGases: 'Milyen gázaim vannak',
   myGasesHint: 'Add meg a palackjaidat és a bennük lévő gázt. Az első „háti" sor a fenékgáz, a többi dekó/stage.',
   roleBack: 'Háti',
@@ -42,43 +40,47 @@ const hu = {
   cylinder: 'Palack',
   role: 'Szerep',
   count: 'Darab',
-  pressure: 'Nyomás (bar)',
+  pressure: (u: Units) => `Nyomás (${u.p})`,
   addDeco: '+ dekópalack',
   addBack: '+ háti palack',
   algorithm: 'Algoritmus',
   gfLow: 'GF low %',
   gfHigh: 'GF high %',
-  lastStop: 'Utolsó stop (m)',
-  ratesNote: (shallow: number): string => shallow === 9 ? 'Leszállás 20 m/min, felszállás 9 m/min.' : `Leszállás 20 m/min, felszállás 9 m/min az első stopig, majd ${shallow} m/min.`,
+  lastStop: (u: Units) => `Utolsó stop (${u.d})`,
+  ratesNote: (shallow: number, u: Units): string => shallow === 9
+    ? `Leszállás ${u.depthN(20)} ${u.rate}, felszállás ${u.depthN(9)} ${u.rate}.`
+    : `Leszállás ${u.depthN(20)} ${u.rate}, felszállás ${u.depthN(9)} ${u.rate} az első stopig, majd ${u.depthN(shallow)} ${u.rate}.`,
   packing: 'Mit vigyél magaddal',
   minFill: 'min. töltés',
   overfill: 'nem fér a palackba',
-  includesMinGas: (bar: number) => `tartalmazza a ${bar} bar minimum gázt`,
+  includesMinGas: (bar: number, u: Units) => `tartalmazza a ${u.pressure(bar)} minimum gázt`,
   withReserve: (f: number) => `×${f} tartalékkal`,
   feasibleTitle: 'Megmerülhető?',
   feasibleYes: 'Igen, ezekkel a gázokkal megmerülhető.',
-  feasibleDetail: (d: number, t: number, mg: number) => `${d} m / ${t} perc, minimum gáz ${mg} bar a háti palackban.`,
+  feasibleDetail: (d: number, t: number, mg: number, u: Units) => `${u.depth(d)} / ${t} perc, minimum gáz ${u.pressure(mg)} a háti palackban.`,
   feasibleNo: 'Ezt nem tudod megmerülni.',
-  maxBottomTime: (bt: number, d: number) => `Ezekkel a gázokkal legfeljebb ${bt} perc fenékidő tervezhető ${d} m-en.`,
+  maxBottomTime: (bt: number, d: number, u: Units) => `Ezekkel a gázokkal legfeljebb ${bt} perc fenékidő tervezhető ${u.depth(d)}-en.`,
   gas: 'Gáz',
-  haveL: 'Van (L)',
-  needL: 'Kell (L)',
-  reserveL: 'Tartalék (L)',
+  haveL: (u: Units) => `Van (${u.v})`,
+  needL: (u: Units) => `Kell (${u.v})`,
+  reserveL: (u: Units) => `Tartalék (${u.v})`,
   plan: 'Terv',
   runtime: 'runtime (perc)',
   decoTotal: 'dekó összesen (perc)',
-  firstStop: 'első stop (m)',
+  firstStop: (u: Units) => `első stop (${u.d})`,
   stopCount: 'stopok száma',
   needBackGas: 'Adj meg legalább egy háti palackot a tervhez.',
   stops: 'Dekompressziós megállók',
-  noStops: (gue: boolean): string => gue ? 'Nincs kötelező megálló. GUE „minimum deco" felszállás: 9 m/min, majd 3 m/min a felső 6 m-en, 6 m-en ajánlott 1–3 perc.' : 'Nincs kötelező megálló. Ajánlott biztonsági megálló: 3 perc 5 m-en.',
-  depth: 'Mélység (m)',
+  noStops: (gue: boolean, u: Units): string => gue
+    ? `Nincs kötelező megálló. GUE „minimum deco" felszállás: ${u.depthN(9)} ${u.rate}, majd ${u.depthN(3)} ${u.rate} a felső ${u.depth(6)}-en, ${u.depth(6)}-en ajánlott 1–3 perc.`
+    : `Nincs kötelező megálló. Ajánlott biztonsági megálló: 3 perc ${u.depth(5)}-en.`,
+  depth: (u: Units) => `Mélység (${u.d})`,
   minutes: 'Idő (perc)',
   runtimeCol: 'Runtime',
   gasPlan: 'Gázterv',
   minGas: 'Minimum gáz',
-  minGasDesc: (divers: number, sac: number, problem: number, from: number, to: number) => `${divers} búvár × ${sac} l/min, ${problem} perc hibaelhárítás ${from} m-en, felszállás ${to} m-ig`,
-  usableBackGas: (cyl: string, bar: number) => `Felhasználható háti gáz (${cyl}, ${bar} bar)`,
+  minGasDesc: (divers: number, sac: number, problem: number, from: number, to: number, u: Units) => `${divers} búvár × ${u.sacS(sac)}, ${problem} perc hibaelhárítás ${u.depth(from)}-en, felszállás ${u.depth(to)}-ig`,
+  usableBackGas: (cyl: string, bar: number, u: Units) => `Felhasználható háti gáz (${cyl}, ${u.pressure(bar)})`,
   bottomPhaseNeed: 'Fenékfázis igény (leszállás + fenék)',
   ascentOnBackGas: 'Felszállás háti gázon',
   turnPressure: 'Fordulónyomás (nem penetrációs)',
@@ -86,28 +88,31 @@ const hu = {
   yes: 'igen',
   no: 'nem',
   usagePerGas: 'Fogyasztás gázonként',
-  litres: 'Liter',
-  barInCylinder: 'Bar a palackban',
-  endOverLimit: (e: string) => `END ${e} m meghaladja a 30 m-es GUE limitet.`,
+  litres: (u: Units): string => u.sys === 'metric' ? 'Liter' : 'Köbláb',
+  barInCylinder: (u: Units) => `${u.p} a palackban`,
+  endOverLimit: (e: number, u: Units) => `END ${u.depth(e)} meghaladja a ${u.depth(30)}-es GUE limitet.`,
+  endOverLimitGeneric: (e: number, lim: number, u: Units) => `END ${u.depth(e)}, ${u.depth(lim)} felett a narkózis kockázata jelentős.`,
   backGasNotEnough: 'A háti gáz nem elég a tervezett fenékidőre a minimum gáz megtartásával.',
-  standardGasHint: (d: number, g: string) => `A GUE standard fenékgáz ${d} m-re: ${g}.`,
-  msg: (m: Msg): string => {
+  standardGasHint: (d: number, g: string, u: Units) => `A GUE standard fenékgáz ${u.depth(d)}-re: ${g}.`,
+  standardGasHintGeneric: (d: number, g: string, u: Units) => `Ajánlott gáz ${u.depth(d)}-re: ${g}.`,
+  msg: (m: Msg, u: Units): string => {
     const p = m.params;
+    const n = (k: string) => Number(p[k]);
     switch (m.code) {
       case 'bottomTimeShorterThanDescent': return 'A fenékidő rövidebb, mint a leszállási idő.';
       case 'stopTooLong': return 'A dekompressziós megálló meghaladja a 600 percet, a terv nem reális.';
-      case 'ppo2AboveMax': return `A fenékgáz (${p.gas}) pO2 értéke ${p.ppo2} bar ${p.depth} m-en, meghaladja a ${p.limit} bar maximumot. MOD: ${p.mod} m.`;
+      case 'ppo2AboveMax': return `A fenékgáz (${p.gas}) pO2 értéke ${p.ppo2} bar ${u.depth(n('depth'))}-en, meghaladja a ${p.limit} bar maximumot. MOD: ${u.depth(n('mod'))}.`;
       case 'ppo2AboveWorking': return `A fenékgáz (${p.gas}) pO2 értéke ${p.ppo2} bar, a munkalimit ${p.limit} bar.`;
       case 'hypoxicBottomGas': return `A fenékgáz (${p.gas}) hipoxiás sekélyen (pO2 ${p.ppo2}).`;
-      case 'decoSwitchExceedsMod': return `${p.gas} váltása ${p.depth} m-en meghaladja a MOD-ot (${p.mod} m, pO2 ${p.limit}).`;
+      case 'decoSwitchExceedsMod': return `${p.gas} váltása ${u.depth(n('depth'))}-en meghaladja a MOD-ot (${u.depth(n('mod'), 1)}, pO2 ${p.limit}).`;
       case 'noBackGas': return 'Nincs háti gáz megadva.';
       case 'multipleBackGas': return 'Több háti palack van megadva, csak az elsőt használom fenékgáznak.';
-      case 'backEndAboveLimit': return `END ${p.end} m a háti gázzal (${p.gas}), a limit ${p.limit} m. Több hélium kell.`;
-      case 'endHigh': return `END ${p.end} m a háti gázzal (${p.gas}), ${p.limit} m felett a narkózis kockázata jelentős.`;
+      case 'backEndAboveLimit': return `END ${u.depth(n('end'))} a háti gázzal (${p.gas}), a limit ${u.depth(n('limit'))}. Több hélium kell.`;
+      case 'endHigh': return `END ${u.depth(n('end'))} a háti gázzal (${p.gas}), ${u.depth(n('limit'))} felett a narkózis kockázata jelentős.`;
       case 'backHypoxicAtSurface': return `A háti gáz (${p.gas}) hipoxiás a felszínen (pO2 ${p.ppo2}), utazógázra van szükség.`;
-      case 'decoSwitchNotShallower': return `${p.gas} váltómélysége (${p.depth} m) nem sekélyebb a max mélységnél, nem használom.`;
-      case 'duplicateSwitchDepth': return `${p.gas}: két dekógáz azonos váltómélységgel (${p.depth} m), csak az elsőt használom.`;
-      case 'gasShort': return `${p.gas} (${p.role === 'back' ? 'háti' : 'dekó'}): ${p.short} liter hiányzik (szükséges ${p.needed} L + ${p.reserve} L tartalék, van ${p.available} L).`;
+      case 'decoSwitchNotShallower': return `${p.gas} váltómélysége (${u.depth(n('depth'))}) nem sekélyebb a max mélységnél, nem használom.`;
+      case 'duplicateSwitchDepth': return `${p.gas}: két dekógáz azonos váltómélységgel (${u.depth(n('depth'))}), csak az elsőt használom.`;
+      case 'gasShort': return `${p.gas} (${p.role === 'back' ? 'háti' : 'dekó'}): ${u.volume(n('short'))} hiányzik (szükséges ${u.volume(n('needed'))} + ${u.volume(n('reserve'))} tartalék, van ${u.volume(n('available'))}).`;
       case 'missingGas': return `Hiányzó gáz: ${p.gas}.`;
     }
   },
@@ -118,34 +123,31 @@ export type Dict = typeof hu;
 
 const en: Dict = {
   appTitle: 'BTT Dive Planner',
-  subtitle: 'Bühlmann ZH-L16C + gradient factors · GUE standard gases · metric',
+  subtitle: (gue, u) => `Bühlmann ZH-L16C + gradient factors · ${gue ? 'GUE standard gases' : 'common (PADI/SSI/TDI) gases'} · ${u.sys === 'metric' ? 'metric' : 'imperial units'}`,
   modeStandard: 'Standard plan',
   modeInventory: 'My gases',
   stdGue: 'GUE',
   stdGeneric: 'PADI / SSI',
   stdTitle: 'Gas standard',
-  subtitleGue: 'Bühlmann ZH-L16C + gradient factors · GUE standard gases · metric',
-  subtitleGeneric: 'Bühlmann ZH-L16C + gradient factors · common (PADI/SSI/TDI) gases · metric',
-  autoBottomGasGeneric: (g: string) => `Best mix, automatic (${g})`,
-  endOverLimitGeneric: (e: string, lim: number) => `END ${e} m, above ${lim} m narcosis risk is significant.`,
-  standardGasHintGeneric: (d: number, g: string) => `Suggested gas for ${d} m: ${g}.`,
+  unitsTitle: 'Units',
   themeLight: 'Light',
   themeDark: 'Dark',
   themeTitle: 'Dark mode',
   disclaimer: 'Unvalidated software under development. Do not use it to plan real dives without proper training and a cross-check against an independent planner (e.g. Subsurface, DecoPlanner). The risk of decompression sickness is never zero.',
   dive: 'Dive',
-  maxDepth: 'Max depth (m)',
+  maxDepth: (u) => `Max depth (${u.d})`,
   bottomTime: 'Bottom time (min, incl. descent)',
   bottomGas: 'Bottom gas',
-  autoBottomGas: (g: string) => `GUE standard, automatic (${g})`,
+  autoBottomGas: (g) => `GUE standard, automatic (${g})`,
+  autoBottomGasGeneric: (g) => `Best mix, automatic (${g})`,
   decoGases: 'Deco gases (switch depth)',
   recommended: 'Recommended',
   noneMinDeco: 'none (minimum deco)',
   backGasAndSac: 'Back gas and consumption',
   backCylinder: 'Back cylinder',
-  startPressure: 'Start pressure (bar)',
-  sacBottom: 'SAC bottom (l/min)',
-  sacDeco: 'SAC deco (l/min)',
+  startPressure: (u) => `Start pressure (${u.p})`,
+  sacBottom: (u) => `SAC bottom (${u.sac})`,
+  sacDeco: (u) => `SAC deco (${u.sac})`,
   myGases: 'What gases do I have',
   myGasesHint: 'Enter your cylinders and the gas in them. The first "back" row is the bottom gas, the rest are deco/stage.',
   roleBack: 'Back gas',
@@ -156,43 +158,47 @@ const en: Dict = {
   cylinder: 'Cylinder',
   role: 'Role',
   count: 'Count',
-  pressure: 'Pressure (bar)',
+  pressure: (u) => `Pressure (${u.p})`,
   addDeco: '+ deco cylinder',
   addBack: '+ back cylinder',
   algorithm: 'Algorithm',
   gfLow: 'GF low %',
   gfHigh: 'GF high %',
-  lastStop: 'Last stop (m)',
-  ratesNote: (shallow: number): string => shallow === 9 ? 'Descent 20 m/min, ascent 9 m/min.' : `Descent 20 m/min, ascent 9 m/min to the first stop, then ${shallow} m/min.`,
+  lastStop: (u) => `Last stop (${u.d})`,
+  ratesNote: (shallow, u) => shallow === 9
+    ? `Descent ${u.depthN(20)} ${u.rate}, ascent ${u.depthN(9)} ${u.rate}.`
+    : `Descent ${u.depthN(20)} ${u.rate}, ascent ${u.depthN(9)} ${u.rate} to the first stop, then ${u.depthN(shallow)} ${u.rate}.`,
   packing: 'What to bring',
   minFill: 'min. fill',
   overfill: 'does not fit the cylinder',
-  includesMinGas: (bar: number) => `includes ${bar} bar minimum gas`,
-  withReserve: (f: number) => `with ×${f} reserve`,
+  includesMinGas: (bar, u) => `includes ${u.pressure(bar)} minimum gas`,
+  withReserve: (f) => `with ×${f} reserve`,
   feasibleTitle: 'Can I dive it?',
   feasibleYes: 'Yes, this dive is feasible with these gases.',
-  feasibleDetail: (d: number, t: number, mg: number) => `${d} m / ${t} min, minimum gas ${mg} bar in the back cylinder.`,
+  feasibleDetail: (d, t, mg, u) => `${u.depth(d)} / ${t} min, minimum gas ${u.pressure(mg)} in the back cylinder.`,
   feasibleNo: 'You cannot dive this.',
-  maxBottomTime: (bt: number, d: number) => `With these gases at most ${bt} min bottom time can be planned at ${d} m.`,
+  maxBottomTime: (bt, d, u) => `With these gases at most ${bt} min bottom time can be planned at ${u.depth(d)}.`,
   gas: 'Gas',
-  haveL: 'Have (L)',
-  needL: 'Need (L)',
-  reserveL: 'Reserve (L)',
+  haveL: (u) => `Have (${u.v})`,
+  needL: (u) => `Need (${u.v})`,
+  reserveL: (u) => `Reserve (${u.v})`,
   plan: 'Plan',
   runtime: 'runtime (min)',
   decoTotal: 'total deco (min)',
-  firstStop: 'first stop (m)',
+  firstStop: (u) => `first stop (${u.d})`,
   stopCount: 'number of stops',
   needBackGas: 'Add at least one back cylinder to get a plan.',
   stops: 'Decompression stops',
-  noStops: (gue: boolean): string => gue ? 'No mandatory stops. GUE "minimum deco" ascent: 9 m/min, then 3 m/min over the last 6 m, 1–3 min at 6 m recommended.' : 'No mandatory stops. Recommended safety stop: 3 min at 5 m.',
-  depth: 'Depth (m)',
+  noStops: (gue, u) => gue
+    ? `No mandatory stops. GUE "minimum deco" ascent: ${u.depthN(9)} ${u.rate}, then ${u.depthN(3)} ${u.rate} over the last ${u.depth(6)}, 1–3 min at ${u.depth(6)} recommended.`
+    : `No mandatory stops. Recommended safety stop: 3 min at ${u.depth(5)}.`,
+  depth: (u) => `Depth (${u.d})`,
   minutes: 'Time (min)',
   runtimeCol: 'Runtime',
   gasPlan: 'Gas plan',
   minGas: 'Minimum gas',
-  minGasDesc: (divers: number, sac: number, problem: number, from: number, to: number) => `${divers} divers × ${sac} l/min, ${problem} min problem solving at ${from} m, ascent to ${to} m`,
-  usableBackGas: (cyl: string, bar: number) => `Usable back gas (${cyl}, ${bar} bar)`,
+  minGasDesc: (divers, sac, problem, from, to, u) => `${divers} divers × ${u.sacS(sac)}, ${problem} min problem solving at ${u.depth(from)}, ascent to ${u.depth(to)}`,
+  usableBackGas: (cyl, bar, u) => `Usable back gas (${cyl}, ${u.pressure(bar)})`,
   bottomPhaseNeed: 'Bottom phase need (descent + bottom)',
   ascentOnBackGas: 'Ascent on back gas',
   turnPressure: 'Turn pressure (non-penetration)',
@@ -200,28 +206,31 @@ const en: Dict = {
   yes: 'yes',
   no: 'no',
   usagePerGas: 'Consumption per gas',
-  litres: 'Litres',
-  barInCylinder: 'Bar in cylinder',
-  endOverLimit: (e: string) => `END ${e} m exceeds the 30 m GUE limit.`,
+  litres: (u) => u.sys === 'metric' ? 'Litres' : 'Cubic feet',
+  barInCylinder: (u) => `${u.p} in cylinder`,
+  endOverLimit: (e, u) => `END ${u.depth(e)} exceeds the ${u.depth(30)} GUE limit.`,
+  endOverLimitGeneric: (e, lim, u) => `END ${u.depth(e)}, above ${u.depth(lim)} narcosis risk is significant.`,
   backGasNotEnough: 'Back gas is not enough for the planned bottom time while keeping minimum gas.',
-  standardGasHint: (d: number, g: string) => `GUE standard bottom gas for ${d} m: ${g}.`,
-  msg: (m: Msg): string => {
+  standardGasHint: (d, g, u) => `GUE standard bottom gas for ${u.depth(d)}: ${g}.`,
+  standardGasHintGeneric: (d, g, u) => `Suggested gas for ${u.depth(d)}: ${g}.`,
+  msg: (m, u) => {
     const p = m.params;
+    const n = (k: string) => Number(p[k]);
     switch (m.code) {
       case 'bottomTimeShorterThanDescent': return 'Bottom time is shorter than the descent time.';
       case 'stopTooLong': return 'A decompression stop exceeds 600 minutes, the plan is not realistic.';
-      case 'ppo2AboveMax': return `Bottom gas (${p.gas}) pO2 is ${p.ppo2} bar at ${p.depth} m, above the ${p.limit} bar maximum. MOD: ${p.mod} m.`;
+      case 'ppo2AboveMax': return `Bottom gas (${p.gas}) pO2 is ${p.ppo2} bar at ${u.depth(n('depth'))}, above the ${p.limit} bar maximum. MOD: ${u.depth(n('mod'))}.`;
       case 'ppo2AboveWorking': return `Bottom gas (${p.gas}) pO2 is ${p.ppo2} bar, the working limit is ${p.limit} bar.`;
       case 'hypoxicBottomGas': return `Bottom gas (${p.gas}) is hypoxic when shallow (pO2 ${p.ppo2}).`;
-      case 'decoSwitchExceedsMod': return `Switching to ${p.gas} at ${p.depth} m exceeds its MOD (${p.mod} m, pO2 ${p.limit}).`;
+      case 'decoSwitchExceedsMod': return `Switching to ${p.gas} at ${u.depth(n('depth'))} exceeds its MOD (${u.depth(n('mod'), 1)}, pO2 ${p.limit}).`;
       case 'noBackGas': return 'No back gas specified.';
       case 'multipleBackGas': return 'Several back cylinders specified, only the first is used as bottom gas.';
-      case 'backEndAboveLimit': return `END ${p.end} m on the back gas (${p.gas}), the limit is ${p.limit} m. More helium is needed.`;
-      case 'endHigh': return `END ${p.end} m on the back gas (${p.gas}), above ${p.limit} m narcosis risk is significant.`;
+      case 'backEndAboveLimit': return `END ${u.depth(n('end'))} on the back gas (${p.gas}), the limit is ${u.depth(n('limit'))}. More helium is needed.`;
+      case 'endHigh': return `END ${u.depth(n('end'))} on the back gas (${p.gas}), above ${u.depth(n('limit'))} narcosis risk is significant.`;
       case 'backHypoxicAtSurface': return `Back gas (${p.gas}) is hypoxic at the surface (pO2 ${p.ppo2}), a travel gas is needed.`;
-      case 'decoSwitchNotShallower': return `Switch depth of ${p.gas} (${p.depth} m) is not shallower than max depth, it is not used.`;
-      case 'duplicateSwitchDepth': return `${p.gas}: two deco gases share the same switch depth (${p.depth} m), only the first is used.`;
-      case 'gasShort': return `${p.gas} (${p.role}): ${p.short} litres short (need ${p.needed} L + ${p.reserve} L reserve, have ${p.available} L).`;
+      case 'decoSwitchNotShallower': return `Switch depth of ${p.gas} (${u.depth(n('depth'))}) is not shallower than max depth, it is not used.`;
+      case 'duplicateSwitchDepth': return `${p.gas}: two deco gases share the same switch depth (${u.depth(n('depth'))}), only the first is used.`;
+      case 'gasShort': return `${p.gas} (${p.role}): ${u.volume(n('short'))} short (need ${u.volume(n('needed'))} + ${u.volume(n('reserve'))} reserve, have ${u.volume(n('available'))}).`;
       case 'missingGas': return `Missing gas: ${p.gas}.`;
     }
   },
