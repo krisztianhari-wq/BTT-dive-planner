@@ -6,7 +6,13 @@ Dekompressziós és gáztervező. Bühlmann ZH-L16C + gradient factor, GUE vagy 
 
 ## Használat
 - **Web / PWA:** https://krisztianhari-wq.github.io/BTT-dive-planner/ – telepíthető (Chrome/Edge: címsor „Telepítés”; iPhone: Megosztás → Főképernyőhöz adás), offline is fut.
-- **macOS, Windows 11:** telepítők a [Releases](https://github.com/krisztianhari-wq/BTT-dive-planner/releases) oldalon. Aláírás nélkül: macOS-en első indításkor jobb klikk → Megnyitás; Windowson SmartScreen → További információ → Futtatás mindenképpen.
+- **macOS, Windows 11:** telepítők a [Releases](https://github.com/krisztianhari-wq/BTT-dive-planner/releases) oldalon.
+  - **macOS:** az app nincs Apple-aláírással ellátva, ezért a letöltött példányra a rendszer „damaged / sérült” hibát ad. Húzd az appot az Applications mappába, majd Terminálban egyszer:
+    ```bash
+    xattr -cr "/Applications/BTT Dive Planner.app"
+    ```
+    Ezután normálisan indul. (Ha máshová tetted, az útvonalat írd át.)
+  - **Windows:** SmartScreen → „További információ” → „Futtatás mindenképpen”.
 - **Egy fájl:** `dist-single/index.html` bárhonnan, internet nélkül megnyitható.
 
 ## Fejlesztés
