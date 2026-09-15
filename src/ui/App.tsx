@@ -1,0 +1,341 @@
+import { useEffect, useMemo, useState } from 'react';
+import {
+  CYLINDERS, Cylinder, DEFAULT_SETTINGS, DecoGasSpec, DivePlan, GUE_BOTTOM_GASES, GUE_DECO_GASES, GUE_LIMITS, Gas, GasUsage,
+  InventoryItem, Msg, backGasPlan, end, evaluateInventory, gasName, minimumGas, mod, packingList, planConsumption, planDive, ppO2,
+  recommendedDecoGasesFor, roundBar, standardBottomGasFor, stopTable,
+} from '../engine';
+import { ProfileChart } from './ProfileChart';
+import { Lang, dict, initialLang } from './i18n';
+
+type Mode = 'standard' | 'inventory';
+type Theme = 'light' | 'dark';
+
+function initialTheme(): Theme {
+  try {
+    const saved = localStorage.getItem('btt-theme');
+    if (saved === 'light' || saved === 'dark') return saved;
+  } catch { /* ignore */ }
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+let nextId = 1;
+const newItem = (over: Partial<InventoryItem> = {}): InventoryItem => ({
+  id: String(nextId++), cylinder: CYLINDERS[0], count: 1, gas: { o2: 0.21, he: 0.35 }, pressureBar: 200, role: 'back', ...over,
+});
+const S80 = CYLINDERS.find((c) => c.name.startsWith('AL80'))!;
+
+export function App() {
+  const [lang, setLang] = useState<Lang>(initialLang);
+  const [theme, setTheme] = useState<Theme>(initialTheme);
+  const [mode, setMode] = useState<Mode>('standard');
+  const [maxDepth, setMaxDepth] = useState(45);
+  const [bottomTime, setBottomTime] = useState(25);
+  const [bottomGasIdx, setBottomGasIdx] = useState<number | 'auto'>('auto');
+  const [decoOn, setDecoOn] = useState<Record<string, boolean> | null>(null);
+  const [gfLow, setGfLow] = useState(20);
+  const [gfHigh, setGfHigh] = useState(85);
+  const [lastStop, setLastStop] = useState(6);
+  const [cylIdx, setCylIdx] = useState(0);
+  const [startBar, setStartBar] = useState(200);
+  const [sacBottom, setSacBottom] = useState(20);
+  const [sacDeco, setSacDeco] = useState(15);
+  const [items, setItems] = useState<InventoryItem[]>([
+    newItem({ role: 'back' }),
+    newItem({ role: 'deco', cylinder: S80, gas: { o2: 0.5, he: 0 } }),
+  ]);
+
+  const t = dict[lang];
+  const fmt = (v: number, d = 0) => v.toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: d, minimumFractionDigits: d });
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try { localStorage.setItem('btt-theme', theme); } catch { /* ignore */ }
+  }, [theme]);
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.title = t.appTitle;
+    try { localStorage.setItem('btt-lang', lang); } catch { /* ignore */ }
+  }, [lang]);
+
+  const settings = { ...DEFAULT_SETTINGS, gf: { low: gfLow / 100, high: gfHigh / 100 }, lastStopDepth: lastStop };
+
+  /* ---- standard mode ---- */
+  const autoBottom = standardBottomGasFor(maxDepth);
+  const stdBottomGas: Gas = bottomGasIdx === 'auto'
+    ? (autoBottom?.gas ?? GUE_BOTTOM_GASES[GUE_BOTTOM_GASES.length - 1].gas)
+    : GUE_BOTTOM_GASES[bottomGasIdx].gas;
+  const recommended = recommendedDecoGasesFor(maxDepth);
+  const decoSelection: Record<string, boolean> = decoOn ?? Object.fromEntries(GUE_DECO_GASES.map((d) => [d.gas.name!, recommended.includes(d)]));
+  const stdDecoGases: DecoGasSpec[] = GUE_DECO_GASES.filter((d) => decoSelection[d.gas.name!]).map((d) => ({ gas: d.gas, switchDepth: d.switchDepth }));
+  const cylinder = CYLINDERS[cylIdx];
+
+  const stdPlan = useMemo(() => planDive({ maxDepth, bottomTime, bottomGas: stdBottomGas, decoGases: stdDecoGases, settings }),
+    [maxDepth, bottomTime, stdBottomGas, stdDecoGases, gfLow, gfHigh, lastStop]);
+
+  /* ---- inventory mode ---- */
+  const verdict = useMemo(() => evaluateInventory(items, maxDepth, bottomTime, sacBottom, sacDeco, settings),
+    [items, maxDepth, bottomTime, sacBottom, sacDeco, gfLow, gfHigh, lastStop]);
+
+  const backItem = items.find((i) => i.role === 'back');
+  const plan: DivePlan | null = mode === 'standard' ? stdPlan : verdict.plan;
+  const bottomGas: Gas = mode === 'standard' ? stdBottomGas : (backItem?.gas ?? stdBottomGas);
+  const decoGases = mode === 'standard' ? stdDecoGases : verdict.decoGasesUsed;
+  const usage: GasUsage[] = plan ? (mode === 'standard' ? planConsumption(plan, sacBottom, sacDeco) : verdict.usage) : [];
+  const stops = plan ? stopTable(plan) : [];
+
+  const backCyl: Cylinder = mode === 'standard' ? cylinder : (backItem?.cylinder ?? cylinder);
+  const backStart = mode === 'standard' ? startBar : (backItem?.pressureBar ?? startBar);
+  const firstSwitch = decoGases.length ? Math.max(...decoGases.map((d) => d.switchDepth)) : 0;
+  const minGas = minimumGas(maxDepth, backCyl, { toDepth: Math.min(firstSwitch, maxDepth) });
+  const minGasBar = roundBar(minGas.bar);
+  const bg = plan ? backGasPlan(plan, backCyl, backStart, sacBottom, sacDeco, minGasBar) : null;
+  const pack = plan && mode === 'standard' ? packingList(plan, usage, cylinder, minGasBar, sacBottom, sacDeco, CYLINDERS) : [];
+
+  const bottomPpO2 = ppO2(bottomGas, maxDepth);
+  const bottomEnd = end(bottomGas, maxDepth);
+  const ppo2Class = bottomPpO2 > GUE_LIMITS.bottomPpO2Max ? 'bad' : bottomPpO2 > GUE_LIMITS.bottomPpO2Working ? 'warn' : 'ok';
+  const endClass = bottomEnd > GUE_LIMITS.maxEndM ? 'bad' : 'ok';
+
+  const engineMsgs: Msg[] = mode === 'standard' ? stdPlan.warnings : verdict.warnings;
+  const warnings: { text: string; bad: boolean }[] = engineMsgs.map((m) => ({ text: t.msg(m), bad: t.isBlocking(m) }));
+  if (mode === 'standard') {
+    if (bottomEnd > GUE_LIMITS.maxEndM) warnings.push({ text: t.endOverLimit(fmt(bottomEnd)), bad: true });
+    if (bg && !bg.ok) warnings.push({ text: t.backGasNotEnough, bad: true });
+    if (bottomGasIdx !== 'auto' && autoBottom && autoBottom.gas !== stdBottomGas) warnings.push({ text: t.standardGasHint(maxDepth, autoBottom.gas.name!), bad: false });
+  }
+
+  const updateItem = (id: string, patch: Partial<InventoryItem>) => setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const roleLabel = (r: 'back' | 'deco') => (r === 'back' ? t.roleBackShort : t.roleDecoShort);
+
+  return (
+    <div className="app">
+      <div className="topbar">
+        <div className="topbar-inner">
+          <div className="brand">
+            <img src="/btt-logo.png" alt="BTT Explorers Hungary" />
+            <div>
+              <h1>{t.appTitle}</h1>
+              <div className="sub">{t.subtitle}</div>
+            </div>
+          </div>
+          <div className="controls">
+            <div className="seg" role="tablist">
+              <button className={mode === 'standard' ? 'on' : ''} onClick={() => setMode('standard')}>{t.modeStandard}</button>
+              <button className={mode === 'inventory' ? 'on' : ''} onClick={() => setMode('inventory')}>{t.modeInventory}</button>
+            </div>
+            <div className="seg lang" role="radiogroup" aria-label="Language">
+              <button className={lang === 'hu' ? 'on' : ''} onClick={() => setLang('hu')}>HU</button>
+              <button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>EN</button>
+            </div>
+            <div className="seg lang" role="radiogroup" aria-label={t.themeTitle}>
+              <button className={theme === 'light' ? 'on' : ''} onClick={() => setTheme('light')} title={t.themeLight}>☀︎</button>
+              <button className={theme === 'dark' ? 'on' : ''} onClick={() => setTheme('dark')} title={t.themeDark}>☾</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="disclaimer">{t.disclaimer}</div>
+
+      <div className="grid">
+        {/* ---------- LEFT ---------- */}
+        <div className="stack">
+          <section className="panel">
+            <h2>{t.dive}</h2>
+            <div className="row">
+              <div><label>{t.maxDepth}</label><input type="number" min={3} max={120} value={maxDepth} onChange={(e) => { setMaxDepth(+e.target.value); setDecoOn(null); }} /></div>
+              <div><label>{t.bottomTime}</label><input type="number" min={1} max={300} value={bottomTime} onChange={(e) => setBottomTime(+e.target.value)} /></div>
+            </div>
+
+            {mode === 'standard' && (
+              <>
+                <label>{t.bottomGas}</label>
+                <select value={bottomGasIdx} onChange={(e) => setBottomGasIdx(e.target.value === 'auto' ? 'auto' : +e.target.value)}>
+                  <option value="auto">{t.autoBottomGas(autoBottom?.gas.name ?? '—')}</option>
+                  {GUE_BOTTOM_GASES.map((g, i) => <option key={g.gas.name} value={i}>{g.gas.name} ({g.minDepth}–{g.maxDepth} m)</option>)}
+                </select>
+                <label>{t.decoGases}</label>
+                <div className="chips">
+                  {GUE_DECO_GASES.map((d) => {
+                    const on = !!decoSelection[d.gas.name!];
+                    return (
+                      <span key={d.gas.name} className={`chip ${on ? 'on' : ''}`} onClick={() => setDecoOn({ ...decoSelection, [d.gas.name!]: !on })}>
+                        <span className="dot" /> {d.gas.name} · {d.switchDepth} m
+                      </span>
+                    );
+                  })}
+                </div>
+                <div className="small" style={{ marginTop: 8 }}>{t.recommended}: {recommended.length ? recommended.map((r) => r.gas.name).join(', ') : t.noneMinDeco}</div>
+              </>
+            )}
+            <div className="small" style={{ marginTop: 10 }}>
+              {gasName(bottomGas)}: pO2 <b className={ppo2Class}>{bottomPpO2.toFixed(2)}</b> bar · END <b className={endClass}>{fmt(bottomEnd)}</b> m · MOD(1.4) {fmt(mod(bottomGas, 1.4))} m
+            </div>
+          </section>
+
+          {mode === 'standard' ? (
+            <section className="panel">
+              <h2>{t.backGasAndSac}</h2>
+              <label>{t.backCylinder}</label>
+              <select value={cylIdx} onChange={(e) => setCylIdx(+e.target.value)}>
+                {CYLINDERS.map((c, i) => <option key={c.name} value={i}>{c.name}</option>)}
+              </select>
+              <div className="row3">
+                <div><label>{t.startPressure}</label><input type="number" min={50} max={300} value={startBar} onChange={(e) => setStartBar(+e.target.value)} /></div>
+                <div><label>{t.sacBottom}</label><input type="number" min={5} max={60} value={sacBottom} onChange={(e) => setSacBottom(+e.target.value)} /></div>
+                <div><label>{t.sacDeco}</label><input type="number" min={5} max={60} value={sacDeco} onChange={(e) => setSacDeco(+e.target.value)} /></div>
+              </div>
+            </section>
+          ) : (
+            <section className="panel">
+              <h2>{t.myGases}</h2>
+              <div className="small">{t.myGasesHint}</div>
+              {items.map((it) => (
+                <div className="inv-row" key={it.id}>
+                  <div className="full" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className={`tag ${it.role === 'deco' ? 'deco' : ''}`}>{it.role === 'back' ? t.roleBack : t.roleDeco} · {gasName(it.gas)}</span>
+                    <button className="btn ghost" onClick={() => setItems((xs) => xs.filter((x) => x.id !== it.id))}>{t.remove}</button>
+                  </div>
+                  <div className="full"><label>{t.cylinder}</label>
+                    <select value={CYLINDERS.indexOf(it.cylinder)} onChange={(e) => updateItem(it.id, { cylinder: CYLINDERS[+e.target.value] })}>
+                      {CYLINDERS.map((c, i) => <option key={c.name} value={i}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div><label>{t.role}</label>
+                    <select value={it.role} onChange={(e) => updateItem(it.id, { role: e.target.value as 'back' | 'deco' })}>
+                      <option value="back">{t.roleBackShort}</option><option value="deco">{t.roleDeco.toLowerCase()}</option>
+                    </select>
+                  </div>
+                  <div><label>{t.count}</label><input type="number" min={1} max={6} value={it.count} onChange={(e) => updateItem(it.id, { count: Math.max(1, +e.target.value) })} /></div>
+                  <div><label>O2 %</label><input type="number" min={5} max={100} value={Math.round(it.gas.o2 * 100)} onChange={(e) => updateItem(it.id, { gas: { o2: Math.min(100, +e.target.value) / 100, he: Math.min(it.gas.he, 1 - +e.target.value / 100) } })} /></div>
+                  <div><label>He %</label><input type="number" min={0} max={95} value={Math.round(it.gas.he * 100)} onChange={(e) => updateItem(it.id, { gas: { o2: it.gas.o2, he: Math.min(+e.target.value / 100, 1 - it.gas.o2) } })} /></div>
+                  <div className="full"><label>{t.pressure}</label><input type="number" min={10} max={300} value={it.pressureBar} onChange={(e) => updateItem(it.id, { pressureBar: +e.target.value })} /></div>
+                </div>
+              ))}
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button className="btn" onClick={() => setItems((xs) => [...xs, newItem({ role: 'deco', cylinder: S80, gas: { o2: 1, he: 0 } })])}>{t.addDeco}</button>
+                <button className="btn" onClick={() => setItems((xs) => [...xs, newItem({ role: 'back' })])}>{t.addBack}</button>
+              </div>
+              <div className="row" style={{ marginTop: 6 }}>
+                <div><label>{t.sacBottom}</label><input type="number" min={5} max={60} value={sacBottom} onChange={(e) => setSacBottom(+e.target.value)} /></div>
+                <div><label>{t.sacDeco}</label><input type="number" min={5} max={60} value={sacDeco} onChange={(e) => setSacDeco(+e.target.value)} /></div>
+              </div>
+            </section>
+          )}
+
+          <section className="panel">
+            <h2>{t.algorithm}</h2>
+            <div className="row3">
+              <div><label>{t.gfLow}</label><input type="number" min={5} max={100} value={gfLow} onChange={(e) => setGfLow(+e.target.value)} /></div>
+              <div><label>{t.gfHigh}</label><input type="number" min={5} max={100} value={gfHigh} onChange={(e) => setGfHigh(+e.target.value)} /></div>
+              <div><label>{t.lastStop}</label><select value={lastStop} onChange={(e) => setLastStop(+e.target.value)}><option value={6}>6</option><option value={3}>3</option></select></div>
+            </div>
+            <div className="small" style={{ marginTop: 8 }}>{t.ratesNote}</div>
+          </section>
+
+          {mode === 'standard' ? (
+            <section className="panel">
+              <h2>{t.packing}</h2>
+              <div className="pack">
+                {pack.map((p, i) => (
+                  <div className="pack-item" key={i}>
+                    <div className={`count ${p.role === 'deco' ? 'deco' : ''}`}>{p.count}×</div>
+                    <div>
+                      <div className="t">{p.cylinder.name}</div>
+                      <div className="s">{p.gasLabel} · {roleLabel(p.role)} · {p.note.kind === 'includesMinGas' ? t.includesMinGas(p.note.minGasBar) : t.withReserve(p.note.factor)}</div>
+                    </div>
+                    <div className={`fill ${p.overfill ? 'bad' : ''}`}>{p.fillBar} bar<small>{p.overfill ? t.overfill : t.minFill}</small></div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <section className="panel">
+              <h2>{t.feasibleTitle}</h2>
+              {verdict.feasible ? (
+                <div className="verdict ok"><div className="icon">✓</div><div><div className="title">{t.feasibleYes}</div>
+                  <div className="small" style={{ color: 'inherit' }}>{t.feasibleDetail(maxDepth, bottomTime, minGasBar)}</div></div></div>
+              ) : (
+                <div className="verdict bad"><div className="icon">✕</div><div><div className="title">{t.feasibleNo}</div>
+                  <ul>{verdict.blockers.map((b, i) => <li key={i}>{t.msg(b)}</li>)}</ul>
+                  {verdict.maxBottomTime !== null && <div style={{ marginTop: 8, fontWeight: 500 }}>{t.maxBottomTime(verdict.maxBottomTime, maxDepth)}</div>}
+                </div></div>
+              )}
+              {verdict.balance.length > 0 && (
+                <table style={{ marginTop: 12 }}>
+                  <thead><tr><th>{t.gas}</th><th className="num">{t.haveL}</th><th className="num">{t.needL}</th><th className="num">{t.reserveL}</th></tr></thead>
+                  <tbody>
+                    {verdict.balance.map((b) => (
+                      <tr key={b.item.id}><td>{gasName(b.item.gas)} <span className={`tag ${b.item.role === 'deco' ? 'deco' : ''}`}>{roleLabel(b.item.role)}</span></td>
+                        <td className={`num ${b.ok ? 'ok' : 'bad'}`}>{fmt(b.availableL)}</td><td className="num">{fmt(b.neededL)}</td><td className="num">{fmt(b.reserveL)}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+          )}
+        </div>
+
+        {/* ---------- RIGHT ---------- */}
+        <div className="stack">
+          <section className="panel">
+            <h2>{t.plan}</h2>
+            {plan ? (
+              <>
+                <div className="kpis">
+                  <div className="kpi"><div className="v">{fmt(plan.runtime)}</div><div className="l">{t.runtime}</div></div>
+                  <div className="kpi"><div className="v">{fmt(plan.decoTime)}</div><div className="l">{t.decoTotal}</div></div>
+                  <div className="kpi"><div className="v">{plan.firstStopDepth ?? '—'}</div><div className="l">{t.firstStop}</div></div>
+                  <div className="kpi"><div className="v">{stops.length}</div><div className="l">{t.stopCount}</div></div>
+                </div>
+                <ProfileChart plan={plan} unitLabel={lang === 'hu' ? 'perc' : 'min'} />
+              </>
+            ) : <div className="small">{t.needBackGas}</div>}
+            {warnings.length > 0 && <ul className="warnings">{warnings.map((w, i) => <li key={i} className={w.bad ? 'bad' : ''}>{w.text}</li>)}</ul>}
+          </section>
+
+          <section className="panel">
+            <h2>{t.stops}</h2>
+            {stops.length === 0 ? <div className="small">{t.noStops}</div> : (
+              <table>
+                <thead><tr><th className="num">{t.depth}</th><th className="num">{t.minutes}</th><th className="num">{t.runtimeCol}</th><th>{t.gas}</th></tr></thead>
+                <tbody>{stops.map((s, i) => <tr key={i}><td className="num">{s.depth}</td><td className="num">{s.minutes}</td><td className="num">{s.runtime}</td><td>{s.gas}</td></tr>)}</tbody>
+              </table>
+            )}
+          </section>
+
+          {bg && (
+            <section className="panel">
+              <h2>{t.gasPlan}</h2>
+              <table>
+                <tbody>
+                  <tr><td>{t.minGas}<div className="small">{t.minGasDesc(minGas.divers, minGas.sacLpm, minGas.problemMinutes, minGas.fromDepth, minGas.toDepth)}</div></td><td className="num"><b>{minGasBar} bar</b> · {fmt(minGas.litres)} L</td></tr>
+                  <tr><td>{t.usableBackGas(backCyl.name, backStart)}</td><td className="num">{fmt(bg.usableBar)} bar</td></tr>
+                  <tr><td>{t.bottomPhaseNeed}</td><td className="num">{fmt(bg.bottomPhaseBar)} bar</td></tr>
+                  <tr><td>{t.ascentOnBackGas}</td><td className="num">{fmt(bg.ascentOnBackGasBar)} bar</td></tr>
+                  <tr><td>{t.turnPressure}</td><td className="num">{fmt(bg.turnPressureBar)} bar</td></tr>
+                  <tr><td>{t.backGasEnough}</td><td className={`num ${bg.ok ? 'ok' : 'bad'}`}><b>{bg.ok ? t.yes : t.no}</b></td></tr>
+                </tbody>
+              </table>
+              <h2 style={{ marginTop: 18 }}>{t.usagePerGas}</h2>
+              <table>
+                <thead><tr><th>{t.gas}</th><th className="num">{t.litres}</th><th className="num">{t.barInCylinder}</th></tr></thead>
+                <tbody>
+                  {usage.map((u) => {
+                    const cyl = u.gas === bottomGas ? backCyl : (mode === 'inventory' ? items.find((i) => i.role === 'deco' && gasName(i.gas) === u.name)?.cylinder : pack.find((p) => p.gasLabel === u.name)?.cylinder);
+                    return (
+                      <tr key={u.name}>
+                        <td>{u.name} <span className={`tag ${u.gas === bottomGas ? '' : 'deco'}`}>{u.gas === bottomGas ? t.roleBackShort : t.roleDecoShort}</span></td>
+                        <td className="num">{fmt(u.litres)}</td>
+                        <td className="num">{cyl ? `${fmt(u.litres / cyl.volumeL)} bar (${cyl.name.split(' (')[0]})` : '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </section>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
