@@ -16,6 +16,8 @@ export interface PackingItem {
   litresNeeded: number;
   /** required fill exceeds the cylinder's working pressure */
   overfill: boolean;
+  /** bar missing versus the working pressure, unrounded (0 if it fits) */
+  shortBar: number;
   /** why the fill is what it is: minimum gas included, or reserve factor applied */
   note: { kind: 'includesMinGas'; minGasBar: number } | { kind: 'withReserve'; factor: number };
 }
@@ -41,6 +43,7 @@ export function packingList(
     cylinder: backCylinder, count: 1, gas: bottomGas, gasLabel: gasName(bottomGas), role: 'back',
     fillBar: roundBar(backL / backCylinder.volumeL + minGasBar), litresNeeded: backL,
     overfill: roundBar(backL / backCylinder.volumeL + minGasBar) > backCylinder.workingPressureBar,
+    shortBar: Math.max(0, backL / backCylinder.volumeL + minGasBar - backCylinder.workingPressureBar),
     note: { kind: 'includesMinGas', minGasBar },
   }];
   for (const u of usage) {
@@ -54,6 +57,7 @@ export function packingList(
       cylinder: cyl, count, gas: u.gas, gasLabel: u.name, role: 'deco',
       fillBar: Math.min(cyl.workingPressureBar, roundBar(need / count / cyl.volumeL)), litresNeeded: need,
       overfill: false,
+      shortBar: 0,
       note: { kind: 'withReserve', factor: reserveFactor },
     });
   }

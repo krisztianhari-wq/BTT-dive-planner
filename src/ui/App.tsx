@@ -284,7 +284,7 @@ export function App() {
                       <div className="t">{p.cylinder.name}</div>
                       <div className="s">{p.gasLabel} · {roleLabel(p.role)} · {p.note.kind === 'includesMinGas' ? t.includesMinGas(p.note.minGasBar, u) : t.withReserve(p.note.factor)}</div>
                     </div>
-                    <div className={`fill ${p.overfill ? 'bad' : ''}`}>{u.pressure(p.fillBar)}<small>{p.overfill ? `${t.overfill}, ${t.overfillBy(p.fillBar - p.cylinder.workingPressureBar, u)}` : t.minFill}</small></div>
+                    <div className={`fill ${p.overfill ? 'bad' : ''}`}>{u.pressure(p.fillBar)}<small>{p.overfill ? `${t.overfill}, ${t.overfillBy(Math.ceil(p.shortBar), u)}` : t.minFill}</small></div>
                   </div>
                 ))}
               </div>
