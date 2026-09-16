@@ -36,6 +36,7 @@ export function App() {
   const [unitSys, setUnitSys] = useState<UnitSystem>(() => stored('btt-units', ['metric', 'imperial'], 'metric'));
   const [mode, setMode] = useState<Mode>('standard');
   const [stdId, setStdId] = useState<StandardId>(() => stored('btt-std', ['gue', 'generic'], 'gue'));
+  const [method, setMethod] = useState<'next' | 'current'>(() => stored('btt-method', ['next', 'current'], 'next'));
   const [maxDepth, setMaxDepth] = useState(45);
   const [bottomTime, setBottomTime] = useState(25);
   const [bottomGasIdx, setBottomGasIdx] = useState<number | 'auto'>('auto');
@@ -73,9 +74,10 @@ export function App() {
   }, [lang]);
   useEffect(() => { try { localStorage.setItem('btt-std', stdId); } catch { /* ignore */ } }, [stdId]);
   useEffect(() => { try { localStorage.setItem('btt-units', unitSys); } catch { /* ignore */ } }, [unitSys]);
+  useEffect(() => { try { localStorage.setItem('btt-method', method); } catch { /* ignore */ } }, [method]);
 
   const settings = {
-    ...DEFAULT_SETTINGS, gf: { low: gfLow / 100, high: gfHigh / 100 }, lastStopDepth,
+    ...DEFAULT_SETTINGS, gf: { low: gfLow / 100, high: gfHigh / 100 }, lastStopDepth, gfEvalAt: method,
     ascentRateShallowMpm: std.ascentRateShallowMpm, ppO2Working: L.bottomPpO2Working, ppO2Max: L.bottomPpO2Max, decoPpO2Max: L.decoPpO2Max,
   };
 
@@ -90,11 +92,11 @@ export function App() {
   const cylinder = CYLINDERS[cylIdx];
 
   const stdPlan = useMemo(() => planDive({ maxDepth, bottomTime, bottomGas: stdBottomGas, decoGases: stdDecoGases, settings }),
-    [maxDepth, bottomTime, stdBottomGas, stdDecoGases, gfLow, gfHigh, lastStopDepth, stdId]);
+    [maxDepth, bottomTime, stdBottomGas, stdDecoGases, gfLow, gfHigh, lastStopDepth, stdId, method]);
 
   /* ---- inventory mode ---- */
   const verdict = useMemo(() => evaluateInventory(items, maxDepth, bottomTime, sacBottom, sacDeco, settings, 1.5, std),
-    [items, maxDepth, bottomTime, sacBottom, sacDeco, gfLow, gfHigh, lastStopDepth, stdId]);
+    [items, maxDepth, bottomTime, sacBottom, sacDeco, gfLow, gfHigh, lastStopDepth, stdId, method]);
 
   const backItem = items.find((i) => i.role === 'back');
   const plan: DivePlan | null = mode === 'standard' ? stdPlan : verdict.plan;
@@ -270,7 +272,13 @@ export function App() {
               <div><label>{t.gfHigh}</label><input type="number" min={5} max={100} value={gfHigh} onChange={(e) => setGfHigh(+e.target.value)} /></div>
               <div><label>{t.lastStop(u)}</label><select value={lastStopDepth} onChange={(e) => setLastStop(+e.target.value)}><option value={6}>{u.stopDepthN(6)}</option><option value={3}>{u.stopDepthN(3)}</option></select></div>
             </div>
-            <div className="small" style={{ marginTop: 8 }}>{t.ratesNote(std.ascentRateShallowMpm, u)}</div>
+            <label>{t.methodLabel}</label>
+            <div className="seg" role="radiogroup" aria-label={t.methodLabel} style={{ display: 'flex' }}>
+              <button style={{ flex: 1 }} className={method === 'next' ? 'on' : ''} onClick={() => setMethod('next')}>{t.methodStandard}</button>
+              <button style={{ flex: 1 }} className={method === 'current' ? 'on' : ''} onClick={() => setMethod('current')}>{t.methodConservative}</button>
+            </div>
+            <div className="small" style={{ marginTop: 8 }}>{t.methodNote(method === 'current')}</div>
+            <div className="small" style={{ marginTop: 6 }}>{t.ratesNote(std.ascentRateShallowMpm, u)}</div>
           </section>
 
           {mode === 'standard' ? (

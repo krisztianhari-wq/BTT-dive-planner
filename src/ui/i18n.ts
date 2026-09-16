@@ -47,6 +47,12 @@ const hu = {
   gfLow: 'GF low %',
   gfHigh: 'GF high %',
   lastStop: (u: Units) => `Utolsó stop (${u.d})`,
+  methodLabel: 'Számítási mód',
+  methodStandard: 'Standard',
+  methodConservative: 'Konzervatív',
+  methodNote: (conservative: boolean): string => conservative
+    ? 'Konzervatív: a GF-meredekséget az aktuális stop mélységén értékeli, ezért a mély stopok hosszabbak (dive-deco konvenció). Hosszabb dekó, nagyobb biztonsági tartalék.'
+    : 'Standard: GF low az első stopnál, a továbbindulás feltétele a következő stop mélységén értékelve (Subsurface / Shearwater konvenció).',
   ratesNote: (shallow: number, u: Units): string => shallow === 9
     ? `Leszállás ${u.depthN(20)} ${u.rate}, felszállás ${u.depthN(9)} ${u.rate}.`
     : `Leszállás ${u.depthN(20)} ${u.rate}, felszállás ${u.depthN(9)} ${u.rate} az első stopig, majd ${u.depthN(shallow)} ${u.rate}.`,
@@ -177,6 +183,12 @@ const en: Dict = {
   gfLow: 'GF low %',
   gfHigh: 'GF high %',
   lastStop: (u) => `Last stop (${u.d})`,
+  methodLabel: 'Calculation method',
+  methodStandard: 'Standard',
+  methodConservative: 'Conservative',
+  methodNote: (conservative) => conservative
+    ? 'Conservative: the GF slope is evaluated at the current stop depth, so deep stops are longer (dive-deco convention). Longer deco, larger safety margin.'
+    : 'Standard: GF low at the first stop, the leave condition is evaluated at the next stop depth (Subsurface / Shearwater convention).',
   ratesNote: (shallow, u) => shallow === 9
     ? `Descent ${u.depthN(20)} ${u.rate}, ascent ${u.depthN(9)} ${u.rate}.`
     : `Descent ${u.depthN(20)} ${u.rate}, ascent ${u.depthN(9)} ${u.rate} to the first stop, then ${u.depthN(shallow)} ${u.rate}.`,

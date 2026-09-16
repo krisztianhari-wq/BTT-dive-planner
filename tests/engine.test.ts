@@ -234,3 +234,14 @@ describe('itinerary', () => {
     expect(ev.filter((e) => e.kind === 'leaveBottom')).toHaveLength(1);
   });
 });
+
+describe('calculation method', () => {
+  it('conservative (gfEvalAt=current) never gives less deco than standard', () => {
+    for (const [d, bt, gas, deco] of [[45, 25, T2135, [EAN50]], [60, 25, { o2: 0.18, he: 0.45 }, [EAN50, O2]], [75, 20, { o2: 0.15, he: 0.55 }, [GUE_DECO_GASES[2], EAN50, O2]]] as const) {
+      const std = planDive({ maxDepth: d, bottomTime: bt, bottomGas: gas, decoGases: [...deco], settings: { gfEvalAt: 'next' } });
+      const con = planDive({ maxDepth: d, bottomTime: bt, bottomGas: gas, decoGases: [...deco], settings: { gfEvalAt: 'current' } });
+      expect(con.decoTime).toBeGreaterThanOrEqual(std.decoTime);
+      expect(con.firstStopDepth ?? 0).toBeGreaterThanOrEqual(std.firstStopDepth ?? 0);
+    }
+  });
+});
