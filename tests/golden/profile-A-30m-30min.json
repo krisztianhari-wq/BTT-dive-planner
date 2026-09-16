@@ -1,0 +1,27 @@
+{
+  "id": "A",
+  "source": "pending – Decobuddy",
+  "pending": true,
+  "profile": {
+    "maxDepth": 30,
+    "bottomTime": 30,
+    "bottomGas": {
+      "o2": 0.32,
+      "he": 0
+    },
+    "decoGases": []
+  },
+  "settings": {
+    "gfLow": 20,
+    "gfHigh": 85,
+    "lastStop": 6,
+    "descentRate": 20,
+    "ascentRate": 9,
+    "ascentRateShallow": 3
+  },
+  "expected": {
+    "stops": [],
+    "decoTime": 0,
+    "runtime": 0
+  }
+}

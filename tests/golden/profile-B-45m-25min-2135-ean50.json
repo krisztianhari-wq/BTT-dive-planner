@@ -1,0 +1,9 @@
+{
+  "id": "B",
+  "source": "pending – Decobuddy",
+  "pending": true,
+  "profile": { "maxDepth": 45, "bottomTime": 25, "bottomGas": { "o2": 0.21, "he": 0.35 },
+               "decoGases": [ { "o2": 0.5, "he": 0, "switchDepth": 21 } ] },
+  "settings": { "gfLow": 20, "gfHigh": 85, "lastStop": 6, "descentRate": 20, "ascentRate": 9, "ascentRateShallow": 3 },
+  "expected": { "stops": [], "decoTime": 0, "runtime": 0 }
+}
