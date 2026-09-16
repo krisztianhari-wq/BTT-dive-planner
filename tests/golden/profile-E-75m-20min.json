@@ -1,0 +1,43 @@
+{
+  "id": "E",
+  "source": "pending – Decobuddy",
+  "pending": true,
+  "profile": {
+    "maxDepth": 75,
+    "bottomTime": 20,
+    "bottomGas": {
+      "o2": 0.15,
+      "he": 0.55
+    },
+    "decoGases": [
+      {
+        "o2": 0.35,
+        "he": 0.25,
+        "switchDepth": 36
+      },
+      {
+        "o2": 0.5,
+        "he": 0,
+        "switchDepth": 21
+      },
+      {
+        "o2": 1,
+        "he": 0,
+        "switchDepth": 6
+      }
+    ]
+  },
+  "settings": {
+    "gfLow": 20,
+    "gfHigh": 85,
+    "lastStop": 6,
+    "descentRate": 20,
+    "ascentRate": 9,
+    "ascentRateShallow": 3
+  },
+  "expected": {
+    "stops": [],
+    "decoTime": 0,
+    "runtime": 0
+  }
+}
