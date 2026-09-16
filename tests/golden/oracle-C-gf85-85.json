@@ -1,0 +1,59 @@
+{
+  "id": "C-gf85-85",
+  "source": "dive-deco 6.1.2 (independent ZH-L16C implementation)",
+  "pending": false,
+  "profile": {
+    "maxDepth": 51,
+    "bottomTime": 30,
+    "bottomGas": {
+      "o2": 0.21,
+      "he": 0.35
+    },
+    "decoGases": [
+      {
+        "o2": 0.5,
+        "he": 0,
+        "switchDepth": 21
+      }
+    ]
+  },
+  "settings": {
+    "gfLow": 85,
+    "gfHigh": 85,
+    "lastStop": 3,
+    "descentRate": 20,
+    "ascentRate": 9,
+    "ascentRateShallow": 9
+  },
+  "expected": {
+    "stops": [
+      {
+        "depth": 15,
+        "minutes": 1
+      },
+      {
+        "depth": 12,
+        "minutes": 3
+      },
+      {
+        "depth": 9,
+        "minutes": 5
+      },
+      {
+        "depth": 6,
+        "minutes": 9
+      },
+      {
+        "depth": 3,
+        "minutes": 18
+      }
+    ],
+    "decoTime": 41,
+    "runtime": 71
+  },
+  "tolerance": {
+    "stopMinutes": 1.5,
+    "decoTime": 3,
+    "runtime": 3
+  }
+}

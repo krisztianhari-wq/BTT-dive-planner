@@ -19,6 +19,12 @@ export interface PlanSettings {
   stopIncrementM: number; // 3
   /** minimum deco stop length increment in minutes (1) */
   stopStepMin: number;
+  /**
+   * Where the GF slope is evaluated when deciding whether a stop can be left:
+   * 'next' (default; Subsurface / Shearwater convention) at the next stop depth,
+   * 'current' (more conservative, dive-deco convention) at the current stop depth.
+   */
+  gfEvalAt: 'next' | 'current';
   /** pO2 thresholds used for warnings */
   ppO2Working: number;
   ppO2Max: number;
@@ -33,6 +39,7 @@ export const DEFAULT_SETTINGS: PlanSettings = {
   lastStopDepth: 6,
   stopIncrementM: 3,
   stopStepMin: 1,
+  gfEvalAt: 'next',
   ppO2Working: 1.2,
   ppO2Max: 1.4,
   decoPpO2Max: 1.6,
@@ -178,7 +185,7 @@ export function planDive(input: DiveInput): DivePlan {
     const nextDepth = Math.max(0, depth - s.stopIncrementM);
     const nextTarget = depth <= s.lastStopDepth ? 0 : nextDepth;
     // Can we ascend to nextTarget now? Check ceiling at GF for nextTarget.
-    const canAscend = () => ceilingBar(t, gfAt(nextTarget)) <= depthToAmbient(nextTarget) + 1e-9;
+    const canAscend = () => ceilingBar(t, gfAt(s.gfEvalAt === 'current' ? depth : nextTarget)) <= depthToAmbient(nextTarget) + 1e-9;
     let stopMinutes = 0;
     // Ensure gas at this stop depth is correct (switch if we are at a switch depth)
     const gasHere = gasAtDepth(depth, input.bottomGas, input.decoGases);
