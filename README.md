@@ -1,21 +1,28 @@
 # BTT Dive Planner
 
-Dekompressziós és gáztervező. Bühlmann ZH-L16C + gradient factor, GUE vagy PADI/SSI gázkészlet, magyar/angol, metrikus/angolszász.
+Decompression and gas planner for technical diving. Bühlmann ZH-L16C with gradient factors, GUE or PADI/SSI gas sets, metric or imperial units. **The application is available in Hungarian and English** (switch in the header).
 
-**Nem validált szoftver. Merülést csak képzéssel és független tervezővel ellenőrizve tervezz.**
+**Unvalidated software. Never plan a real dive without proper training and a cross-check against an independent planner.**
 
-## Használat
-- **Web / PWA:** https://krisztianhari-wq.github.io/BTT-dive-planner/ – telepíthető (Chrome/Edge: címsor „Telepítés”; iPhone: Megosztás → Főképernyőhöz adás), offline is fut.
-- **macOS, Windows 11:** telepítők a [Releases](https://github.com/krisztianhari-wq/BTT-dive-planner/releases) oldalon.
-  - **macOS:** az app nincs Apple-aláírással ellátva, ezért a letöltött példányra a rendszer „damaged / sérült” hibát ad. Húzd az appot az Applications mappába, majd Terminálban egyszer:
+## Use it
+- **Web / PWA:** https://krisztianhari-wq.github.io/BTT-dive-planner/ – installable (Chrome/Edge: “Install” icon in the address bar; iPhone: Share → Add to Home Screen), works offline.
+- **macOS, Windows 11:** installers on the [Releases](https://github.com/krisztianhari-wq/BTT-dive-planner/releases) page.
+  - **macOS:** the app is not signed with an Apple developer certificate, so a downloaded copy is reported as “damaged”. Drag it to Applications, then run once in Terminal:
     ```bash
     xattr -cr "/Applications/BTT Dive Planner.app"
     ```
-    Ezután normálisan indul. (Ha máshová tetted, az útvonalat írd át.)
-  - **Windows:** SmartScreen → „További információ” → „Futtatás mindenképpen”.
-- **Egy fájl:** `dist-single/index.html` bárhonnan, internet nélkül megnyitható.
+    After that it opens normally. (Adjust the path if you put it elsewhere.)
+  - **Windows:** SmartScreen → “More info” → “Run anyway”.
+- **Single file:** `dist-single/index.html` opens from anywhere, no internet needed.
 
-## Fejlesztés
+## Features
+- Standard plan with GUE standard gases (or common PADI/SSI/TDI gases), automatic bottom and deco gas suggestion
+- “My gases” mode: enter your cylinders and gases; the planner tells you whether the dive is feasible and exactly how much gas is missing
+- Deco schedule, gas plan (minimum gas, consumption per gas), packing list, minute-by-minute itinerary
+- Standard (Subsurface / Shearwater convention) or Conservative calculation method
+- Light / dark theme, Hungarian / English, metric / imperial
+
+## Development
 ```bash
 npm install
 npm run dev            # http://localhost:5173
@@ -24,36 +31,40 @@ npm test
 
 ## Build
 ```bash
-npm run build          # dist/ – PWA, webszerverről kiszolgálva (fájlból megnyitva üres)
-npm run build:single   # dist-single/index.html – egyfájlos, hordozható
-npm run tauri build    # natív app, Rust toolchain kell (rustup.rs)
+npm run build          # dist/ – PWA, serve from a web server (blank when opened from disk)
+npm run build:single   # dist-single/index.html – single portable file
+npm run tauri build    # native app, requires a Rust toolchain (rustup.rs)
 ```
 
-## Kiadás
-- `main`-re push → GitHub Pages frissül automatikusan.
-- Címke külön pusholva → telepítők draft Release-be:
+## Release
+- Push to `main` → GitHub Pages updates automatically.
+- Push a tag separately → installers are attached to a published GitHub Release:
   ```bash
-  git tag v0.2.0 && git push origin v0.2.0
+  git tag v0.4.0 && git push origin v0.4.0
   ```
-  Utána a Releases oldalon „Publish release”.
 
-## Szerkezet
-- `src/engine/` – számítómotor, UI-független TypeScript
-  - `constants.ts` – ZH-L16C kompartment konstansok, fizikai állandók
-  - `buhlmann.ts` – szöveti terhelés (Schreiner), ceiling gradient factorral, NDL
-  - `gas.ts` – gázmatek (MOD, END, pO2), GUE standard gázok és limitek
-  - `standards.ts` – gázszabványok: GUE és általános (PADI/SSI/TDI) készlet, limitek, ajánlások
-  - `planner.ts` – dekó-ütemterv generálás gázváltásokkal
-  - `gasPlan.ts` – fogyasztás, minimum gáz, palackok, dekógáz-igény
-  - `inventory.ts` – csomaglista és „saját gázaim” megvalósíthatóság
-  - `messages.ts` – nyelvfüggetlen üzenetkódok, a felület fordítja
-- `src/ui/` – React felület
-  - `App.tsx` – a teljes felület, kapcsolók (mód, szabvány, egység, nyelv, téma)
-  - `ProfileChart.tsx` – merülési profil SVG grafikon
-  - `i18n.ts` – magyar/angol szótár, üzenetfordítás
-  - `units.ts` – metrikus/angolszász átváltás
-  - `styles.css` – világos/sötét téma
-- `src-tauri/` – asztali csomagolás (Tauri v2), ikonok, konfiguráció
-- `scripts/inline-icons.mjs` – az egyfájlos build utófeldolgozása
-- `.github/workflows/` – `pages.yml` (web közzététel), `desktop.yml` (telepítők)
-- `tests/` – Vitest egység- és tulajdonságtesztek
+## Validation
+An independent Bühlmann implementation (the [dive-deco](https://github.com/KG32/dive-deco) Rust crate) is run on reference profiles via `tools/oracle`; generated golden tests in `tests/golden` compare our schedules against it on every test run. See `tools/oracle/README.md` for the known divergence on deep profiles with a GF slope.
+
+## Structure
+- `src/engine/` – calculation engine, UI-independent TypeScript
+  - `constants.ts` – ZH-L16C compartment constants, physical constants
+  - `buhlmann.ts` – tissue loading (Schreiner), ceiling with gradient factors, NDL
+  - `gas.ts` – gas maths (MOD, END, pO2), GUE standard gases and limits
+  - `standards.ts` – gas standards: GUE and generic (PADI/SSI/TDI), limits, recommendations
+  - `planner.ts` – deco schedule generation with gas switches
+  - `gasPlan.ts` – consumption, minimum gas, cylinders, deco gas requirements
+  - `inventory.ts` – packing list and “my gases” feasibility
+  - `itinerary.ts` – chronological event list
+  - `messages.ts` – language-neutral message codes, translated by the UI
+- `src/ui/` – React UI
+  - `App.tsx` – the whole UI and its switches (mode, standard, units, language, theme, method)
+  - `ProfileChart.tsx` – dive profile SVG chart
+  - `i18n.ts` – Hungarian / English dictionary and message translation
+  - `units.ts` – metric / imperial conversion
+  - `styles.css` – light / dark theme
+- `src-tauri/` – desktop packaging (Tauri v2), icons, configuration
+- `tools/oracle/` – independent reference implementation harness (Rust)
+- `scripts/` – single-file build post-processing, golden fixture generation, schedule printers
+- `.github/workflows/` – `pages.yml` (web deployment), `desktop.yml` (installers)
+- `tests/` – Vitest unit, property and golden tests

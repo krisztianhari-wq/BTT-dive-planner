@@ -1,14 +1,13 @@
-# Golden referencia-tesztek
+# Golden reference tests
 
-Minden `*.json` fájl egy külső tervezőből (Decobuddy, Subsurface, MultiDeco, DecoPlanner) rögzített
-referencia-ütemterv. A `golden.test.ts` mindet betölti és összeveti a saját motorunk eredményével.
+Each `*.json` file is a reference schedule recorded from an external planner (dive-deco oracle, Decobuddy,
+Subsurface, MultiDeco, DecoPlanner). `golden.test.ts` loads all of them and compares our engine's schedule.
 
-Tűrések (alapértelmezés, fájlonként felülírható a `tolerance` mezővel):
-- stoponként ±1 perc, stop mélysége egyezzen
-- első stop mélysége egyezzen
-- teljes dekóidő ±2 perc, runtime ±2 perc
+Default tolerances (overridable per file with `tolerance`):
+- per stop ±1 min, stop depths must match
+- total deco time ±2 min, runtime ±2 min
 
-Fájlformátum:
+File format:
 ```json
 {
   "id": "B",
@@ -21,5 +20,5 @@ Fájlformátum:
                 "decoTime": 30, "runtime": 55 }
 }
 ```
-`pending: true` → a teszt kihagyja (még nincs referenciaérték). A referenciát kézzel kell beírni a külső tervezőből:
-ugyanazokkal a beállításokkal (GF, sebességek, utolsó stop, fenékidő leszállással együtt).
+`pending: true` → the test is skipped (no reference values yet). Enter the reference with identical settings
+(GF, rates, last stop, bottom time including descent). `oracle-*.json` files are generated; do not edit them by hand.

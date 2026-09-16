@@ -52,14 +52,14 @@ jobs:
           releaseDraft: false
           prerelease: false
           releaseBody: |
-            BTT Dive Planner – telepítők / installers
+            BTT Dive Planner – installers. The application UI is available in **Hungarian and English**.
 
-            - **Windows 11:** `*-setup.exe` (ajánlott) vagy `*.msi`
-            - **macOS:** `*_universal.dmg` minden Macre; `*_aarch64.dmg` csak Apple Silicon
+            - **Windows 11:** `*-setup.exe` (recommended) or `*.msi`
+            - **macOS:** `*_universal.dmg` for every Mac; `*_aarch64.dmg` for Apple Silicon only
             - **Web / PWA:** https://krisztianhari-wq.github.io/BTT-dive-planner/
 
-            **macOS:** az app nincs Apple-aláírással ellátva, a letöltött példányra a rendszer „damaged / sérült” hibát ad. Húzd az Applications mappába, majd Terminálban egyszer: `xattr -cr "/Applications/BTT Dive Planner.app"` – ezután normálisan indul.
-            **Windows:** SmartScreen → További információ → Futtatás mindenképpen.
+            **macOS:** the app is not signed with an Apple developer certificate, so a downloaded copy is reported as “damaged”. Drag it to Applications, then run once in Terminal: `xattr -cr "/Applications/BTT Dive Planner.app"` – it opens normally afterwards.
+            **Windows:** SmartScreen → “More info” → “Run anyway”.
       - name: Upload installers as artifacts
         uses: actions/upload-artifact@v4
         with:
