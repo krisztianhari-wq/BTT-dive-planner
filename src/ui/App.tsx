@@ -6,6 +6,8 @@ import {
 } from '../engine';
 import { ProfileChart } from './ProfileChart';
 import { PrintSheet } from './PrintSheet';
+import { NumInput } from './NumInput';
+import { exportPdf } from './pdf';
 import { Lang, dict, initialLang } from './i18n';
 import { UnitSystem, makeUnits } from './units';
 import logoUrl from '../assets/btt-logo.png';
@@ -129,6 +131,24 @@ export function App() {
     if (bottomGasIdx !== 'auto' && autoBottom && autoBottom.gas !== stdBottomGas) warnings.push({ text: isGue ? t.standardGasHint(maxDepth, autoBottom.gas.name!, u) : t.standardGasHintGeneric(maxDepth, autoBottom.gas.name!, u), bad: false });
   }
 
+  const [busy, setBusy] = useState(false);
+  const isTauri = '__TAURI_INTERNALS__' in window;
+  const doPrint = async () => {
+    if (isTauri) {
+      try { const { invoke } = await import('@tauri-apps/api/core'); await invoke('print_page'); return; } catch { /* fall back */ }
+    }
+    window.print();
+  };
+  const doPdf = async () => {
+    const el = document.querySelector<HTMLElement>('.print-sheet');
+    if (!el) return;
+    setBusy(true);
+    try {
+      const name = `BTT-dive-plan_${u.depthN(maxDepth)}${u.d}_${bottomTime}min_${new Date().toISOString().slice(0, 10)}.pdf`;
+      await exportPdf(el, name);
+    } catch (err) { console.error(err); alert(t.pdfError); }
+    finally { setBusy(false); }
+  };
   const updateItem = (id: string, patch: Partial<InventoryItem>) => setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   const roleLabel = (r: 'back' | 'deco') => (r === 'back' ? t.roleBackShort : t.roleDecoShort);
   const cylShort = (c: Cylinder) => c.name.split(' (')[0];
@@ -175,7 +195,10 @@ export function App() {
               <button className={theme === 'light' ? 'on' : ''} onClick={() => setTheme('light')} title={t.themeLight}>☀︎</button>
               <button className={theme === 'dark' ? 'on' : ''} onClick={() => setTheme('dark')} title={t.themeDark}>☾</button>
             </div>
-            <button className="seg-btn print" onClick={() => window.print()} disabled={!(plan && bg)} title={t.print}>🖨 {t.print}</button>
+            <div className="seg lang actions" role="group" aria-label={t.print}>
+              <button onClick={doPrint} disabled={!(plan && bg)} title={t.print}>🖨 {t.print}</button>
+              <button onClick={doPdf} disabled={!(plan && bg) || busy} title={t.savePdf}>{busy ? '…' : '⤓ PDF'}</button>
+            </div>
           </div>
         </div>
       </div>
@@ -187,8 +210,8 @@ export function App() {
           <section className="panel">
             <h2>{t.dive}</h2>
             <div className="row">
-              <div><label>{t.maxDepth(u)}</label><input type="number" min={u.depthN(3)} max={u.depthN(120)} value={u.depthN(maxDepth)} onChange={(e) => { setMaxDepth(u.toM(+e.target.value)); setDecoOn(null); }} /></div>
-              <div><label>{t.bottomTime}</label><input type="number" min={1} max={300} value={bottomTime} onChange={(e) => setBottomTime(+e.target.value)} /></div>
+              <div><label>{t.maxDepth(u)}</label><NumInput min={u.depthN(3)} max={u.depthN(120)} value={u.depthN(maxDepth)} onChange={(v) => { setMaxDepth(u.toM(v)); setDecoOn(null); }} /></div>
+              <div><label>{t.bottomTime}</label><NumInput min={1} max={300} value={bottomTime} onChange={(v) => setBottomTime(v)} /></div>
             </div>
 
             {mode === 'standard' && (
@@ -225,9 +248,9 @@ export function App() {
                 {CYLINDERS.map((c, i) => <option key={c.name} value={i}>{c.name}</option>)}
               </select>
               <div className="row3">
-                <div><label>{t.startPressure(u)}</label><input type="number" min={u.pressureN(50)} max={u.pressureN(300)} value={u.pressureN(startBar)} onChange={(e) => setStartBar(u.toBar(+e.target.value))} /></div>
-                <div><label>{t.sacBottom(u)}</label><input type="number" step={u.sacStep} min={0} value={u.sacN(sacBottom)} onChange={(e) => setSacBottom(u.toLpm(+e.target.value))} /></div>
-                <div><label>{t.sacDeco(u)}</label><input type="number" step={u.sacStep} min={0} value={u.sacN(sacDeco)} onChange={(e) => setSacDeco(u.toLpm(+e.target.value))} /></div>
+                <div><label>{t.startPressure(u)}</label><NumInput min={u.pressureN(50)} max={u.pressureN(300)} value={u.pressureN(startBar)} onChange={(v) => setStartBar(u.toBar(v))} /></div>
+                <div><label>{t.sacBottom(u)}</label><NumInput step={u.sacStep} min={0} value={u.sacN(sacBottom)} decimals={u.sys === 'metric' ? 0 : 2} onChange={(v) => setSacBottom(u.toLpm(v))} /></div>
+                <div><label>{t.sacDeco(u)}</label><NumInput step={u.sacStep} min={0} value={u.sacN(sacDeco)} decimals={u.sys === 'metric' ? 0 : 2} onChange={(v) => setSacDeco(u.toLpm(v))} /></div>
               </div>
             </section>
           ) : (
@@ -250,10 +273,10 @@ export function App() {
                       <option value="back">{t.roleBackShort}</option><option value="deco">{t.roleDeco.toLowerCase()}</option>
                     </select>
                   </div>
-                  <div><label>{t.count}</label><input type="number" min={1} max={6} value={it.count} onChange={(e) => updateItem(it.id, { count: Math.max(1, +e.target.value) })} /></div>
-                  <div><label>O2 %</label><input type="number" min={5} max={100} value={Math.round(it.gas.o2 * 100)} onChange={(e) => updateItem(it.id, { gas: { o2: Math.min(100, +e.target.value) / 100, he: Math.min(it.gas.he, 1 - +e.target.value / 100) } })} /></div>
-                  <div><label>He %</label><input type="number" min={0} max={95} value={Math.round(it.gas.he * 100)} onChange={(e) => updateItem(it.id, { gas: { o2: it.gas.o2, he: Math.min(+e.target.value / 100, 1 - it.gas.o2) } })} /></div>
-                  <div className="full"><label>{t.pressure(u)}</label><input type="number" min={0} value={u.pressureN(it.pressureBar)} onChange={(e) => updateItem(it.id, { pressureBar: u.toBar(+e.target.value) })} /></div>
+                  <div><label>{t.count}</label><NumInput min={1} max={6} value={it.count} onChange={(v) => updateItem(it.id, { count: Math.max(1, Math.round(v)) })} /></div>
+                  <div><label>O2 %</label><NumInput min={5} max={100} value={Math.round(it.gas.o2 * 100)} onChange={(v) => updateItem(it.id, { gas: { o2: Math.min(100, v) / 100, he: Math.min(it.gas.he, 1 - v / 100) } })} /></div>
+                  <div><label>He %</label><NumInput min={0} max={95} value={Math.round(it.gas.he * 100)} onChange={(v) => updateItem(it.id, { gas: { o2: it.gas.o2, he: Math.min(v / 100, 1 - it.gas.o2) } })} /></div>
+                  <div className="full"><label>{t.pressure(u)}</label><NumInput min={0} value={u.pressureN(it.pressureBar)} onChange={(v) => updateItem(it.id, { pressureBar: u.toBar(v) })} /></div>
                 </div>
               ))}
               <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
@@ -261,8 +284,8 @@ export function App() {
                 <button className="btn" onClick={() => setItems((xs) => [...xs, newItem({ role: 'back' })])}>{t.addBack}</button>
               </div>
               <div className="row" style={{ marginTop: 6 }}>
-                <div><label>{t.sacBottom(u)}</label><input type="number" step={u.sacStep} min={0} value={u.sacN(sacBottom)} onChange={(e) => setSacBottom(u.toLpm(+e.target.value))} /></div>
-                <div><label>{t.sacDeco(u)}</label><input type="number" step={u.sacStep} min={0} value={u.sacN(sacDeco)} onChange={(e) => setSacDeco(u.toLpm(+e.target.value))} /></div>
+                <div><label>{t.sacBottom(u)}</label><NumInput step={u.sacStep} min={0} value={u.sacN(sacBottom)} decimals={u.sys === 'metric' ? 0 : 2} onChange={(v) => setSacBottom(u.toLpm(v))} /></div>
+                <div><label>{t.sacDeco(u)}</label><NumInput step={u.sacStep} min={0} value={u.sacN(sacDeco)} decimals={u.sys === 'metric' ? 0 : 2} onChange={(v) => setSacDeco(u.toLpm(v))} /></div>
               </div>
             </section>
           )}
@@ -270,8 +293,8 @@ export function App() {
           <section className="panel">
             <h2>{t.algorithm}</h2>
             <div className="row3">
-              <div><label>{t.gfLow}</label><input type="number" min={5} max={100} value={gfLow} onChange={(e) => setGfLow(+e.target.value)} /></div>
-              <div><label>{t.gfHigh}</label><input type="number" min={5} max={100} value={gfHigh} onChange={(e) => setGfHigh(+e.target.value)} /></div>
+              <div><label>{t.gfLow}</label><NumInput min={5} max={100} value={gfLow} onChange={(v) => setGfLow(v)} /></div>
+              <div><label>{t.gfHigh}</label><NumInput min={5} max={100} value={gfHigh} onChange={(v) => setGfHigh(v)} /></div>
               <div><label>{t.lastStop(u)}</label><select value={lastStopDepth} onChange={(e) => setLastStop(+e.target.value)}><option value={6}>{u.stopDepthN(6)}</option><option value={3}>{u.stopDepthN(3)}</option></select></div>
             </div>
             <label>{t.methodLabel}</label>
