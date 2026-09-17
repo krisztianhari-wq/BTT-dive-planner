@@ -1,6 +1,12 @@
 import { DivePlan } from '../engine';
 
-export function ProfileChart({ plan, unitLabel = 'min', depthLabel = 'm', depthScale = 1 }: { plan: DivePlan; unitLabel?: string; depthLabel?: string; depthScale?: number }) {
+export interface ChartPalette { grid: string; tick: string; line: string; sw: string; bg?: string }
+
+/** Explicit colours (used for print / PDF rendering where CSS variables are not reliable). */
+export const PRINT_PALETTE: ChartPalette = { grid: '#e5e5e5', tick: '#666666', line: '#0a5fd1', sw: '#f59e0b', bg: '#fafafa' };
+
+export function ProfileChart({ plan, unitLabel = 'min', depthLabel = 'm', depthScale = 1, palette }: { plan: DivePlan; unitLabel?: string; depthLabel?: string; depthScale?: number; palette?: ChartPalette }) {
+  const P = palette;
   const W = 800, H = 260, padL = 40, padR = 12, padT = 12, padB = 26;
   const maxT = Math.max(1, plan.runtime);
   const maxD = Math.max(3, plan.maxDepth) * 1.1 * depthScale; // display units
@@ -14,25 +20,25 @@ export function ProfileChart({ plan, unitLabel = 'min', depthLabel = 'm', depthS
   const switches = plan.segments.filter((s) => s.kind === 'switch');
 
   return (
-    <svg className="profile" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+    <svg className="profile" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={P?.bg ? { background: P.bg } : undefined}>
       {niceTicks(maxD, 5).map((d) => (
         <g key={`d${d}`}>
-          <line className="gridline" x1={padL} x2={W - padR} y1={yD(d)} y2={yD(d)} />
-          <text className="tick" x={padL - 6} y={yD(d) + 4} fontSize="11" textAnchor="end">{d}</text>
+          <line className="gridline" x1={padL} x2={W - padR} y1={yD(d)} y2={yD(d)} stroke={P?.grid} />
+          <text className="tick" x={padL - 6} y={yD(d) + 4} fontSize="11" textAnchor="end" fill={P?.tick}>{d}</text>
         </g>
       ))}
       {niceTicks(maxT, 6).map((tt) => (
-        <text className="tick" key={`t${tt}`} x={x(tt)} y={H - 8} fontSize="11" textAnchor="middle">{tt}</text>
+        <text className="tick" key={`t${tt}`} x={x(tt)} y={H - 8} fontSize="11" textAnchor="middle" fill={P?.tick}>{tt}</text>
       ))}
-      <polyline className="line" points={pts.join(' ')} fill="none" strokeWidth={2} strokeLinejoin="round" />
+      <polyline className="line" points={pts.join(' ')} fill="none" strokeWidth={2} strokeLinejoin="round" stroke={P?.line} />
       {switches.map((s, i) => (
         <g key={i}>
-          <circle className="sw" cx={x(s.runtime)} cy={y(s.startDepth)} r={4} />
-          <text className="sw" x={x(s.runtime) + 6} y={y(s.startDepth) - 6} fontSize="11">{s.gas.name ?? ''}</text>
+          <circle className="sw" cx={x(s.runtime)} cy={y(s.startDepth)} r={4} fill={P?.sw} />
+          <text className="sw" x={x(s.runtime) + 6} y={y(s.startDepth) - 6} fontSize="11" fill={P?.sw}>{s.gas.name ?? ''}</text>
         </g>
       ))}
-      <text className="tick" x={W - padR} y={H - 8} fontSize="11" textAnchor="end">{unitLabel}</text>
-      <text className="tick" x={padL - 6} y={padT + 2} fontSize="11" textAnchor="end">{depthLabel}</text>
+      <text className="tick" x={W - padR} y={H - 8} fontSize="11" textAnchor="end" fill={P?.tick}>{unitLabel}</text>
+      <text className="tick" x={padL - 6} y={padT + 2} fontSize="11" textAnchor="end" fill={P?.tick}>{depthLabel}</text>
     </svg>
   );
 }
