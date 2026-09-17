@@ -5,6 +5,7 @@ import {
   roundBar, stopTable, itinerary, ItineraryEvent,
 } from '../engine';
 import { ProfileChart } from './ProfileChart';
+import { PrintSheet } from './PrintSheet';
 import { Lang, dict, initialLang } from './i18n';
 import { UnitSystem, makeUnits } from './units';
 import logoUrl from '../assets/btt-logo.png';
@@ -327,7 +328,10 @@ export function App() {
         {/* ---------- RIGHT ---------- */}
         <div className="stack">
           <section className="panel">
-            <h2>{t.plan}</h2>
+            <div className="panel-head">
+              <h2>{t.plan}</h2>
+              {plan && bg && <button className="btn print" onClick={() => window.print()} title={t.print}>🖨 {t.print}</button>}
+            </div>
             {plan ? (
               <>
                 <div className="kpis">
@@ -404,6 +408,16 @@ export function App() {
           )}
         </div>
       </div>
+      {plan && bg && (
+        <PrintSheet
+          t={t} u={u} lang={lang} mode={mode}
+          standardName={isGue ? t.stdGue : t.stdGeneric} methodName={method === 'current' ? t.methodConservative : t.methodStandard}
+          maxDepth={maxDepth} bottomTime={bottomTime} bottomGas={bottomGas} decoGases={decoGases}
+          gfLow={gfLow} gfHigh={gfHigh} lastStopDepth={lastStopDepth}
+          plan={plan} stops={stops} events={events} usage={usage} bg={bg} minGas={minGas} minGasBar={minGasBar} backCyl={backCyl} backStart={backStart}
+          pack={pack} verdict={mode === 'inventory' ? verdict : null} eventText={eventText} warnings={warnings}
+        />
+      )}
       <footer className="footer">
         <img src={logoUrl} alt="" aria-hidden="true" />
         <span className="motto">Mindig van lejjebb!!!</span>
