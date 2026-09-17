@@ -3,7 +3,7 @@ import {
 } from '../engine';
 import { Dict } from './i18n';
 import { Units } from './units';
-import { ProfileChart } from './ProfileChart';
+import { ProfileChart, PRINT_PALETTE } from './ProfileChart';
 import logoUrl from '../assets/btt-logo.png';
 
 export interface PrintData {
@@ -61,7 +61,7 @@ export function PrintSheet(d: PrintData) {
             <div><b>{d.plan.firstStopDepth === null ? '—' : u.stopDepthN(d.plan.firstStopDepth)}</b><span>{t.firstStop(u)}</span></div>
             <div><b>{d.stops.length}</b><span>{t.stopCount}</span></div>
           </div>
-          <div className="ps-chart"><ProfileChart plan={d.plan} unitLabel={d.lang === 'hu' ? 'perc' : 'min'} depthLabel={u.d} depthScale={u.sys === 'metric' ? 1 : 3.28084} /></div>
+          <div className="ps-chart"><ProfileChart plan={d.plan} unitLabel={d.lang === 'hu' ? 'perc' : 'min'} depthLabel={u.d} depthScale={u.sys === 'metric' ? 1 : 3.28084} palette={PRINT_PALETTE} /></div>
           {d.warnings.length > 0 && <ul className="ps-warn">{d.warnings.map((w, i) => <li key={i} className={w.bad ? 'bad' : ''}>{w.text}</li>)}</ul>}
         </section>
 
