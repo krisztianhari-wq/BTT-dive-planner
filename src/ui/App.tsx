@@ -175,6 +175,7 @@ export function App() {
               <button className={theme === 'light' ? 'on' : ''} onClick={() => setTheme('light')} title={t.themeLight}>☀︎</button>
               <button className={theme === 'dark' ? 'on' : ''} onClick={() => setTheme('dark')} title={t.themeDark}>☾</button>
             </div>
+            <button className="seg-btn print" onClick={() => window.print()} disabled={!(plan && bg)} title={t.print}>🖨 {t.print}</button>
           </div>
         </div>
       </div>
@@ -328,10 +329,7 @@ export function App() {
         {/* ---------- RIGHT ---------- */}
         <div className="stack">
           <section className="panel">
-            <div className="panel-head">
-              <h2>{t.plan}</h2>
-              {plan && bg && <button className="btn print" onClick={() => window.print()} title={t.print}>🖨 {t.print}</button>}
-            </div>
+            <h2>{t.plan}</h2>
             {plan ? (
               <>
                 <div className="kpis">
