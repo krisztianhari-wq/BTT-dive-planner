@@ -173,6 +173,6 @@ table.itinerary td:first-child { font-weight: 600; }
   .ps-foot img { width: 30px; height: 30px; }
   .ps-motto { font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #111; font-size: 9pt; }
 }
-.btn.print { margin-left: auto; }
-.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
-.panel-head h2 { margin: 0; }
+
+.seg-btn.print { border: 0; background: var(--accent); color: #fff; padding: 8px 14px; border-radius: 10px; font: inherit; font-size: .84rem; font-weight: 600; cursor: pointer; height: 32.5px; display: inline-flex; align-items: center; gap: 6px; }
+.seg-btn.print:disabled { opacity: .45; cursor: default; }
