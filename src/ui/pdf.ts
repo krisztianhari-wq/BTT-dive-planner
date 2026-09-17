@@ -13,7 +13,8 @@ export async function exportPdf(sheet: HTMLElement, filename: string): Promise<v
   let canvas: HTMLCanvasElement;
   try {
     await new Promise((r) => setTimeout(r, 30));
-    canvas = await toCanvas(sheet, { pixelRatio: 2.5, backgroundColor: '#ffffff', width: A4_W_PX, style: { width: `${A4_W_PX}px` } });
+    // the clone must not inherit the off-screen positioning, otherwise it is drawn outside the canvas
+    canvas = await toCanvas(sheet, { pixelRatio: 2.5, backgroundColor: '#ffffff', width: A4_W_PX, style: { position: 'static', left: '0', top: '0', display: 'block', width: `${A4_W_PX}px` } });
   } finally {
     sheet.classList.remove('pdf-render');
   }
