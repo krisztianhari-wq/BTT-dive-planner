@@ -4,6 +4,7 @@ import {
 import { Dict } from './i18n';
 import { Units } from './units';
 import { ProfileChart, PRINT_PALETTE } from './ProfileChart';
+import type React from 'react';
 import logoUrl from '../assets/btt-logo.png';
 
 export interface PrintData {
@@ -19,25 +20,38 @@ export interface PrintData {
   warnings: { text: string; bad: boolean }[];
 }
 
-export function PrintSheet(d: PrintData) {
-  const { t, u } = d;
-  const fmt = (v: number, dg = 0) => v.toLocaleString(d.lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: dg, minimumFractionDigits: dg });
-  const date = new Date().toLocaleDateString(d.lang === 'hu' ? 'hu-HU' : 'en-GB');
+/** Shared A4 frame: BTT header and centered footer. */
+export function PrintFrame({ t, lang, subtitle, children }: { t: Dict; lang: 'hu' | 'en'; subtitle: string; children: React.ReactNode }) {
+  const date = new Date().toLocaleDateString(lang === 'hu' ? 'hu-HU' : 'en-GB');
   return (
     <div className="print-sheet">
       <header className="ps-head">
         <img src={logoUrl} alt="" />
         <div>
           <div className="ps-title">{t.appTitle}</div>
-          <div className="ps-sub">{t.printSubtitle(d.standardName, d.methodName, u)}</div>
+          <div className="ps-sub">{subtitle}</div>
         </div>
         <div className="ps-meta">
           <div>{t.printDate}: {date}</div>
           <div>{t.printGenerated}</div>
         </div>
       </header>
+      <div className="ps-grid">{children}</div>
+      <footer className="ps-foot">
+        <img src={logoUrl} alt="" />
+        <div className="ps-motto">Mindig van lejjebb!!!</div>
+        <div className="ps-foot-line">BTT Explorers Hungary · 2018 · made by sadrobot · v{__APP_VERSION__}</div>
+        <div className="ps-foot-line">{t.printDisclaimer}</div>
+      </footer>
+    </div>
+  );
+}
 
-      <div className="ps-grid">
+export function PrintSheet(d: PrintData) {
+  const { t, u } = d;
+  const fmt = (v: number, dg = 0) => v.toLocaleString(d.lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: dg, minimumFractionDigits: dg });
+  return (
+    <PrintFrame t={t} lang={d.lang} subtitle={t.printSubtitle(d.standardName, d.methodName, u)}>
         {/* Dive */}
         <section>
           <h3>{t.dive}</h3>
@@ -138,14 +152,6 @@ export function PrintSheet(d: PrintData) {
             </>
           )}
         </section>
-      </div>
-
-      <footer className="ps-foot">
-        <img src={logoUrl} alt="" />
-        <div className="ps-motto">Mindig van lejjebb!!!</div>
-        <div className="ps-foot-line">BTT Explorers Hungary · 2018 · made by sadrobot · v{__APP_VERSION__}</div>
-        <div className="ps-foot-line">{t.printDisclaimer}</div>
-      </footer>
-    </div>
+    </PrintFrame>
   );
 }

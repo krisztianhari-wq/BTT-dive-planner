@@ -7,8 +7,9 @@ import {
 import { ProfileChart } from './ProfileChart';
 import { PrintSheet } from './PrintSheet';
 import { NumInput } from './NumInput';
-import { PenetrationView, PenState, defaultPenState } from './PenetrationView';
-import { RecreationalView, RecState, defaultRecState } from './RecreationalView';
+import { PenetrationView, PenState, defaultPenState, usePenetrationPlan, penEventText } from './PenetrationView';
+import { RecreationalView, RecState, defaultRecState, useRecreationalPlan } from './RecreationalView';
+import { RecPrintSheet, PenPrintSheet } from './PrintSheets';
 import { exportPdf } from './pdf';
 import { Lang, dict, initialLang } from './i18n';
 import { UnitSystem, makeUnits } from './units';
@@ -148,6 +149,9 @@ export function App() {
     if (bottomGasIdx !== 'auto' && autoBottom && autoBottom.gas !== stdBottomGas) warnings.push({ text: isGue ? t.standardGasHint(maxDepth, autoBottom.gas.name!, u) : t.standardGasHintGeneric(maxDepth, autoBottom.gas.name!, u), bad: false });
   }
 
+  const recData = useRecreationalPlan(rec, gfHigh);
+  const penData = usePenetrationPlan(pen, std, settings);
+  const canPrint = env === 'rec' ? true : env === 'pen' ? !!penData.plan : !!(plan && bg);
   const [busy, setBusy] = useState(false);
   const isTauri = '__TAURI_INTERNALS__' in window;
   const doPrint = async () => {
@@ -161,7 +165,9 @@ export function App() {
     if (!el) return;
     setBusy(true);
     try {
-      const name = `BTT-dive-plan_${u.depthN(maxDepth)}${u.d}_${bottomTime}min_${new Date().toISOString().slice(0, 10)}.pdf`;
+      const d = env === 'rec' ? rec.maxDepth : env === 'pen' ? pen.maxDepth : maxDepth;
+      const bt = env === 'rec' ? rec.bottomTime : env === 'pen' ? Math.round(penData.plan?.bottomTime ?? 0) : bottomTime;
+      const name = `BTT-${env}-plan_${u.depthN(d)}${u.d}_${bt}min_${new Date().toISOString().slice(0, 10)}.pdf`;
       await exportPdf(el, name);
     } catch (err) { console.error(err); alert(t.pdfError); }
     finally { setBusy(false); }
@@ -219,8 +225,8 @@ export function App() {
               <button className={theme === 'dark' ? 'on' : ''} onClick={() => setTheme('dark')} title={t.themeDark}>☾</button>
             </div>
             <div className="seg lang actions" role="group" aria-label={t.print}>
-              <button onClick={doPrint} disabled={!(plan && bg)} title={t.print}>🖨 {t.print}</button>
-              <button onClick={doPdf} disabled={!(plan && bg) || busy} title={t.savePdf}>{busy ? '…' : '⤓ PDF'}</button>
+              <button onClick={doPrint} disabled={!canPrint} title={t.print}>🖨 {t.print}</button>
+              <button onClick={doPdf} disabled={!canPrint || busy} title={t.savePdf}>{busy ? '…' : '⤓ PDF'}</button>
             </div>
           </div>
         </div>
@@ -485,6 +491,15 @@ export function App() {
           )}
         </div>
       </div>)}
+      {env === 'rec' && (
+        <RecPrintSheet t={t} u={u} lang={lang} input={recData.input} plan={recData.plan} events={recData.events} cylinderName={recData.cyl.name} />
+      )}
+      {env === 'pen' && penData.plan && (
+        <PenPrintSheet t={t} u={u} lang={lang} input={penData.input} plan={penData.plan} events={penData.events}
+          agencyLabel={pen.agency.toUpperCase()} envLabel={pen.environment === 'cave' ? t.penCave : pen.environment === 'mine' ? t.penMine : t.penWreck}
+          flowLabel={pen.flow === 'outflow' ? t.penFlowOut : pen.flow === 'none' ? t.penFlowNone : t.penFlowSiphon}
+          evText={penEventText(t, u, (penData.plan.members.find((m) => m.member.id === penData.plan!.limiting.id) ?? penData.plan.members[0]).turnBar)} />
+      )}
       {env === 'open' && plan && bg && (
         <PrintSheet
           t={t} u={u} lang={lang} mode={mode}

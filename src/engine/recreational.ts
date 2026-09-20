@@ -101,3 +101,21 @@ export function planRecreational(i: RecInput): RecPlan {
     rockBottomLitres, rockBottomBar, surfaceReserveBar, turnBar, surfaceBar, gasOk, shortBar,
   };
 }
+
+export interface RecEvent { kind: 'start' | 'arriveBottom' | 'leaveBottom' | 'safetyStop' | 'surface'; runtime: number; depth: number; duration?: number; until?: number }
+
+/** Chronological events for a recreational plan. */
+export function recreationalItinerary(i: RecInput, p: RecPlan): RecEvent[] {
+  const descentRate = i.descentRateMpm ?? 20;
+  const ascentRate = i.ascentRateMpm ?? 9;
+  const ssDepth = i.safetyStopDepth ?? 5;
+  const ssMin = i.safetyStopMinutes ?? 3;
+  const descentMin = i.maxDepth / descentRate;
+  const ev: RecEvent[] = [{ kind: 'start', runtime: 0, depth: 0 }];
+  ev.push({ kind: 'arriveBottom', runtime: descentMin, depth: i.maxDepth });
+  ev.push({ kind: 'leaveBottom', runtime: i.bottomTime, depth: i.maxDepth });
+  const ssStart = i.bottomTime + Math.max(0, (i.maxDepth - ssDepth) / ascentRate);
+  ev.push({ kind: 'safetyStop', runtime: ssStart, depth: ssDepth, duration: ssMin, until: ssStart + ssMin });
+  ev.push({ kind: 'surface', runtime: p.runtime, depth: 0 });
+  return ev;
+}

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { CYLINDERS, GENERIC_STANDARD, Gas, gasName, mod, planRecreational, ppO2, end } from '../engine';
+import { CYLINDERS, GENERIC_STANDARD, Gas, gasName, mod, planRecreational, ppO2, end, recreationalItinerary, RecInput } from '../engine';
 import { Dict } from './i18n';
 import { Units } from './units';
 import { NumInput } from './NumInput';
@@ -11,13 +11,21 @@ export const defaultRecState = (): RecState => ({ maxDepth: 18, bottomTime: 30, 
 
 const REC_GASES = GENERIC_STANDARD.bottomGases.filter((g) => g.gas.he === 0); // Air, EAN28/32/36/40
 
+export function useRecreationalPlan(s: RecState, gfHigh: number) {
+  return useMemo(() => {
+    const auto = GENERIC_STANDARD.bottomGasFor(Math.min(s.maxDepth, 40));
+    const gas: Gas = s.gasIdx === 'auto' ? (auto?.gas ?? REC_GASES[REC_GASES.length - 1].gas) : REC_GASES[s.gasIdx].gas;
+    const cyl = REC_CYLINDERS[s.cylIdx] ?? REC_CYLINDERS[0];
+    const input: RecInput = { maxDepth: s.maxDepth, bottomTime: s.bottomTime, gas, cylinder: cyl, startBar: s.startBar, sacLpm: s.sac, gfHigh: gfHigh / 100 };
+    const plan = planRecreational(input);
+    return { input, plan, events: recreationalItinerary(input, plan), gas, cyl, auto };
+  }, [s, gfHigh]);
+}
+
 export function RecreationalView({ t, u, lang, gfHigh, side, state: s, setState }: { t: Dict; u: Units; lang: 'hu' | 'en'; gfHigh: number; side: 'left' | 'right'; state: RecState; setState: (s: RecState) => void }) {
   const set = (p: Partial<RecState>) => setState({ ...s, ...p });
   const fmt = (v: number, d = 0) => v.toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: d, minimumFractionDigits: d });
-  const auto = GENERIC_STANDARD.bottomGasFor(Math.min(s.maxDepth, 40));
-  const gas: Gas = s.gasIdx === 'auto' ? (auto?.gas ?? REC_GASES[REC_GASES.length - 1].gas) : REC_GASES[s.gasIdx].gas;
-  const cyl = REC_CYLINDERS[s.cylIdx] ?? REC_CYLINDERS[0];
-  const plan = useMemo(() => planRecreational({ maxDepth: s.maxDepth, bottomTime: s.bottomTime, gas, cylinder: cyl, startBar: s.startBar, sacLpm: s.sac, gfHigh: gfHigh / 100 }), [s, gas, cyl, gfHigh]);
+  const { plan, gas, auto } = useRecreationalPlan(s, gfHigh);
 
   if (side === 'left') {
     return (

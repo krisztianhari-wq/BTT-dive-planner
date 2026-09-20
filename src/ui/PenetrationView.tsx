@@ -164,19 +164,7 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
   if (!plan) return <section className="panel pen"><h2>{t.penPlan}</h2><div className="small">{t.msg({ code: 'penNoTeam', params: {} }, u)}</div></section>;
   const stops = stopTable(plan.deco);
   const limitingPlan = plan.members.find((m) => m.member.id === plan.limiting.id) ?? plan.members[0];
-  const evText = (e: PenEvent): string => {
-    switch (e.kind) {
-      case 'start': return t.penEvStart(gasName(e.gas));
-      case 'enter': return t.penEvEnter;
-      case 'stageDrop': return t.penEvDrop(e.note ?? '');
-      case 'turn': return t.penEvTurn(u.pressure(limitingPlan.turnBar));
-      case 'stagePickup': return t.penEvPickup(e.note ?? '');
-      case 'exit': return t.penEvExit;
-      case 'switch': return t.itSwitch(e.fromGas ? gasName(e.fromGas) : '—', gasName(e.gas), u, e.depth, Math.round(e.duration ?? 0));
-      case 'decoStop': return t.itStop(Math.round(e.duration ?? 0), Math.round(e.until ?? 0), u, e.depth);
-      case 'surface': return t.itSurface;
-    }
-  };
+  const evText = penEventText(t, u, limitingPlan.turnBar);
   const allMsgs = [...plan.blockers.map((m) => ({ text: t.msg(m, u), bad: true })), ...plan.warnings.map((m) => ({ text: t.msg(m, u), bad: false }))];
 
   return (
@@ -265,4 +253,21 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
       </section>
     </>
   );
+}
+
+/** Text for a penetration itinerary event (shared by the screen and the printed sheet). */
+export function penEventText(t: Dict, u: Units, turnBar: number) {
+  return (e: PenEvent): string => {
+    switch (e.kind) {
+      case 'start': return t.penEvStart(gasName(e.gas));
+      case 'enter': return t.penEvEnter;
+      case 'stageDrop': return t.penEvDrop(e.note ?? '');
+      case 'turn': return t.penEvTurn(u.pressure(turnBar));
+      case 'stagePickup': return t.penEvPickup(e.note ?? '');
+      case 'exit': return t.penEvExit;
+      case 'switch': return t.itSwitch(e.fromGas ? gasName(e.fromGas) : '—', gasName(e.gas), u, e.depth, Math.round(e.duration ?? 0));
+      case 'decoStop': return t.itStop(Math.round(e.duration ?? 0), Math.round(e.until ?? 0), u, e.depth);
+      case 'surface': return t.itSurface;
+    }
+  };
 }
