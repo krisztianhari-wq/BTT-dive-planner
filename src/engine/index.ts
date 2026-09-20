@@ -7,3 +7,5 @@ export * from './inventory';
 export * from './messages';
 export * from './standards';
 export * from './itinerary';
+export * from './penetration';
+export * from './recreational';

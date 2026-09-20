@@ -266,3 +266,132 @@ describe('gas switch hold', () => {
       .toBeGreaterThanOrEqual(b0.segments.filter((s) => s.kind === 'stop').reduce((a, s) => a + s.duration, 0));
   });
 });
+
+describe('penetration planning', () => {
+  const D12 = CYLINDERS[0]; // 24 L, 200 bar
+  const D10 = CYLINDERS.find((c) => c.name.startsWith('D10'))!; // 20 L
+  const S80 = CYLINDERS.find((c) => c.name.startsWith('AL80'))!;
+  const base = {
+    agency: 'gue' as const, environment: 'cave' as const, flow: 'outflow' as const,
+    bottomGas: EAN32, stages: [], stageRule: 'halfPlus' as const, stageReserveBar: 15,
+    avgDepth: 18, maxDepth: 24, swimSpeedMpm: 15, descentMinutes: 1, decoGases: [],
+  };
+  const two = [
+    { id: 'a', name: 'A', cylinder: D12, startBar: 200, sacLpm: 18 },
+    { id: 'b', name: 'B', cylinder: D12, startBar: 200, sacLpm: 18 },
+  ];
+
+  it('equal cylinders: thirds → turn at 2/3 of start pressure, rounded up to 10 bar', async () => {
+    const { planPenetration } = await import('../src/engine');
+    const p = planPenetration({ ...base, team: two });
+    expect(p.rules.fractionLabel).toBe('1/3');
+    for (const m of p.members) expect(m.turnBar).toBe(140); // 200 - 66.7 = 133.3 → 140
+    expect(p.feasible).toBe(true);
+    expect(p.penetrationMinutes).toBeGreaterThan(20);
+    expect(p.penetrationDistanceM).toBeCloseTo(p.penetrationMinutes * 15, 5);
+  });
+
+  it('dissimilar cylinders: the smaller supply sets everyone\'s budget, larger diver turns earlier in pressure terms', async () => {
+    const { planPenetration } = await import('../src/engine');
+    const p = planPenetration({ ...base, team: [
+      { id: 'a', name: 'A', cylinder: D12, startBar: 200, sacLpm: 18 },
+      { id: 'b', name: 'B', cylinder: D10, startBar: 200, sacLpm: 18 },
+    ] });
+    expect(p.limiting.name).toBe('B');
+    const a = p.members.find((m) => m.member.name === 'A')!; const b = p.members.find((m) => m.member.name === 'B')!;
+    // B's third: 4000/3 = 1333 L → A may use 1333 L = 55.6 bar of 24 L → turn at 150 (rounded up); B turns at 140
+    expect(a.turnBar).toBe(150); expect(b.turnBar).toBe(140);
+    expect(p.warnings.some((w) => w.code === 'penDissimilar')).toBe(true);
+  });
+
+  it('siphons use sixths', async () => {
+    const { planPenetration } = await import('../src/engine');
+    const siphon = planPenetration({ ...base, team: two, flow: 'siphon' });
+    expect(siphon.rules.fractionLabel).toBe('1/6');
+    expect(siphon.members[0].turnBar).toBe(170); // 200 - 33.3 = 166.7 → 170
+    expect(siphon.warnings.some((w) => w.code === 'penSiphon')).toBe(true);
+  });
+
+  it('GUE depth limit and minimum start gas are enforced as blockers', async () => {
+    const { planPenetration } = await import('../src/engine');
+    const deep = planPenetration({ ...base, team: two, maxDepth: 35 });
+    expect(deep.blockers.some((b) => b.code === 'penDepthLimit')).toBe(true);
+    const small = planPenetration({ ...base, team: [{ id: 'a', name: 'A', cylinder: CYLINDERS.find((c) => c.name.startsWith('Single 12'))!, startBar: 200, sacLpm: 18 }] });
+    expect(small.blockers.some((b) => b.code === 'penMinStartGas')).toBe(true);
+    const tdi = planPenetration({ ...base, team: two, agency: 'tdi', maxDepth: 35, stageRule: 'thirds' });
+    expect(tdi.blockers.some((b) => b.code === 'penDepthLimit')).toBe(false);
+  });
+
+  it('a stage extends penetration; half-plus drop pressure is half + reserve rounded up', async () => {
+    const { planPenetration } = await import('../src/engine');
+    const noStage = planPenetration({ ...base, team: two });
+    const withStage = planPenetration({ ...base, team: two, stages: [{ cylinder: S80, gas: EAN32, startBar: 200, count: 1 }] });
+    expect(withStage.penetrationMinutes).toBeGreaterThan(noStage.penetrationMinutes);
+    expect(withStage.stages[0].dropBar).toBe(120); // 100 + 15 = 115 → 120
+    expect(withStage.overheadMinutes).toBeGreaterThan(2 * withStage.penetrationMinutes); // drop + pickup minutes
+    const thirds = planPenetration({ ...base, team: two, agency: 'tdi', stageRule: 'thirds', stages: [{ cylinder: S80, gas: EAN32, startBar: 200, count: 1 }] });
+    expect(thirds.stages[0].dropBar).toBe(140); // 2/3 of 200 = 133.3 → 140
+  });
+
+  it('shared exit is covered by thirds; the team turns at the heaviest breather\'s pace', async () => {
+    const { planPenetration } = await import('../src/engine');
+    const ok = planPenetration({ ...base, team: two });
+    for (const m of ok.members) expect(m.sharedExitRemainingLitres).toBeGreaterThanOrEqual(0);
+    const heavy = planPenetration({ ...base, team: [
+      { id: 'a', name: 'A', cylinder: D12, startBar: 200, sacLpm: 12 },
+      { id: 'b', name: 'B', cylinder: D12, startBar: 200, sacLpm: 40 },
+    ] });
+    const b = heavy.members.find((m) => m.member.name === 'B')!;
+    expect(heavy.penetrationMinutes).toBeCloseTo(b.penetrationMinutes, 5); // B reaches turn pressure first
+    for (const m of heavy.members) expect(m.sharedExitRemainingLitres).toBeGreaterThanOrEqual(0);
+    expect(heavy.feasible).toBe(true);
+  });
+});
+
+describe('penetration itinerary', () => {
+  it('runs start → enter → drop → turn → pickup → exit → surface in order', async () => {
+    const { planPenetration, penetrationItinerary } = await import('../src/engine');
+    const S80 = CYLINDERS.find((c) => c.name.startsWith('AL80'))!;
+    const input = {
+      agency: 'tdi' as const, environment: 'mine' as const, flow: 'none' as const, bottomGas: T2135,
+      stages: [{ cylinder: S80, gas: T2135, startBar: 200, count: 1 }], stageRule: 'thirds' as const, stageReserveBar: 15,
+      avgDepth: 35, maxDepth: 40, swimSpeedMpm: 12, descentMinutes: 2, decoGases: [EAN50],
+      team: [{ id: 'a', name: 'A', cylinder: CYLINDERS[0], startBar: 200, sacLpm: 18 }, { id: 'b', name: 'B', cylinder: CYLINDERS[0], startBar: 200, sacLpm: 18 }],
+    };
+    const plan = planPenetration(input);
+    const ev = penetrationItinerary(input, plan);
+    const kinds = ev.map((e) => e.kind);
+    expect(kinds.slice(0, 3)).toEqual(['start', 'enter', 'stageDrop']);
+    expect(kinds).toContain('turn'); expect(kinds).toContain('stagePickup'); expect(kinds).toContain('exit');
+    expect(kinds[kinds.length - 1]).toBe('surface');
+    for (let i = 1; i < ev.length; i++) expect(ev[i].runtime).toBeGreaterThanOrEqual(ev[i - 1].runtime - 1e-6);
+    expect(ev.find((e) => e.kind === 'exit')!.runtime).toBeCloseTo(input.descentMinutes + plan.overheadMinutes, 5);
+    expect(ev[ev.length - 1].runtime).toBeCloseTo(plan.deco.runtime, 5);
+  });
+});
+
+describe('recreational planning', () => {
+  it('flags a dive beyond the NDL and reports the maximum bottom time', async () => {
+    const { planRecreational } = await import('../src/engine');
+    const single12 = CYLINDERS.find((c) => c.name.startsWith('Single 12'))!;
+    const single15 = CYLINDERS.find((c) => c.name.startsWith('Single 15'))!;
+    const ok = planRecreational({ maxDepth: 18, bottomTime: 40, gas: EAN32, cylinder: single15, startBar: 230, sacLpm: 18, gfHigh: 0.85 });
+    expect(ok.feasible).toBe(true);
+    expect(ok.ndlMinutes).toBeGreaterThan(40);
+    const over = planRecreational({ maxDepth: 30, bottomTime: 40, gas: AIR, cylinder: single12, startBar: 200, sacLpm: 18, gfHigh: 0.85 });
+    expect(over.feasible).toBe(false);
+    expect(over.blockers.some((b) => b.code === 'recOverNdl')).toBe(true);
+    expect(over.maxBottomTime).toBe(over.ndlMinutes);
+    expect(over.maxBottomTime).toBeLessThan(40);
+  });
+  it('enforces the 40 m recreational limit and rock bottom gas', async () => {
+    const { planRecreational } = await import('../src/engine');
+    const single12 = CYLINDERS.find((c) => c.name.startsWith('Single 12'))!;
+    const deep = planRecreational({ maxDepth: 45, bottomTime: 5, gas: AIR, cylinder: single12, startBar: 200, sacLpm: 18, gfHigh: 0.85 });
+    expect(deep.blockers.some((b) => b.code === 'recDepthLimit')).toBe(true);
+    const lowGas = planRecreational({ maxDepth: 30, bottomTime: 15, gas: EAN32, cylinder: single12, startBar: 80, sacLpm: 25, gfHigh: 0.85 });
+    expect(lowGas.blockers.some((b) => b.code === 'recGasShort')).toBe(true);
+    expect(lowGas.rockBottomBar).toBeGreaterThan(0);
+    expect(lowGas.runtime).toBeGreaterThan(15 + 3);
+  });
+});

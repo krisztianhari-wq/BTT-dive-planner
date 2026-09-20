@@ -7,6 +7,8 @@ import {
 import { ProfileChart } from './ProfileChart';
 import { PrintSheet } from './PrintSheet';
 import { NumInput } from './NumInput';
+import { PenetrationView, PenState, defaultPenState } from './PenetrationView';
+import { RecreationalView, RecState, defaultRecState } from './RecreationalView';
 import { exportPdf } from './pdf';
 import { Lang, dict, initialLang } from './i18n';
 import { UnitSystem, makeUnits } from './units';
@@ -38,6 +40,20 @@ export function App() {
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [unitSys, setUnitSys] = useState<UnitSystem>(() => stored('btt-units', ['metric', 'imperial'], 'metric'));
   const [mode, setMode] = useState<Mode>('standard');
+  // Recreational is the base mode on every start; technical / penetration need an explicit confirmation per session
+  const [env, setEnvRaw] = useState<'rec' | 'open' | 'pen'>('rec');
+  const setEnv = (target: 'rec' | 'open' | 'pen') => {
+    if (target === 'rec') { setEnvRaw('rec'); return; }
+    let acked = false;
+    try { acked = sessionStorage.getItem(`btt-ack-${target}`) === '1'; } catch { /* ignore */ }
+    if (!acked) {
+      if (!window.confirm(target === 'open' ? t.confirmTech : t.confirmPen)) return;
+      try { sessionStorage.setItem(`btt-ack-${target}`, '1'); } catch { /* ignore */ }
+    }
+    setEnvRaw(target);
+  };
+  const [rec, setRec] = useState<RecState>(defaultRecState);
+  const [pen, setPen] = useState<PenState>(defaultPenState);
   const [stdId, setStdId] = useState<StandardId>(() => stored('btt-std', ['gue', 'generic'], 'gue'));
   const [method, setMethod] = useState<'next' | 'current'>(() => stored('btt-method', ['next', 'current'], 'next'));
   const [maxDepth, setMaxDepth] = useState(45);
@@ -78,6 +94,7 @@ export function App() {
   useEffect(() => { try { localStorage.setItem('btt-std', stdId); } catch { /* ignore */ } }, [stdId]);
   useEffect(() => { try { localStorage.setItem('btt-units', unitSys); } catch { /* ignore */ } }, [unitSys]);
   useEffect(() => { try { localStorage.setItem('btt-method', method); } catch { /* ignore */ } }, [method]);
+  useEffect(() => { document.documentElement.dataset.env = env; }, [env]);
 
   const settings = {
     ...DEFAULT_SETTINGS, gf: { low: gfLow / 100, high: gfHigh / 100 }, lastStopDepth, gfEvalAt: method,
@@ -175,10 +192,16 @@ export function App() {
             </div>
           </div>
           <div className="controls">
+            <div className="seg env" role="tablist">
+              <button className={env === 'rec' ? 'on rec' : ''} onClick={() => setEnv('rec')}>🐠 {t.envRec}</button>
+              <button className={env === 'open' ? 'on' : ''} onClick={() => setEnv('open')}>🌊 {t.envOpen}</button>
+              <button className={env === 'pen' ? 'on pen' : ''} onClick={() => setEnv('pen')}>⛰ {t.envPen}</button>
+            </div>
+            {env === 'open' && (
             <div className="seg" role="tablist">
               <button className={mode === 'standard' ? 'on' : ''} onClick={() => setMode('standard')}>{t.modeStandard}</button>
               <button className={mode === 'inventory' ? 'on' : ''} onClick={() => setMode('inventory')}>{t.modeInventory}</button>
-            </div>
+            </div>)}
             <div className="seg lang" role="radiogroup" aria-label={t.stdTitle} title={t.stdTitle}>
               <button className={isGue ? 'on' : ''} onClick={() => changeStandard('gue')}>{t.stdGue}</button>
               <button className={!isGue ? 'on' : ''} onClick={() => changeStandard('generic')}>{t.stdGeneric}</button>
@@ -204,6 +227,39 @@ export function App() {
       </div>
       <div className="disclaimer">{t.disclaimer}</div>
 
+      {env === 'rec' && (
+      <div className="grid">
+        <div className="stack">
+          <RecreationalView t={t} u={u} lang={lang} gfHigh={gfHigh} side="left" state={rec} setState={setRec} />
+          <section className="panel rec">
+            <h2>{t.algorithm}</h2>
+            <div><label>{t.gfHigh}</label><NumInput min={5} max={100} value={gfHigh} onChange={(v) => setGfHigh(v)} /></div>
+          </section>
+        </div>
+        <div className="stack">
+          <RecreationalView t={t} u={u} lang={lang} gfHigh={gfHigh} side="right" state={rec} setState={setRec} />
+        </div>
+      </div>)}
+
+      {env === 'pen' && (
+      <div className="grid pen-grid">
+        <div className="stack">
+          <PenetrationView t={t} u={u} lang={lang} std={std} settings={settings} side="left" state={pen} setState={setPen} />
+          <section className="panel pen">
+            <h2>{t.algorithm}</h2>
+            <div className="row3">
+              <div><label>{t.gfLow}</label><NumInput min={5} max={100} value={gfLow} onChange={(v) => setGfLow(v)} /></div>
+              <div><label>{t.gfHigh}</label><NumInput min={5} max={100} value={gfHigh} onChange={(v) => setGfHigh(v)} /></div>
+              <div><label>{t.lastStop(u)}</label><select value={lastStopDepth} onChange={(e) => setLastStop(+e.target.value)}><option value={6}>{u.stopDepthN(6)}</option><option value={3}>{u.stopDepthN(3)}</option></select></div>
+            </div>
+          </section>
+        </div>
+        <div className="stack">
+          <PenetrationView t={t} u={u} lang={lang} std={std} settings={settings} side="right" state={pen} setState={setPen} />
+        </div>
+      </div>)}
+
+      {env === 'open' && (
       <div className="grid">
         {/* ---------- LEFT ---------- */}
         <div className="stack">
@@ -428,8 +484,8 @@ export function App() {
             </section>
           )}
         </div>
-      </div>
-      {plan && bg && (
+      </div>)}
+      {env === 'open' && plan && bg && (
         <PrintSheet
           t={t} u={u} lang={lang} mode={mode}
           standardName={isGue ? t.stdGue : t.stdGeneric} methodName={method === 'current' ? t.methodConservative : t.methodStandard}

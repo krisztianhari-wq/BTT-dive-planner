@@ -6,6 +6,74 @@ export type Lang = 'hu' | 'en';
 const hu = {
   appTitle: 'BTT Dive Planner',
   subtitle: (gue: boolean, u: Units): string => `Bühlmann ZH-L16C + gradient factor · ${gue ? 'GUE standard gázok' : 'általános (PADI/SSI/TDI) gázok'} · ${u.sys === 'metric' ? 'metrikus' : 'angolszász egységek'}`,
+  envRec: 'Rekreációs',
+  confirmTech: 'A technikai mód dekompressziós merüléseket tervez. Megerősíted, hogy erre érvényes képesítésed és megfelelő gyakorlatod van?',
+  confirmPen: 'A penetrációs mód fedett terű (barlang, bánya, roncs) merüléseket tervez. Megerősíted, hogy erre érvényes full cave / roncs képesítésed és megfelelő gyakorlatod van?',
+  envOpen: 'Technikai',
+  recPlan: 'Rekreációs terv',
+  recFeasible: 'Dekó nélkül megmerülhető.',
+  recNdl: 'nulla-dekó limit (perc)',
+  recMaxBottom: (m: number) => `Legfeljebb ${m} perc fenékidő tervezhető dekó nélkül ezen a mélységen és gázon.`,
+  recSafetyStop: (d: string, m: number) => `Biztonsági megálló: ${m} perc ${d}-en, felszállás 9 m/perc.`,
+  recRockBottom: 'Rock bottom tartalék',
+  recRockBottomDesc: '2 búvár × 20 l/min: 1 perc a mélységben, felszállás, biztonsági megálló',
+  recGasUsed: 'A merülés gázigénye',
+  recTurn: 'Legkésőbbi indulás felfelé ennél a nyomásnál',
+  recGasOk: 'Gáz elég?',
+  recNote: 'A rekreációs mód nem tervez dekompressziót: a fenékidőnek a nulla-dekó limiten belül kell maradnia, egyetlen gázzal, közvetlen felszállással.',
+  envPen: 'Penetrációs',
+  penEnvironment: 'Környezet',
+  penType: 'Típus',
+  penCave: 'Barlang',
+  penMine: 'Bánya',
+  penWreck: 'Roncs',
+  penAgency: 'Szervezet',
+  penFlow: 'Áramlás',
+  penFlowOut: 'kifelé folyó',
+  penFlowNone: 'álló víz',
+  penFlowSiphon: 'szifon (befelé)',
+  penAvgDepth: (u: Units) => `Átlagos mélység (${u.d})`,
+  penMaxDepth: (u: Units) => `Max mélység (${u.d})`,
+  penSwimSpeed: (u: Units) => `Úszási sebesség (${u.d}/perc)`,
+  penDescent: 'Leszállás a bejáratig (perc)',
+  penTeam: 'Csapat',
+  penTeamSize: 'Létszám',
+  penSameForAll: 'Mindenkinél ugyanaz',
+  penDiver: 'Búvár',
+  penSac: (u: Units) => `SAC (${u.sac})`,
+  penStages: 'Stage-palackok',
+  penStagesPerDiver: 'Darab / fő',
+  penStageRule: 'Stage-szabály',
+  penRuleHalfPlus: 'fél + tartalék (GUE)',
+  penRuleThirds: 'harmadok (TDI / IANTD)',
+  penStageReserve: (u: Units) => `Stage tartalék (${u.p})`,
+  penStageNote: 'A stage-eket befelé először lélegzed, a ledobási nyomásnál ledobod, kifelé ugyanott veszed fel és onnan lélegzed. A stage-ben a fenékgáz van.',
+  penPlan: 'Penetrációs terv',
+  penFeasible: 'Megmerülhető a megadott szabályokkal.',
+  penRuleSummary: (frac: string, agency: string, maxD: string) => `${agency} full cave: ${frac} a teljes gázkészletből penetrációra, max ${maxD}.`,
+  penKpiTurn: (u: Units) => `forduló (${u.p})`,
+  penKpiPenMin: 'penetráció (perc)',
+  penKpiDistance: (u: Units) => `becsült távolság (${u.d})`,
+  penKpiBottom: 'fenékidő összesen (perc)',
+  penGasMatching: 'Csapat gázillesztés',
+  penStart: (u: Units) => `Indulás (${u.p})`,
+  penTurn: (u: Units) => `Forduló (${u.p})`,
+  penPenGas: (u: Units) => `Penetrációs gáz (${u.v})`,
+  penExitLeft: (u: Units) => `Kijövetel után marad (${u.v})`,
+  penSharedLeft: (u: Units) => `Gázosztással marad (${u.v})`,
+  penLimiting: 'mérce',
+  penMatchingNote: 'A fordulónyomás a legkisebb gázkészletű búvár harmadához igazodik térfogat alapján, felfelé kerekítve. A csapat akkor fordul, amikor az első búvár eléri a fordulónyomását. A „gázosztással marad” a kijövetel arra az esetre, ha a legnagyobb fogyasztású társ ezen a búváron lélegzik ki.',
+  penStagePlan: 'Stage-terv',
+  penDropAt: (u: Units) => `Ledobás (${u.p})`,
+  penUsableIn: (u: Units) => `Befelé használható (${u.v})`,
+  penDropDistance: (u: Units) => `Ledobási pont (${u.d})`,
+  penDecoNote: (d: string) => `A dekó konzervatívan a teljes fenékidőre, ${d} max mélységgel számolva.`,
+  penEvStart: (g: string) => `Indulás, leszállás a bejárathoz ${g} gázon`,
+  penEvEnter: 'Belépés a fedett szakaszba, penetráció indul',
+  penEvDrop: (g: string) => `Stage ledobása (${g}) a ledobási nyomásnál, 1 perc`,
+  penEvTurn: (bar: string) => `FORDULÓ a fordulónyomásnál (${bar}), kifelé indulás`,
+  penEvPickup: (g: string) => `Stage felvétele (${g}), váltás rá, 1 perc`,
+  penEvExit: 'Kijárat elérve, felszállás indul',
   modeStandard: 'Standard terv',
   modeInventory: 'Saját gázaim',
   stdGue: 'GUE',
@@ -139,9 +207,20 @@ const hu = {
       case 'duplicateSwitchDepth': return `${p.gas}: két dekógáz azonos váltómélységgel (${u.depth(n('depth'))}), csak az elsőt használom.`;
       case 'gasShort': return `${p.gas} (${p.role === 'back' ? 'háti' : 'dekó'}): ${u.volume(n('short'))} hiányzik (szükséges ${u.volume(n('needed'))} + ${u.volume(n('reserve'))} tartalék, van ${u.volume(n('available'))}).`;
       case 'missingGas': return `Hiányzó gáz: ${p.gas}.`;
+      case 'penNoTeam': return 'Adj meg legalább egy búvárt a csapatban.';
+      case 'penDepthLimit': return `A ${u.depth(n('depth'))} max mélység meghaladja a ${p.agency} full cave limitet (${u.depth(n('limit'))}).`;
+      case 'penMinStartGas': return `A GUE Cave 2 szerint legalább ${u.volume(n('min'))} gázzal kell indulni, a legkisebb készlet ${u.volume(n('have'))}.`;
+      case 'penSharedExitShort': return `${p.diver}: gázosztásos kijövetelre ${u.volume(n('short'))} hiányzik a tartalékból.`;
+      case 'penSiphon': return 'Szifon: a kijövetel áramlás ellen történik, a terv hatodokkal számol.';
+      case 'penDissimilar': return `Eltérő palackok a csapatban: a fordulónyomások ${p.diver} gázkészletéhez vannak illesztve, térfogat alapján.`;
+      case 'penStageRuleDiffers': return `A ${p.agency} alapértelmezett stage-szabálya: ${p.rule === 'halfPlus' ? 'fél + tartalék' : 'harmadok'}.`;
+      case 'penDecoNoGas': return `A terv ${p.deco} perc dekót ad, de nincs dekógáz megadva.`;
+      case 'recOverNdl': return `Ezt nem tudod dekó nélkül merülni: a nulla-dekó limit ${p.ndl} perc, a tervezett ${p.bottom} perc ${p.over} perccel túllépi.`;
+      case 'recDepthLimit': return `A ${u.depth(n('depth'))} mélység meghaladja a rekreációs ${u.depth(n('limit'))} limitet.`;
+      case 'recGasShort': return `Nem elég a gáz a rock bottom tartalék megtartásával: ${u.pressure(n('short'))} (${u.volume(n('shortL'))}) hiányzik.`;
     }
   },
-  isBlocking: (m: Msg) => ['ppo2AboveMax', 'decoSwitchExceedsMod', 'backEndAboveLimit', 'gasShort', 'missingGas', 'noBackGas', 'stopTooLong'].includes(m.code),
+  isBlocking: (m: Msg) => ['ppo2AboveMax', 'decoSwitchExceedsMod', 'backEndAboveLimit', 'gasShort', 'missingGas', 'noBackGas', 'stopTooLong', 'penNoTeam', 'penDepthLimit', 'penMinStartGas', 'penSharedExitShort', 'recOverNdl', 'recDepthLimit', 'recGasShort'].includes(m.code),
 };
 
 export type Dict = typeof hu;
@@ -149,6 +228,74 @@ export type Dict = typeof hu;
 const en: Dict = {
   appTitle: 'BTT Dive Planner',
   subtitle: (gue, u) => `Bühlmann ZH-L16C + gradient factors · ${gue ? 'GUE standard gases' : 'common (PADI/SSI/TDI) gases'} · ${u.sys === 'metric' ? 'metric' : 'imperial units'}`,
+  envRec: 'Recreational',
+  confirmTech: 'Technical mode plans decompression dives. Do you confirm that you hold a valid certification and have adequate experience for this?',
+  confirmPen: 'Penetration mode plans overhead dives (cave, mine, wreck). Do you confirm that you hold a valid full cave / wreck certification and have adequate experience for this?',
+  envOpen: 'Technical',
+  recPlan: 'Recreational plan',
+  recFeasible: 'Can be dived without decompression.',
+  recNdl: 'no-deco limit (min)',
+  recMaxBottom: (m) => `At most ${m} min bottom time can be planned without deco at this depth and gas.`,
+  recSafetyStop: (d, m) => `Safety stop: ${m} min at ${d}, ascent 9 m/min.`,
+  recRockBottom: 'Rock bottom reserve',
+  recRockBottomDesc: '2 divers × 20 l/min: 1 min at depth, ascent, safety stop',
+  recGasUsed: 'Gas needed for the dive',
+  recTurn: 'Latest pressure to start the ascent',
+  recGasOk: 'Enough gas?',
+  recNote: 'Recreational mode plans no decompression: bottom time must stay within the no-deco limit, single gas, direct ascent.',
+  envPen: 'Penetration',
+  penEnvironment: 'Environment',
+  penType: 'Type',
+  penCave: 'Cave',
+  penMine: 'Mine',
+  penWreck: 'Wreck',
+  penAgency: 'Agency',
+  penFlow: 'Flow',
+  penFlowOut: 'outflow',
+  penFlowNone: 'still water',
+  penFlowSiphon: 'siphon (inflow)',
+  penAvgDepth: (u) => `Average depth (${u.d})`,
+  penMaxDepth: (u) => `Max depth (${u.d})`,
+  penSwimSpeed: (u) => `Swim speed (${u.d}/min)`,
+  penDescent: 'Descent to the entrance (min)',
+  penTeam: 'Team',
+  penTeamSize: 'Team size',
+  penSameForAll: 'Same for everyone',
+  penDiver: 'Diver',
+  penSac: (u) => `SAC (${u.sac})`,
+  penStages: 'Stage cylinders',
+  penStagesPerDiver: 'Per diver',
+  penStageRule: 'Stage rule',
+  penRuleHalfPlus: 'half + reserve (GUE)',
+  penRuleThirds: 'thirds (TDI / IANTD)',
+  penStageReserve: (u) => `Stage reserve (${u.p})`,
+  penStageNote: 'Stages are breathed first on the way in, dropped at the drop pressure, picked up at the same spot on the way out and breathed from there. Stages carry the bottom gas.',
+  penPlan: 'Penetration plan',
+  penFeasible: 'Feasible under the selected rules.',
+  penRuleSummary: (frac, agency, maxD) => `${agency} full cave: ${frac} of the total gas supply for penetration, max ${maxD}.`,
+  penKpiTurn: (u) => `turn (${u.p})`,
+  penKpiPenMin: 'penetration (min)',
+  penKpiDistance: (u) => `est. distance (${u.d})`,
+  penKpiBottom: 'total bottom time (min)',
+  penGasMatching: 'Team gas matching',
+  penStart: (u) => `Start (${u.p})`,
+  penTurn: (u) => `Turn (${u.p})`,
+  penPenGas: (u) => `Penetration gas (${u.v})`,
+  penExitLeft: (u) => `Left after exit (${u.v})`,
+  penSharedLeft: (u) => `Left sharing gas (${u.v})`,
+  penLimiting: 'limiting',
+  penMatchingNote: 'Turn pressures are matched to the third of the diver with the smallest gas supply, by volume, rounded up. The team turns when the first diver reaches their turn pressure. "Left sharing gas" is the exit with the heaviest-breathing team mate on this diver\'s gas.',
+  penStagePlan: 'Stage plan',
+  penDropAt: (u) => `Drop at (${u.p})`,
+  penUsableIn: (u) => `Usable in (${u.v})`,
+  penDropDistance: (u) => `Drop point (${u.d})`,
+  penDecoNote: (d) => `Deco is computed conservatively for the whole bottom time at ${d} max depth.`,
+  penEvStart: (g) => `Start, descend to the entrance on ${g}`,
+  penEvEnter: 'Enter the overhead, penetration starts',
+  penEvDrop: (g) => `Drop stage (${g}) at the drop pressure, 1 min`,
+  penEvTurn: (bar) => `TURN at turn pressure (${bar}), head out`,
+  penEvPickup: (g) => `Pick up stage (${g}), switch to it, 1 min`,
+  penEvExit: 'Exit reached, ascent starts',
   modeStandard: 'Standard plan',
   modeInventory: 'My gases',
   stdGue: 'GUE',
@@ -282,6 +429,17 @@ const en: Dict = {
       case 'duplicateSwitchDepth': return `${p.gas}: two deco gases share the same switch depth (${u.depth(n('depth'))}), only the first is used.`;
       case 'gasShort': return `${p.gas} (${p.role}): ${u.volume(n('short'))} short (need ${u.volume(n('needed'))} + ${u.volume(n('reserve'))} reserve, have ${u.volume(n('available'))}).`;
       case 'missingGas': return `Missing gas: ${p.gas}.`;
+      case 'penNoTeam': return 'Add at least one diver to the team.';
+      case 'penDepthLimit': return `Max depth ${u.depth(n('depth'))} exceeds the ${p.agency} full cave limit (${u.depth(n('limit'))}).`;
+      case 'penMinStartGas': return `GUE Cave 2 requires at least ${u.volume(n('min'))} to start; the smallest supply is ${u.volume(n('have'))}.`;
+      case 'penSharedExitShort': return `${p.diver}: ${u.volume(n('short'))} short of reserve for a gas-sharing exit.`;
+      case 'penSiphon': return 'Siphon: the exit is against the flow, the plan uses sixths.';
+      case 'penDissimilar': return `Dissimilar cylinders in the team: turn pressures are matched to ${p.diver}'s supply by volume.`;
+      case 'penStageRuleDiffers': return `${p.agency}'s default stage rule is ${p.rule === 'halfPlus' ? 'half + reserve' : 'thirds'}.`;
+      case 'penDecoNoGas': return `The plan requires ${p.deco} min of deco but no deco gas is specified.`;
+      case 'recOverNdl': return `You cannot dive this without deco: the no-deco limit is ${p.ndl} min, the planned ${p.bottom} min exceeds it by ${p.over} min.`;
+      case 'recDepthLimit': return `Depth ${u.depth(n('depth'))} exceeds the recreational ${u.depth(n('limit'))} limit.`;
+      case 'recGasShort': return `Not enough gas while keeping the rock-bottom reserve: ${u.pressure(n('short'))} (${u.volume(n('shortL'))}) short.`;
     }
   },
   isBlocking: hu.isBlocking,

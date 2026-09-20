@@ -14,7 +14,18 @@ export type MsgCode =
   | 'decoSwitchNotShallower'
   | 'duplicateSwitchDepth'
   | 'gasShort'
-  | 'missingGas';
+  | 'missingGas'
+  | 'penNoTeam'
+  | 'penDepthLimit'
+  | 'penMinStartGas'
+  | 'penSharedExitShort'
+  | 'penSiphon'
+  | 'penDissimilar'
+  | 'penStageRuleDiffers'
+  | 'penDecoNoGas'
+  | 'recOverNdl'
+  | 'recDepthLimit'
+  | 'recGasShort';
 
 export interface Msg {
   code: MsgCode;
