@@ -142,10 +142,9 @@ export function PrintSheet(d: PrintData) {
 
       <footer className="ps-foot">
         <img src={logoUrl} alt="" />
-        <div>
-          <div className="ps-motto">Mindig van lejjebb!!!</div>
-          <div>BTT Explorers Hungary · 2018 · made by sadrobot · v{__APP_VERSION__} · {t.printDisclaimer}</div>
-        </div>
+        <div className="ps-motto">Mindig van lejjebb!!!</div>
+        <div className="ps-foot-line">BTT Explorers Hungary · 2018 · made by sadrobot · v{__APP_VERSION__}</div>
+        <div className="ps-foot-line">{t.printDisclaimer}</div>
       </footer>
     </div>
   );

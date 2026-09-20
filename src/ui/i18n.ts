@@ -117,7 +117,7 @@ const hu = {
   itStart: (g: string) => `Leszállás indul ${g} gázon (20 m/min)`,
   itArrive: 'Fenékmélység elérve, fenékidő indul',
   itLeave: (g: string) => `Fenékidő vége, felszállás indul ${g} gázon`,
-  itSwitch: (from: string, to: string, u: Units, d: number) => `Gázváltás ${u.stopDepth(d)}-en: ${from} → ${to}, palackváltás, ellenőrzés`,
+  itSwitch: (from: string, to: string, u: Units, d: number, min: number) => `Gázváltás ${u.stopDepth(d)}-en: ${from} → ${to}, palackváltás, ellenőrzés${min > 0 ? `, ${min} perc várakozás` : ''}`,
   itStop: (min: number, until: number, u: Units, d: number) => `Megállás ${u.stopDepth(d)}-en ${min} perc, indulás a ${until}. percben`,
   itSurface: 'Felszín, merülés vége',
   msg: (m: Msg, u: Units): string => {
@@ -260,7 +260,7 @@ const en: Dict = {
   itStart: (g) => `Start descent on ${g} (20 m/min)`,
   itArrive: 'Max depth reached, bottom time starts',
   itLeave: (g) => `Bottom time over, start ascent on ${g}`,
-  itSwitch: (from, to, u, d) => `Gas switch at ${u.stopDepth(d)}: ${from} → ${to}, change cylinder, verify`,
+  itSwitch: (from, to, u, d, min) => `Gas switch at ${u.stopDepth(d)}: ${from} → ${to}, change cylinder, verify${min > 0 ? `, hold ${min} min` : ''}`,
   itStop: (min, until, u, d) => `Stop at ${u.stopDepth(d)} for ${min} min, leave at minute ${until}`,
   itSurface: 'Surface, dive complete',
   msg: (m, u) => {

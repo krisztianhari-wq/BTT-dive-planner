@@ -8,7 +8,7 @@ interface Golden {
   source: string;
   pending?: boolean;
   profile: { maxDepth: number; bottomTime: number; bottomGas: { o2: number; he: number }; decoGases: { o2: number; he: number; switchDepth: number }[] };
-  settings: { gfLow: number; gfHigh: number; lastStop: number; descentRate: number; ascentRate: number; ascentRateShallow: number };
+  settings: { gfLow: number; gfHigh: number; lastStop: number; descentRate: number; ascentRate: number; ascentRateShallow: number; gasSwitchMinutes?: number };
   expected: { stops: { depth: number; minutes: number }[]; decoTime: number; runtime: number };
   tolerance?: { stopMinutes?: number; decoTime?: number; runtime?: number };
 }
@@ -32,6 +32,7 @@ describe('golden reference schedules', () => {
           descentRateMpm: g.settings.descentRate,
           ascentRateMpm: g.settings.ascentRate,
           ascentRateShallowMpm: g.settings.ascentRateShallow,
+          gasSwitchMinutes: g.settings.gasSwitchMinutes ?? 0,
         },
       });
       const tol = { stopMinutes: 1, decoTime: 2, runtime: 2, ...g.tolerance };

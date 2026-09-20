@@ -44,7 +44,7 @@ export function itinerary(plan: DivePlan): ItineraryEvent[] {
       ev.push({ kind: 'leaveBottom', runtime: startRt, depth: s.startDepth, gas: s.gas });
     } else if (s.kind === 'switch') {
       const prev = segs[i - 1];
-      ev.push({ kind: 'switch', runtime: s.runtime, depth: s.startDepth, gas: s.gas, fromGas: prev?.gas });
+      ev.push({ kind: 'switch', runtime: startRt, depth: s.startDepth, gas: s.gas, fromGas: prev?.gas, duration: s.duration, until: s.runtime });
     } else if (s.kind === 'stop') {
       ev.push({ kind: 'stop', runtime: startRt, depth: s.startDepth, gas: s.gas, duration: s.duration, until: s.runtime });
     }

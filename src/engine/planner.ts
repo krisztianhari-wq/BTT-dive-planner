@@ -19,6 +19,8 @@ export interface PlanSettings {
   stopIncrementM: number; // 3
   /** minimum deco stop length increment in minutes (1) */
   stopStepMin: number;
+  /** time spent at the switch depth for every gas switch, minutes (team confirms and switches) */
+  gasSwitchMinutes: number;
   /**
    * Where the GF slope is evaluated when deciding whether a stop can be left:
    * 'next' (default; Subsurface / Shearwater convention) at the next stop depth,
@@ -39,6 +41,7 @@ export const DEFAULT_SETTINGS: PlanSettings = {
   lastStopDepth: 6,
   stopIncrementM: 3,
   stopStepMin: 1,
+  gasSwitchMinutes: 1,
   gfEvalAt: 'next',
   ppO2Working: 1.2,
   ppO2Max: 1.4,
@@ -149,7 +152,7 @@ export function planDive(input: DiveInput): DivePlan {
       const rate = from > (firstStopDepth ?? Infinity) ? s.ascentRateMpm : (firstStopDepth === null ? s.ascentRateMpm : s.ascentRateShallowMpm);
       push('ascent', from, sw.switchDepth, (from - sw.switchDepth) / rate, currentGas);
       currentGas = sw.gas;
-      segments.push({ kind: 'switch', startDepth: sw.switchDepth, endDepth: sw.switchDepth, duration: 0, runtime, gas: currentGas });
+      push('switch', sw.switchDepth, sw.switchDepth, s.gasSwitchMinutes, currentGas);
       from = sw.switchDepth;
     }
     if (from > to) {
@@ -191,7 +194,7 @@ export function planDive(input: DiveInput): DivePlan {
     const gasHere = gasAtDepth(depth, input.bottomGas, input.decoGases);
     if (gasHere !== currentGas) {
       currentGas = gasHere;
-      segments.push({ kind: 'switch', startDepth: depth, endDepth: depth, duration: 0, runtime, gas: currentGas });
+      push('switch', depth, depth, s.gasSwitchMinutes, currentGas);
     }
     while (!canAscend()) {
       // Simulate one more minute at this depth

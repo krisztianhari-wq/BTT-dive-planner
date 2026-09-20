@@ -245,3 +245,24 @@ describe('calculation method', () => {
     }
   });
 });
+
+describe('gas switch hold', () => {
+  it('each gas switch adds a timed segment at the switch depth on the new gas', () => {
+    const p = planDive({ maxDepth: 60, bottomTime: 25, bottomGas: { o2: 0.18, he: 0.45 }, decoGases: [EAN50, O2] });
+    const sw = p.segments.filter((s) => s.kind === 'switch');
+    expect(sw).toHaveLength(2);
+    for (const s of sw) { expect(s.duration).toBe(1); expect(s.startDepth).toBe(s.endDepth); }
+    expect(sw[0].startDepth).toBe(21); expect(gasName(sw[0].gas)).toBe('EAN50');
+    expect(sw[1].startDepth).toBe(6); expect(gasName(sw[1].gas)).toBe('O2');
+    // the hold counts as deco time at that depth, so the total can only stay equal or grow
+    const p0 = planDive({ maxDepth: 60, bottomTime: 25, bottomGas: { o2: 0.18, he: 0.45 }, decoGases: [EAN50, O2], settings: { gasSwitchMinutes: 0 } });
+    expect(p.runtime).toBeGreaterThanOrEqual(p0.runtime);
+    // the minute spent at the switch depth off-gasses too, so later stops may shrink by the same amount
+    const b = planDive({ maxDepth: 45, bottomTime: 25, bottomGas: T2135, decoGases: [EAN50] });
+    const b0 = planDive({ maxDepth: 45, bottomTime: 25, bottomGas: T2135, decoGases: [EAN50], settings: { gasSwitchMinutes: 0 } });
+    expect(b.runtime).toBeGreaterThanOrEqual(b0.runtime);
+    expect(b.segments.find((s) => s.kind === 'switch')?.duration).toBe(1);
+    expect(b.segments.filter((s) => s.kind === 'switch' || s.kind === 'stop').reduce((a, s) => a + s.duration, 0))
+      .toBeGreaterThanOrEqual(b0.segments.filter((s) => s.kind === 'stop').reduce((a, s) => a + s.duration, 0));
+  });
+});

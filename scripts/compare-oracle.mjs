@@ -13,7 +13,7 @@ const lastStop = Number(process.argv[2] ?? 3), shallow = Number(process.argv[3] 
 console.log(`ours (gfEvalAt=${process.env.GFEVAL ?? 'next'})  GF ${process.env.GFL ?? 20}/${process.env.GFH ?? 85}  descent 20  ascent 9/${shallow}  last stop ${lastStop} m`);
 for (const [id, d, bt, g, deco] of P) {
   const p = E.planDive({ maxDepth: d, bottomTime: bt, bottomGas: g, decoGases: deco.map(([o2, he, sd]) => ({ gas: { o2, he }, switchDepth: sd })),
-    settings: { gfEvalAt: process.env.GFEVAL ?? 'next', gf: { low: Number(process.env.GFL ?? 20) / 100, high: Number(process.env.GFH ?? 85) / 100 }, lastStopDepth: lastStop, ascentRateShallowMpm: shallow } });
+    settings: { gasSwitchMinutes: 0, gfEvalAt: process.env.GFEVAL ?? 'next', gf: { low: Number(process.env.GFL ?? 20) / 100, high: Number(process.env.GFH ?? 85) / 100 }, lastStopDepth: lastStop, ascentRateShallowMpm: shallow } });
   const st = E.stopTable(p);
   console.log(`${id} | ${d} m / ${bt} min | first stop ${p.firstStopDepth ?? '-'} | stops ${st.reduce((a, s) => a + s.minutes, 0)} min | deco ${p.decoTime.toFixed(1)} | runtime ${p.runtime.toFixed(1)}`);
   console.log('    ' + st.map(s => `${s.depth}m:${s.minutes}′(${s.gas})`).join('  '));

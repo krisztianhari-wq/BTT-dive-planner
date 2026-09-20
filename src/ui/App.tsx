@@ -157,7 +157,7 @@ export function App() {
       case 'start': return t.itStart(gasName(e.gas));
       case 'arriveBottom': return t.itArrive;
       case 'leaveBottom': return t.itLeave(gasName(e.gas));
-      case 'switch': return t.itSwitch(e.fromGas ? gasName(e.fromGas) : '—', gasName(e.gas), u, e.depth);
+      case 'switch': return t.itSwitch(e.fromGas ? gasName(e.fromGas) : '—', gasName(e.gas), u, e.depth, Math.round(e.duration ?? 0));
       case 'stop': return t.itStop(Math.round(e.duration ?? 0), Math.round(e.until ?? 0), u, e.depth);
       case 'surface': return t.itSurface;
     }

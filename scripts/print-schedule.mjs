@@ -12,7 +12,7 @@ for (const f of readdirSync(dir).filter((x) => x.endsWith('.json')).sort()) {
   const p = engine.planDive({
     maxDepth: g.profile.maxDepth, bottomTime: g.profile.bottomTime, bottomGas: g.profile.bottomGas,
     decoGases: g.profile.decoGases.map((d) => ({ gas: { o2: d.o2, he: d.he }, switchDepth: d.switchDepth })),
-    settings: { gf: { low: g.settings.gfLow / 100, high: g.settings.gfHigh / 100 }, lastStopDepth: g.settings.lastStop,
+    settings: { gasSwitchMinutes: g.settings.gasSwitchMinutes ?? 0, gf: { low: g.settings.gfLow / 100, high: g.settings.gfHigh / 100 }, lastStopDepth: g.settings.lastStop,
       descentRateMpm: g.settings.descentRate, ascentRateMpm: g.settings.ascentRate, ascentRateShallowMpm: g.settings.ascentRateShallow },
   });
   const stops = engine.stopTable(p).map((s) => `${s.depth}m:${s.minutes}′`).join('  ');
