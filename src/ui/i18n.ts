@@ -47,6 +47,7 @@ const hu = {
   penBrave: 'Bátor vagyok – számold ki így is',
   penBraveConfirm: 'A terv túllépi a gázkezelési szabályt (harmadok / hatodok). A szabályon kívüli tervnél a tartalék nem fedezi a társ ellátását a kijövetelnél. Megerősíted, hogy ennek tudatában, saját felelősségre kéred a számítást?',
   penBraveActive: 'Szabályon kívüli terv – „bátor vagyok” jóváhagyva',
+  penUnsupported: (agency: string) => `Megmerülhető, de a ${agency} által nem támogatott`,
   penBraveRevert: 'Vissza a szabályokhoz',
   penKpiMaxPen: 'max penetráció gáz szerint (perc)',
   penTeam: 'Csapat',
@@ -228,6 +229,7 @@ const hu = {
       case 'missingGas': return `Hiányzó gáz: ${p.gas}.`;
       case 'penNoTeam': return 'Adj meg legalább egy búvárt a csapatban.';
       case 'penDepthLimit': return `A ${u.depth(n('depth'))} max mélység meghaladja a ${p.agency} full cave limitet (${u.depth(n('limit'))}).`;
+      case 'penUnsupportedDepth': return `A ${p.agency} által NEM TÁMOGATOTT merülés: a ${u.depth(n('depth'))} max mélység meghaladja a ${p.agency} full cave limitet (${u.depth(n('limit'))}). A terv kiszámolva, saját felelősségre.`;
       case 'penMinStartGas': return `A GUE Cave 2 szerint legalább ${u.volume(n('min'))} gázzal kell indulni, a legkisebb készlet ${u.volume(n('have'))}.`;
       case 'penSharedExitShort': return `${p.diver}: gázosztásos kijövetelre ${u.volume(n('short'))} hiányzik a tartalékból.`;
       case 'penSiphon': return 'Szifon: a kijövetel áramlás ellen történik, a terv hatodokkal számol.';
@@ -290,6 +292,7 @@ const en: Dict = {
   penBrave: 'I am brave – calculate it anyway',
   penBraveConfirm: 'The plan exceeds the gas management rule (thirds / sixths). Outside the rule the reserve does not cover supporting a team mate on the exit. Do you confirm that you request this calculation knowingly and at your own risk?',
   penBraveActive: 'Plan outside the rules – "I am brave" accepted',
+  penUnsupported: (agency) => `Feasible, but not supported by ${agency}`,
   penBraveRevert: 'Back to the rules',
   penKpiMaxPen: 'max penetration by gas (min)',
   penTeam: 'Team',
@@ -471,6 +474,7 @@ const en: Dict = {
       case 'missingGas': return `Missing gas: ${p.gas}.`;
       case 'penNoTeam': return 'Add at least one diver to the team.';
       case 'penDepthLimit': return `Max depth ${u.depth(n('depth'))} exceeds the ${p.agency} full cave limit (${u.depth(n('limit'))}).`;
+      case 'penUnsupportedDepth': return `NOT SUPPORTED by ${p.agency}: max depth ${u.depth(n('depth'))} exceeds the ${p.agency} full cave limit (${u.depth(n('limit'))}). Calculated anyway, at your own risk.`;
       case 'penMinStartGas': return `GUE Cave 2 requires at least ${u.volume(n('min'))} to start; the smallest supply is ${u.volume(n('have'))}.`;
       case 'penSharedExitShort': return `${p.diver}: ${u.volume(n('short'))} short of reserve for a gas-sharing exit.`;
       case 'penSiphon': return 'Siphon: the exit is against the flow, the plan uses sixths.';

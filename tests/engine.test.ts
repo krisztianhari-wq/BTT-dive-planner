@@ -314,12 +314,16 @@ describe('penetration planning', () => {
 
   it('GUE depth limit and minimum start gas are enforced as blockers', async () => {
     const { planPenetration } = await import('../src/engine');
+    // beyond the agency depth limit: computed anyway, flagged as unsupported, not blocked
     const deep = planPenetration({ ...base, team: two, maxDepth: 35 });
-    expect(deep.blockers.some((b) => b.code === 'penDepthLimit')).toBe(true);
+    expect(deep.unsupported).toBe(true);
+    expect(deep.feasible).toBe(true);
+    expect(deep.warnings.some((w) => w.code === 'penUnsupportedDepth')).toBe(true);
+    expect(deep.penetrationMinutes).toBeGreaterThan(0);
     const small = planPenetration({ ...base, team: [{ id: 'a', name: 'A', cylinder: CYLINDERS.find((c) => c.name.startsWith('Single 12'))!, startBar: 200, sacLpm: 18 }] });
     expect(small.blockers.some((b) => b.code === 'penMinStartGas')).toBe(true);
     const tdi = planPenetration({ ...base, team: two, agency: 'tdi', maxDepth: 35, stageRule: 'thirds' });
-    expect(tdi.blockers.some((b) => b.code === 'penDepthLimit')).toBe(false);
+    expect(tdi.unsupported).toBe(false);
   });
 
   it('a stage extends penetration; half-plus drop pressure is half + reserve rounded up', async () => {

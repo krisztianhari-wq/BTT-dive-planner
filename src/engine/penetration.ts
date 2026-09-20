@@ -121,6 +121,8 @@ export interface PenetrationPlan {
   maxPenetrationMinutes: number;
   /** the plan exceeds the gas rule and the user explicitly accepted it */
   overridden: boolean;
+  /** the dive is outside what the selected agency supports (e.g. depth limit); computed anyway and flagged */
+  unsupported: boolean;
   /** estimated one-way penetration distance, m */
   penetrationDistanceM: number;
   /** total time in the overhead (in + out + stage handling), minutes */
@@ -226,7 +228,8 @@ export function planPenetration(input: PenetrationInput): PenetrationPlan {
   const deco = planDive({ maxDepth: input.maxDepth, bottomTime: Math.max(bottomTime, 1), bottomGas: input.bottomGas, decoGases: input.decoGases, settings: input.settings });
 
   // ---- checks ----
-  if (input.maxDepth > rules.maxDepthM) blockers.push(msg('penDepthLimit', { depth: input.maxDepth, limit: rules.maxDepthM, agency: input.agency.toUpperCase() }));
+  const unsupported = input.maxDepth > rules.maxDepthM;
+  if (unsupported) warnings.push(msg('penUnsupportedDepth', { depth: input.maxDepth, limit: rules.maxDepthM, agency: input.agency.toUpperCase() }));
   const totalStart = totals.reduce((a, b) => a + b, 0) / Math.max(team.length, 1);
   if (rules.minStartLitres && team.some((m) => m.cylinder.volumeL * m.startBar < rules.minStartLitres)) blockers.push(msg('penMinStartGas', { min: rules.minStartLitres, have: Math.round(Math.min(...totals)) }));
   for (const x of members) if (x.sharedExitRemainingLitres < 0) blockers.push(msg('penSharedExitShort', { diver: x.member.name, short: Math.round(-x.sharedExitRemainingLitres) }));
@@ -243,7 +246,7 @@ export function planPenetration(input: PenetrationInput): PenetrationPlan {
   void totalStart;
 
   return {
-    rules, members, limiting, stages: stagePlans, penetrationMinutes, maxPenetrationMinutes, overridden, penetrationDistanceM, overheadMinutes, bottomTime, deco,
+    rules, members, limiting, stages: stagePlans, penetrationMinutes, maxPenetrationMinutes, overridden, unsupported, penetrationDistanceM, overheadMinutes, bottomTime, deco,
     warnings, blockers, feasible: blockers.length === 0,
   };
 }

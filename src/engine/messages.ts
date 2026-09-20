@@ -25,6 +25,7 @@ export type MsgCode =
   | 'penDecoNoGas'
   | 'penTimeOverGas'
   | 'penOverrideActive'
+  | 'penUnsupportedDepth'
   | 'recOverNdl'
   | 'recDepthLimit'
   | 'recGasShort';

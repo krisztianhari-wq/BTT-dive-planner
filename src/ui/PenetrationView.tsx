@@ -212,9 +212,9 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
     <>
       <section className="panel pen">
         <h2>{t.penPlan}</h2>
-        <div className={`verdict ${plan.overridden ? 'bad brave' : plan.feasible ? 'ok' : 'bad'}`} style={{ marginBottom: 12 }}>
-          <div className="icon">{plan.overridden ? '⚠' : plan.feasible ? '✓' : '✕'}</div>
-          <div style={{ flex: 1 }}><div className="title">{plan.overridden ? t.penBraveActive : plan.feasible ? t.penFeasible : t.feasibleNo}</div>
+        <div className={`verdict ${plan.overridden ? 'bad brave' : !plan.feasible ? 'bad' : plan.unsupported ? 'unsupported' : 'ok'}`} style={{ marginBottom: 12 }}>
+          <div className="icon">{plan.overridden ? '⚠' : !plan.feasible ? '✕' : plan.unsupported ? '⚠' : '✓'}</div>
+          <div style={{ flex: 1 }}><div className="title">{plan.overridden ? t.penBraveActive : !plan.feasible ? t.feasibleNo : plan.unsupported ? t.penUnsupported(s.agency.toUpperCase()) : t.penFeasible}</div>
             <div className="small" style={{ color: 'inherit' }}>{t.penRuleSummary(plan.rules.fractionLabel, s.agency.toUpperCase(), u.depth(plan.rules.maxDepthM))}</div>
             {plan.blockers.some((b) => b.code === 'penTimeOverGas') && !s.brave && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>

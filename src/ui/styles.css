@@ -208,3 +208,6 @@ table.itinerary tr.ev-turn td { background: var(--accent-soft); font-weight: 600
 :root[data-theme="dark"] .verdict.brave { background: #991b1b; }
 .btn.brave { margin-top: 8px; background: #fff; color: #7f1d1d; font-weight: 600; }
 :root[data-theme="dark"] .btn.brave { background: #f2f2f7; }
+
+.verdict.unsupported { background: var(--warn-soft); color: var(--warn); }
+.print-sheet .warn { color: #b25000; }
