@@ -286,3 +286,14 @@ export function penetrationItinerary(input: PenetrationInput, plan: PenetrationP
   ev.push({ kind: 'surface', runtime: (last?.runtime ?? bottomEnd) + shift, depth: 0, gas: last?.gas ?? input.bottomGas });
   return ev;
 }
+
+/** Smallest number of stages (0..maxStages) per diver that makes the planned penetration fit the gas rule; null if none does. */
+export function stagesNeeded(input: PenetrationInput, stageTemplate: Omit<StageSpec, 'count'>, maxStages = 3): number | null {
+  const planned = input.plannedPenetrationMinutes ?? 0;
+  if (planned <= 0) return 0;
+  for (let n = 0; n <= maxStages; n++) {
+    const plan = planPenetration({ ...input, overrideGasRule: false, stages: n > 0 ? [{ ...stageTemplate, count: n }] : [] });
+    if (plan.maxPenetrationMinutes + 1e-9 >= planned) return n;
+  }
+  return null;
+}

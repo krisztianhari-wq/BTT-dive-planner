@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   Agency, CYLINDERS, DecoGasSpec, Environment, Flow, Gas, GasStandard, PenEvent, PlanSettings, StageRule, TeamMember,
-  gasName, penetrationItinerary, planPenetration, stopTable,
+  gasName, penetrationItinerary, planPenetration, stagesNeeded, stopTable,
 } from '../engine';
 import { Dict } from './i18n';
 import { Units } from './units';
@@ -22,7 +22,7 @@ export interface PenState {
   shared: { cylIdx: number; startBar: number; sac: number };
   members: { name: string; cylIdx: number; startBar: number; sac: number }[];
   bottomGasIdx: number | 'auto';
-  stageCount: number; stageCylIdx: number; stageBar: number; stageRule: StageRule; stageReserveBar: number; stageGasSame: boolean;
+  stageCount: number; stageCylIdx: number; stageBar: number | null; stageRule: StageRule; stageReserveBar: number; stageGasIdx: number | 'bottom';
   decoOn: Record<string, boolean>;
 }
 
@@ -35,7 +35,7 @@ export const defaultPenState = (): PenState => ({
   shared: { cylIdx: 0, startBar: 200, sac: 18 },
   members: [1, 2, 3, 4].map((i) => ({ name: `B${i}`, cylIdx: 0, startBar: 200, sac: 18 })),
   bottomGasIdx: 'auto',
-  stageCount: 0, stageCylIdx: S80_IDX, stageBar: 200, stageRule: 'halfPlus', stageReserveBar: 15, stageGasSame: true,
+  stageCount: 0, stageCylIdx: S80_IDX, stageBar: null, stageRule: 'halfPlus', stageReserveBar: 15, stageGasIdx: 'bottom',
   decoOn: {},
 });
 
@@ -48,20 +48,24 @@ export function usePenetrationPlan(s: PenState, std: GasStandard, settings: Part
     const auto = std.bottomGasFor(s.maxDepth);
     const bottomGas: Gas = s.bottomGasIdx === 'auto' || s.bottomGasIdx >= std.bottomGases.length ? (auto?.gas ?? std.bottomGases[0].gas) : std.bottomGases[s.bottomGasIdx].gas;
     const decoGases: DecoGasSpec[] = std.decoGases.filter((d) => s.decoOn[d.gas.name!]).map((d) => ({ gas: d.gas, switchDepth: d.switchDepth }));
-    const stages = s.stageCount > 0 ? [{ cylinder: CYLINDERS[s.stageCylIdx], gas: bottomGas, startBar: s.stageBar, count: s.stageCount }] : [];
+    const stageGas: Gas = s.stageGasIdx === 'bottom' || s.stageGasIdx >= std.bottomGases.length ? bottomGas : std.bottomGases[s.stageGasIdx].gas;
+    const stageBar = s.stageBar ?? (s.sameForAll ? s.shared.startBar : Math.min(...team.map((m) => m.startBar)));
+    const stageTemplate = { cylinder: CYLINDERS[s.stageCylIdx], gas: stageGas, startBar: stageBar };
+    const stages = s.stageCount > 0 ? [{ ...stageTemplate, count: s.stageCount }] : [];
     const input = {
       agency: s.agency, environment: s.environment, flow: s.flow, team, bottomGas, stages, stageRule: s.stageRule, stageReserveBar: s.stageReserveBar,
       avgDepth: s.avgDepth, maxDepth: s.maxDepth, swimSpeedMpm: s.swimSpeed, descentMinutes: s.descentMinutes, plannedPenetrationMinutes: s.plannedMinutes, overrideGasRule: s.brave, decoGases, settings,
     };
     const plan = team.length ? planPenetration(input) : null;
     const events: PenEvent[] = plan ? penetrationItinerary(input, plan) : [];
-    return { input, plan, events, bottomGas, autoBottom: auto };
+    const suggestedStages = plan && !plan.overridden && plan.blockers.some((b) => b.code === 'penTimeOverGas') ? stagesNeeded(input, stageTemplate) : null;
+    return { input, plan, events, bottomGas, autoBottom: auto, stageTemplate, stageBar, suggestedStages };
   }, [s, std, settings]);
 }
 
 export function PenetrationView({ t, u, lang, std, settings, side, state: s, setState }: Props) {
   const set = (patch: Partial<PenState>) => setState({ ...s, ...patch });
-  const { input, plan, events, autoBottom } = usePenetrationPlan(s, std, settings);
+  const { input, plan, events, autoBottom, stageBar, suggestedStages } = usePenetrationPlan(s, std, settings);
   const fmt = (v: number, d = 0) => v.toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: d, minimumFractionDigits: d });
   const vol = (l: number) => fmt(u.volumeN(l), u.sys === 'metric' ? 0 : 1);
   const [_, setTick] = useState(0); void _; void setTick;
@@ -149,8 +153,13 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
           <div className="row3">
             <div><label>{t.penStagesPerDiver}</label><select value={s.stageCount} onChange={(e) => set({ stageCount: +e.target.value })}>{[0, 1, 2, 3].map((n) => <option key={n} value={n}>{n}</option>)}</select></div>
             <div><label>{t.cylinder}</label><select value={s.stageCylIdx} onChange={(e) => set({ stageCylIdx: +e.target.value })}>{CYLINDERS.map((c, i) => <option key={c.name} value={i}>{c.name.split(' (')[0]}</option>)}</select></div>
-            <div><label>{t.startPressure(u)}</label><NumInput min={0} value={u.pressureN(s.stageBar)} onChange={(v) => set({ stageBar: u.toBar(v) })} /></div>
+            <div><label>{t.startPressure(u)}</label><NumInput min={0} value={u.pressureN(stageBar)} onChange={(v) => set({ stageBar: u.toBar(v) })} /></div>
           </div>
+          <label>{t.penStageGas}</label>
+          <select value={s.stageGasIdx} onChange={(e) => set({ stageGasIdx: e.target.value === 'bottom' ? 'bottom' : +e.target.value })}>
+            <option value="bottom">{t.penStageGasBottom}</option>
+            {std.bottomGases.map((g, i) => <option key={g.gas.name} value={i}>{g.gas.name}</option>)}
+          </select>
           <div className="row">
             <div><label>{t.penStageRule}</label>
               <select value={s.stageRule} onChange={(e) => set({ stageRule: e.target.value as StageRule })}>
@@ -180,7 +189,14 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
           <div style={{ flex: 1 }}><div className="title">{plan.overridden ? t.penBraveActive : plan.feasible ? t.penFeasible : t.feasibleNo}</div>
             <div className="small" style={{ color: 'inherit' }}>{t.penRuleSummary(plan.rules.fractionLabel, s.agency.toUpperCase(), u.depth(plan.rules.maxDepthM))}</div>
             {plan.blockers.some((b) => b.code === 'penTimeOverGas') && !s.brave && (
-              <button className="btn brave" onClick={() => { if (window.confirm(t.penBraveConfirm)) set({ brave: true }); }}>{t.penBrave}</button>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                {suggestedStages !== null && suggestedStages > s.stageCount && (
+                  <button className="btn" style={{ background: '#fff', color: '#7f1d1d', fontWeight: 600 }} onClick={() => set({ stageCount: suggestedStages })}>
+                    {t.penFillStages(suggestedStages, CYLINDERS[s.stageCylIdx].name.split(' (')[0], gasName(input.stages[0]?.gas ?? input.bottomGas))}
+                  </button>
+                )}
+                <button className="btn brave" style={{ marginTop: 0 }} onClick={() => { if (window.confirm(t.penBraveConfirm)) set({ brave: true }); }}>{t.penBrave}</button>
+              </div>
             )}
             {s.brave && <button className="btn" style={{ marginTop: 8 }} onClick={() => set({ brave: false })}>{t.penBraveRevert}</button>}
           </div>

@@ -443,3 +443,21 @@ describe('penetration "I am brave" override', () => {
     expect(brave.feasible).toBe(false); // shared-exit blocker stays honest
   });
 });
+
+describe('stages needed', () => {
+  it('finds the smallest stage count that covers the planned penetration', async () => {
+    const { planPenetration, stagesNeeded } = await import('../src/engine');
+    const D12 = CYLINDERS[0]; const S80 = CYLINDERS.find((c) => c.name.startsWith('AL80'))!;
+    const two = [{ id: 'a', name: 'A', cylinder: D12, startBar: 200, sacLpm: 18 }, { id: 'b', name: 'B', cylinder: D12, startBar: 200, sacLpm: 18 }];
+    const input = { agency: 'tdi' as const, environment: 'cave' as const, flow: 'outflow' as const, bottomGas: EAN32, stages: [], stageRule: 'thirds' as const, stageReserveBar: 15, avgDepth: 18, maxDepth: 24, swimSpeedMpm: 15, descentMinutes: 1, decoGases: [], team: two, plannedPenetrationMinutes: 40 };
+    const n = stagesNeeded(input, { cylinder: S80, gas: EAN32, startBar: 200 });
+    expect(n).not.toBeNull(); expect(n!).toBeGreaterThan(0);
+    const withStages = planPenetration({ ...input, stages: [{ cylinder: S80, gas: EAN32, startBar: 200, count: n! }] });
+    expect(withStages.maxPenetrationMinutes).toBeGreaterThanOrEqual(40);
+    if (n! > 1) {
+      const fewer = planPenetration({ ...input, stages: [{ cylinder: S80, gas: EAN32, startBar: 200, count: n! - 1 }] });
+      expect(fewer.maxPenetrationMinutes).toBeLessThan(40);
+    }
+    expect(stagesNeeded({ ...input, plannedPenetrationMinutes: 500 }, { cylinder: S80, gas: EAN32, startBar: 200 })).toBeNull();
+  });
+});
