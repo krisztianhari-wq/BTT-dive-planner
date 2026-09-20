@@ -229,17 +229,18 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
           <div style={{ flex: 1 }}><div className="title">{plan.blockers.some((b) => b.code === 'penSharedExitShort') ? t.penTeamDies : plan.overridden ? t.penBraveActive : !plan.feasible ? t.feasibleNo : plan.unsupported ? t.penUnsupported(s.agency.toUpperCase()) : t.penFeasible}</div>
             {plan.overridden && plan.blockers.some((b) => b.code === 'penSharedExitShort') && <div className="small" style={{ color: 'inherit', fontWeight: 600 }}>{t.penBraveActive}</div>}
             <div className="small" style={{ color: 'inherit' }}>{t.penRuleSummary(plan.rules.fractionLabel, s.agency.toUpperCase(), u.depth(plan.rules.maxDepthM))}{s.teamSize === 1 ? ` ${t.penSoloNote}` : ''}</div>
-            {plan.blockers.some((b) => b.code === 'penTimeOverGas') && !s.brave && (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                {suggestedStages !== null && suggestedStages > s.stageCount && (
-                  <button className="btn" style={{ background: '#fff', color: '#7f1d1d', fontWeight: 600 }} onClick={() => set({ stageCount: suggestedStages })}>
-                    {t.penFillStages(suggestedStages, CYLINDERS[s.stageCylIdx].name.split(' (')[0], gasName(input.stages[0]?.gas ?? input.bottomGas))}
-                  </button>
-                )}
-                <button className="btn brave" style={{ marginTop: 0 }} onClick={() => { if (window.confirm(t.penBraveConfirm)) set({ brave: true }); }}>{t.penBrave}</button>
-              </div>
+            {plan.blockers.some((b) => b.code === 'penTimeOverGas') && suggestedStages !== null && suggestedStages > s.stageCount && (
+              <button className="btn" style={{ marginTop: 8, background: '#fff', color: '#7f1d1d', fontWeight: 600 }} onClick={() => set({ stageCount: suggestedStages })}>
+                {t.penFillStages(suggestedStages, CYLINDERS[s.stageCylIdx].name.split(' (')[0], gasName(input.stages[0]?.gas ?? input.bottomGas))}
+              </button>
             )}
-            {s.brave && <button className="btn" style={{ marginTop: 8 }} onClick={() => set({ brave: false })}>{t.penBraveRevert}</button>}
+          </div>
+        </div>
+        <div className="brave-row">
+          <span className="small">{t.penBraveLabel}</span>
+          <div className="seg" role="radiogroup">
+            <button className={!s.brave ? 'on' : ''} onClick={() => set({ brave: false })}>{t.penBraveOff}</button>
+            <button className={s.brave ? 'on brave' : ''} onClick={() => { if (s.brave) return; if (window.confirm(t.penBraveConfirm)) set({ brave: true }); }}>{t.penBrave}</button>
           </div>
         </div>
         <div className="kpis">

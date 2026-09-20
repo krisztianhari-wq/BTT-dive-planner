@@ -211,3 +211,6 @@ table.itinerary tr.ev-turn td { background: var(--accent-soft); font-weight: 600
 
 .verdict.unsupported { background: var(--warn-soft); color: var(--warn); }
 .print-sheet .warn { color: #b25000; }
+
+.brave-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: -4px 0 12px; padding: 8px 12px; border-radius: 12px; background: var(--panel2); }
+.seg button.on.brave { background: #7f1d1d; color: #fff; }
