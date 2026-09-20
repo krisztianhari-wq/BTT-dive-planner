@@ -16,6 +16,12 @@ Decompression and gas planner for technical diving. Bühlmann ZH-L16C with gradi
 - **Single file:** `dist-single/index.html` opens from anywhere, no internet needed.
 
 ## Features
+Three planning modes, switched in the header (Recreational is the default; Technical and Penetration ask for a certification confirmation once per session):
+- **Recreational** – no-decompression planning: NDL for the depth and gas, 40 m limit, rock-bottom reserve for two divers, safety stop; tells you when a dive cannot be done without deco and the maximum bottom time.
+- **Technical** – open-water decompression planning (everything below).
+- **Penetration** – cave / mine / wreck planning per GUE, TDI or IANTD full-cave rules: thirds (sixths in siphons), team gas matching for dissimilar cylinders, stage cylinders (thirds or half + reserve) with drop pressures and points, shared-exit check, conservative deco for the whole exposure, in/out itinerary.
+
+Technical mode:
 - Standard plan with GUE standard gases (or common PADI/SSI/TDI gases), automatic bottom and deco gas suggestion
 - “My gases” mode: enter your cylinders and gases; the planner tells you whether the dive is feasible and exactly how much gas is missing
 - Deco schedule, gas plan (minimum gas, consumption per gas), packing list, minute-by-minute itinerary
@@ -56,9 +62,12 @@ An independent Bühlmann implementation (the [dive-deco](https://github.com/KG32
   - `gasPlan.ts` – consumption, minimum gas, cylinders, deco gas requirements
   - `inventory.ts` – packing list and “my gases” feasibility
   - `itinerary.ts` – chronological event list
+  - `penetration.ts` – overhead (cave / mine / wreck) gas rules, gas matching, stages, exit check, itinerary
+  - `recreational.ts` – no-deco planning with NDL and rock-bottom reserve
   - `messages.ts` – language-neutral message codes, translated by the UI
 - `src/ui/` – React UI
-  - `App.tsx` – the whole UI and its switches (mode, standard, units, language, theme, method)
+  - `App.tsx` – the whole UI and its switches (environment, mode, standard, units, language, theme, method)
+  - `PenetrationView.tsx`, `RecreationalView.tsx` – the penetration and recreational mode panels
   - `ProfileChart.tsx` – dive profile SVG chart
   - `i18n.ts` – Hungarian / English dictionary and message translation
   - `units.ts` – metric / imperial conversion

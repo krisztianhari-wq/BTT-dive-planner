@@ -5,7 +5,7 @@ import { Units } from './units';
 import { NumInput } from './NumInput';
 
 export interface RecState { maxDepth: number; bottomTime: number; gasIdx: number | 'auto'; cylIdx: number; startBar: number; sac: number }
-export const defaultRecState = (): RecState => ({ maxDepth: 24, bottomTime: 35, gasIdx: 'auto', cylIdx: CYLINDERS.findIndex((c) => c.name.startsWith('Single 12')), startBar: 200, sac: 18 });
+export const defaultRecState = (): RecState => ({ maxDepth: 18, bottomTime: 30, gasIdx: 'auto', cylIdx: CYLINDERS.findIndex((c) => c.name.startsWith('Single 12')), startBar: 200, sac: 18 });
 
 const REC_GASES = GENERIC_STANDARD.bottomGases.filter((g) => g.gas.he === 0); // Air, EAN28/32/36/40
 
