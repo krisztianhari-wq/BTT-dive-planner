@@ -144,7 +144,7 @@ export function PrintSheet(d: PrintData) {
         <img src={logoUrl} alt="" />
         <div>
           <div className="ps-motto">Mindig van lejjebb!!!</div>
-          <div>BTT Explorers Hungary · 2018 · made by sadrobot · {t.printDisclaimer}</div>
+          <div>BTT Explorers Hungary · 2018 · made by sadrobot · v{__APP_VERSION__} · {t.printDisclaimer}</div>
         </div>
       </footer>
     </div>
