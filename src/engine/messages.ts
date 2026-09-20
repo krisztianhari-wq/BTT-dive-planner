@@ -23,6 +23,7 @@ export type MsgCode =
   | 'penDissimilar'
   | 'penStageRuleDiffers'
   | 'penDecoNoGas'
+  | 'penTimeOverGas'
   | 'recOverNdl'
   | 'recDepthLimit'
   | 'recGasShort';

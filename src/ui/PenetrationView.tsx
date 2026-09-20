@@ -17,7 +17,7 @@ interface Props {
 
 export interface PenState {
   agency: Agency; environment: Environment; flow: Flow;
-  avgDepth: number; maxDepth: number; swimSpeed: number; descentMinutes: number;
+  avgDepth: number; maxDepth: number; swimSpeed: number; descentMinutes: number; plannedMinutes: number;
   teamSize: number; sameForAll: boolean;
   shared: { cylIdx: number; startBar: number; sac: number };
   members: { name: string; cylIdx: number; startBar: number; sac: number }[];
@@ -30,7 +30,7 @@ export const S80_IDX = CYLINDERS.findIndex((c) => c.name.startsWith('AL80'));
 
 export const defaultPenState = (): PenState => ({
   agency: 'gue', environment: 'cave', flow: 'outflow',
-  avgDepth: 18, maxDepth: 24, swimSpeed: 15, descentMinutes: 1,
+  avgDepth: 18, maxDepth: 24, swimSpeed: 15, descentMinutes: 1, plannedMinutes: 20,
   teamSize: 2, sameForAll: true,
   shared: { cylIdx: 0, startBar: 200, sac: 18 },
   members: [1, 2, 3, 4].map((i) => ({ name: `B${i}`, cylIdx: 0, startBar: 200, sac: 18 })),
@@ -51,7 +51,7 @@ export function usePenetrationPlan(s: PenState, std: GasStandard, settings: Part
     const stages = s.stageCount > 0 ? [{ cylinder: CYLINDERS[s.stageCylIdx], gas: bottomGas, startBar: s.stageBar, count: s.stageCount }] : [];
     const input = {
       agency: s.agency, environment: s.environment, flow: s.flow, team, bottomGas, stages, stageRule: s.stageRule, stageReserveBar: s.stageReserveBar,
-      avgDepth: s.avgDepth, maxDepth: s.maxDepth, swimSpeedMpm: s.swimSpeed, descentMinutes: s.descentMinutes, decoGases, settings,
+      avgDepth: s.avgDepth, maxDepth: s.maxDepth, swimSpeedMpm: s.swimSpeed, descentMinutes: s.descentMinutes, plannedPenetrationMinutes: s.plannedMinutes, decoGases, settings,
     };
     const plan = team.length ? planPenetration(input) : null;
     const events: PenEvent[] = plan ? penetrationItinerary(input, plan) : [];
@@ -90,8 +90,12 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
             <div><label>{t.penMaxDepth(u)}</label><NumInput min={u.depthN(3)} max={u.depthN(60)} value={u.depthN(s.maxDepth)} onChange={(v) => set({ maxDepth: u.toM(v) })} /></div>
           </div>
           <div className="row">
-            <div><label>{t.penSwimSpeed(u)}</label><NumInput min={1} value={u.depthN(s.swimSpeed)} onChange={(v) => set({ swimSpeed: u.toM(v) })} /></div>
+            <div><label>{t.penPlannedTime}</label><NumInput min={0} max={300} value={s.plannedMinutes} onChange={(v) => set({ plannedMinutes: v })} /></div>
             <div><label>{t.penDescent}</label><NumInput min={0} max={30} value={s.descentMinutes} onChange={(v) => set({ descentMinutes: v })} /></div>
+          </div>
+          <div className="row">
+            <div><label>{t.penSwimSpeed(u)}</label><NumInput min={1} value={u.depthN(s.swimSpeed)} onChange={(v) => set({ swimSpeed: u.toM(v) })} /></div>
+            <div />
           </div>
           <label>{t.bottomGas}</label>
           <select value={s.bottomGasIdx} onChange={(e) => set({ bottomGasIdx: e.target.value === 'auto' ? 'auto' : +e.target.value })}>
@@ -179,6 +183,7 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
         <div className="kpis">
           <div className="kpi"><div className="v">{u.pressureN(limitingPlan.turnBar)}</div><div className="l">{t.penKpiTurn(u)}</div></div>
           <div className="kpi"><div className="v">{fmt(plan.penetrationMinutes)}</div><div className="l">{t.penKpiPenMin}</div></div>
+          <div className="kpi"><div className="v">{fmt(plan.maxPenetrationMinutes)}</div><div className="l">{t.penKpiMaxPen}</div></div>
           <div className="kpi"><div className="v">{u.depthN(plan.penetrationDistanceM)}</div><div className="l">{t.penKpiDistance(u)}</div></div>
           <div className="kpi"><div className="v">{fmt(plan.bottomTime)}</div><div className="l">{t.penKpiBottom}</div></div>
           <div className="kpi"><div className="v">{fmt(plan.deco.decoTime)}</div><div className="l">{t.decoTotal}</div></div>

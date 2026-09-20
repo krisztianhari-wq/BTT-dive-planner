@@ -404,3 +404,22 @@ describe('recreational planning', () => {
     expect(fine.turnBar).toBeGreaterThanOrEqual(50);
   });
 });
+
+describe('penetration planned time', () => {
+  const D12 = CYLINDERS[0];
+  const two = [{ id: 'a', name: 'A', cylinder: D12, startBar: 200, sacLpm: 18 }, { id: 'b', name: 'B', cylinder: D12, startBar: 200, sacLpm: 18 }];
+  const base = { agency: 'tdi' as const, environment: 'mine' as const, flow: 'none' as const, bottomGas: EAN32, stages: [], stageRule: 'thirds' as const, stageReserveBar: 15, avgDepth: 18, maxDepth: 24, swimSpeedMpm: 15, descentMinutes: 1, decoGases: [], team: two };
+  it('a shorter planned penetration is used as is; a longer one is capped and blocked', async () => {
+    const { planPenetration } = await import('../src/engine');
+    const byGas = planPenetration({ ...base });
+    const short = planPenetration({ ...base, plannedPenetrationMinutes: 10 });
+    expect(short.penetrationMinutes).toBeCloseTo(10, 5);
+    expect(short.maxPenetrationMinutes).toBeCloseTo(byGas.penetrationMinutes, 5);
+    expect(short.feasible).toBe(true);
+    expect(short.bottomTime).toBeLessThan(byGas.bottomTime);
+    const long = planPenetration({ ...base, plannedPenetrationMinutes: 200 });
+    expect(long.penetrationMinutes).toBeCloseTo(long.maxPenetrationMinutes, 5);
+    expect(long.blockers.some((b) => b.code === 'penTimeOverGas')).toBe(true);
+    expect(long.feasible).toBe(false);
+  });
+});

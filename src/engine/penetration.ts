@@ -48,6 +48,8 @@ export interface PenetrationInput {
   swimSpeedMpm: number;
   /** descent from the surface to the entrance, minutes (0 for a dry entry) */
   descentMinutes: number;
+  /** planned one-way penetration time, minutes; 0 / undefined = as far as the gas rule allows */
+  plannedPenetrationMinutes?: number;
   decoGases: DecoGasSpec[];
   settings?: Partial<PlanSettings>;
 }
@@ -111,8 +113,10 @@ export interface PenetrationPlan {
   /** the diver whose gas limits the team */
   limiting: TeamMember;
   stages: StagePlan[];
-  /** penetration time on stages + back gas, minutes (the team turns when the first diver hits turn pressure) */
+  /** penetration time actually planned (planned time capped by the gas rule), minutes */
   penetrationMinutes: number;
+  /** longest penetration the gas rule allows, minutes */
+  maxPenetrationMinutes: number;
   /** estimated one-way penetration distance, m */
   penetrationDistanceM: number;
   /** total time in the overhead (in + out + stage handling), minutes */
@@ -174,8 +178,15 @@ export function planPenetration(input: PenetrationInput): PenetrationPlan {
     const penetrationMinutes = usableL / (m.sacLpm * pAvg);
     return { member: m, totalLitres: total, penetrationLitres: usableL, turnBar, penetrationMinutes, exitRemainingLitres: 0, sharedExitRemainingLitres: 0 };
   });
-  const backGasMinutes = members.length ? Math.min(...members.map((x) => x.penetrationMinutes)) : 0;
-  const penetrationMinutes = stageMinutes + backGasMinutes;
+  const backGasMax = members.length ? Math.min(...members.map((x) => x.penetrationMinutes)) : 0;
+  const maxPenetrationMinutes = stageMinutes + backGasMax;
+  const planned = input.plannedPenetrationMinutes && input.plannedPenetrationMinutes > 0 ? input.plannedPenetrationMinutes : maxPenetrationMinutes;
+  const penetrationMinutes = Math.min(planned, maxPenetrationMinutes);
+  // a shorter planned penetration shortens the stage legs first, then the back-gas leg
+  let remaining = penetrationMinutes;
+  for (const st of stagePlans) { const m = Math.min(st.minutes, remaining); st.minutes = m; remaining -= m; }
+  const backGasMinutes = Math.max(0, remaining);
+  if (planned > maxPenetrationMinutes + 1e-9) blockers.push(msg('penTimeOverGas', { planned: Math.round(planned), max: Math.floor(maxPenetrationMinutes) }));
 
   // exit: same time back at the same pace; stages are picked up and breathed on the way out where they were dropped
   // (exit gas on back gas = back-gas penetration minutes × SAC; the stage covers its own leg on the way out)
@@ -216,7 +227,7 @@ export function planPenetration(input: PenetrationInput): PenetrationPlan {
   void totalStart;
 
   return {
-    rules, members, limiting, stages: stagePlans, penetrationMinutes, penetrationDistanceM, overheadMinutes, bottomTime, deco,
+    rules, members, limiting, stages: stagePlans, penetrationMinutes, maxPenetrationMinutes, penetrationDistanceM, overheadMinutes, bottomTime, deco,
     warnings, blockers, feasible: blockers.length === 0,
   };
 }

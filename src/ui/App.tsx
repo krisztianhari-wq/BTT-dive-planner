@@ -77,7 +77,7 @@ export function App() {
   const locale = lang === 'hu' ? 'hu-HU' : 'en-GB';
   const u = useMemo(() => makeUnits(unitSys, locale), [unitSys, locale]);
   const fmt = (v: number, d = 0) => v.toLocaleString(locale, { maximumFractionDigits: d, minimumFractionDigits: d });
-  const std = STANDARDS[stdId];
+  const std = STANDARDS[env === 'pen' ? (pen.agency === 'gue' ? 'gue' : 'generic') : stdId];
   const isGue = stdId === 'gue';
   const L = std.limits;
   const lastStopDepth = lastStop ?? std.lastStopDepth;
@@ -208,10 +208,11 @@ export function App() {
               <button className={mode === 'standard' ? 'on' : ''} onClick={() => setMode('standard')}>{t.modeStandard}</button>
               <button className={mode === 'inventory' ? 'on' : ''} onClick={() => setMode('inventory')}>{t.modeInventory}</button>
             </div>)}
+            {env === 'open' && (
             <div className="seg lang" role="radiogroup" aria-label={t.stdTitle} title={t.stdTitle}>
               <button className={isGue ? 'on' : ''} onClick={() => changeStandard('gue')}>{t.stdGue}</button>
               <button className={!isGue ? 'on' : ''} onClick={() => changeStandard('generic')}>{t.stdGeneric}</button>
-            </div>
+            </div>)}
             <div className="seg lang" role="radiogroup" aria-label={t.unitsTitle} title={t.unitsTitle}>
               <button className={unitSys === 'metric' ? 'on' : ''} onClick={() => setUnitSys('metric')}>m · bar</button>
               <button className={unitSys === 'imperial' ? 'on' : ''} onClick={() => setUnitSys('imperial')}>ft · psi</button>

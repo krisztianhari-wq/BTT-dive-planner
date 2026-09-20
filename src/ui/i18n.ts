@@ -43,6 +43,8 @@ const hu = {
   penMaxDepth: (u: Units) => `Max mélység (${u.d})`,
   penSwimSpeed: (u: Units) => `Úszási sebesség (${u.d}/perc)`,
   penDescent: 'Leszállás a bejáratig (perc)',
+  penPlannedTime: 'Tervezett penetráció (perc, 0 = gáz szerint)',
+  penKpiMaxPen: 'max penetráció gáz szerint (perc)',
   penTeam: 'Csapat',
   penTeamSize: 'Létszám',
   penSameForAll: 'Mindenkinél ugyanaz',
@@ -222,12 +224,13 @@ const hu = {
       case 'penDissimilar': return `Eltérő palackok a csapatban: a fordulónyomások ${p.diver} gázkészletéhez vannak illesztve, térfogat alapján.`;
       case 'penStageRuleDiffers': return `A ${p.agency} alapértelmezett stage-szabálya: ${p.rule === 'halfPlus' ? 'fél + tartalék' : 'harmadok'}.`;
       case 'penDecoNoGas': return `A terv ${p.deco} perc dekót ad, de nincs dekógáz megadva.`;
+      case 'penTimeOverGas': return `Ezt nem tudod megmerülni: a tervezett ${p.planned} perc penetrációhoz nincs elég gáz a szabály szerint, legfeljebb ${p.max} perc tervezhető.`;
       case 'recOverNdl': return `Ezt nem tudod dekó nélkül merülni: a nulla-dekó limit ${p.ndl} perc, a tervezett ${p.bottom} perc ${p.over} perccel túllépi.`;
       case 'recDepthLimit': return `A ${u.depth(n('depth'))} mélység meghaladja a rekreációs ${u.depth(n('limit'))} limitet.`;
       case 'recGasShort': return `Nem elég a gáz: ${u.pressure(n('reserve'))}-ral kell felszínre érni, ehhez ${u.pressure(n('short'))} (${u.volume(n('shortL'))}) hiányzik.`;
     }
   },
-  isBlocking: (m: Msg) => ['ppo2AboveMax', 'decoSwitchExceedsMod', 'backEndAboveLimit', 'gasShort', 'missingGas', 'noBackGas', 'stopTooLong', 'penNoTeam', 'penDepthLimit', 'penMinStartGas', 'penSharedExitShort', 'recOverNdl', 'recDepthLimit', 'recGasShort'].includes(m.code),
+  isBlocking: (m: Msg) => ['ppo2AboveMax', 'decoSwitchExceedsMod', 'backEndAboveLimit', 'gasShort', 'missingGas', 'noBackGas', 'stopTooLong', 'penNoTeam', 'penDepthLimit', 'penMinStartGas', 'penSharedExitShort', 'recOverNdl', 'recDepthLimit', 'recGasShort', 'penTimeOverGas'].includes(m.code),
 };
 
 export type Dict = typeof hu;
@@ -272,6 +275,8 @@ const en: Dict = {
   penMaxDepth: (u) => `Max depth (${u.d})`,
   penSwimSpeed: (u) => `Swim speed (${u.d}/min)`,
   penDescent: 'Descent to the entrance (min)',
+  penPlannedTime: 'Planned penetration (min, 0 = by gas)',
+  penKpiMaxPen: 'max penetration by gas (min)',
   penTeam: 'Team',
   penTeamSize: 'Team size',
   penSameForAll: 'Same for everyone',
@@ -451,6 +456,7 @@ const en: Dict = {
       case 'penDissimilar': return `Dissimilar cylinders in the team: turn pressures are matched to ${p.diver}'s supply by volume.`;
       case 'penStageRuleDiffers': return `${p.agency}'s default stage rule is ${p.rule === 'halfPlus' ? 'half + reserve' : 'thirds'}.`;
       case 'penDecoNoGas': return `The plan requires ${p.deco} min of deco but no deco gas is specified.`;
+      case 'penTimeOverGas': return `You cannot dive this: the gas rule does not cover a ${p.planned} min penetration, at most ${p.max} min can be planned.`;
       case 'recOverNdl': return `You cannot dive this without deco: the no-deco limit is ${p.ndl} min, the planned ${p.bottom} min exceeds it by ${p.over} min.`;
       case 'recDepthLimit': return `Depth ${u.depth(n('depth'))} exceeds the recreational ${u.depth(n('limit'))} limit.`;
       case 'recGasShort': return `Not enough gas: you must surface with ${u.pressure(n('reserve'))}, which is ${u.pressure(n('short'))} (${u.volume(n('shortL'))}) short.`;
