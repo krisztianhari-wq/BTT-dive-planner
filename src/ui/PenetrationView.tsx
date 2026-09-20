@@ -81,13 +81,22 @@ export function usePenetrationPlan(s: PenState, std: GasStandard, settings: Part
     const decoNames = new Set(decoGases.map((d) => gasName(d.gas)));
     const decoStages: DecoGasRequirement[] = plan ? decoGasRequirements(planConsumption(plan.deco, sac, sac), plan.decoGas).filter((d) => decoNames.has(d.name)) : [];
     const unusedDecoGases = decoGases.map((d) => gasName(d.gas)).filter((n) => !decoStages.some((d) => d.name === n));
-    return { input, plan, events, bottomGas, autoBottom: auto, stageTemplate, stageBar, suggestedStages, decoStages, unusedDecoGases, bottomList, stageList };
+    // what to bring, per diver: back cylinder(s) by gas, bottom stages, deco stages
+    const packing: { count: number; cylinder: string; gas: string; fillBar: number; role: 'back' | 'stage' | 'deco'; divers?: string }[] = [];
+    if (plan) {
+      const byGas = new Map<string, { names: string[]; bar: number }>();
+      for (const m of team) { const g = gasName(m.gas ?? bottomGas); const e = byGas.get(g) ?? { names: [], bar: 0 }; e.names.push(m.name); e.bar = Math.max(e.bar, m.startBar); byGas.set(g, e); }
+      for (const [g, e] of byGas) packing.push({ count: e.names.length, cylinder: cylinder.name, gas: g, fillBar: e.bar, role: 'back', divers: byGas.size > 1 ? e.names.join(', ') : undefined });
+      if (s.stageCount > 0) packing.push({ count: s.stageCount * team.length, cylinder: stageTemplate.cylinder.name, gas: gasName(stageTemplate.gas), fillBar: stageBar, role: 'stage' });
+      for (const d of decoStages) packing.push({ count: team.length, cylinder: d.suggestedCylinder.name, gas: d.name, fillBar: Math.ceil(d.barNeeded / 10) * 10, role: 'deco' });
+    }
+    return { input, plan, events, bottomGas, autoBottom: auto, stageTemplate, stageBar, suggestedStages, decoStages, unusedDecoGases, bottomList, stageList, packing, teamSize: team.length };
   }, [s, std, settings]);
 }
 
 export function PenetrationView({ t, u, lang, std, settings, side, state: s, setState }: Props) {
   const set = (patch: Partial<PenState>) => setState({ ...s, ...patch });
-  const { input, plan, events, autoBottom, stageBar, suggestedStages, decoStages, unusedDecoGases, bottomList, stageList } = usePenetrationPlan(s, std, settings);
+  const { input, plan, events, autoBottom, stageBar, suggestedStages, decoStages, unusedDecoGases, bottomList, stageList, packing, teamSize } = usePenetrationPlan(s, std, settings);
   const vol0 = (l: number) => (u.volumeN(l)).toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: u.sys === 'metric' ? 0 : 1 });
   const fmt = (v: number, d = 0) => v.toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: d, minimumFractionDigits: d });
   const vol = (l: number) => fmt(u.volumeN(l), u.sys === 'metric' ? 0 : 1);
@@ -293,6 +302,22 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
           )}
         </section>
       )}
+
+      <section className="panel pen">
+        <h2>{t.packing} · {t.penTeamSize.toLowerCase()} {teamSize}</h2>
+        <div className="pack">
+          {packing.map((p, i) => (
+            <div className="pack-item" key={i}>
+              <div className={`count ${p.role === 'back' ? '' : 'deco'}`}>{p.count}×</div>
+              <div>
+                <div className="t">{p.cylinder}</div>
+                <div className="s">{p.gas} · {p.role === 'back' ? t.roleBackShort : p.role === 'stage' ? t.penStageShort : t.roleDecoShort}{p.divers ? ` · ${p.divers}` : ''}{p.role === 'back' ? '' : ` · ${t.penPerTeam(teamSize)}`}</div>
+              </div>
+              <div className="fill">{u.pressure(p.fillBar)}<small>{p.role === 'back' ? t.startPressure(u) : t.minFill}</small></div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section className="panel pen">
         <h2>{t.stops}</h2>

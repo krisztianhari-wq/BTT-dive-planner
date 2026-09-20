@@ -67,9 +67,10 @@ export function RecPrintSheet({ t, u, lang, input, plan, events, cylinderName }:
 }
 
 /* ---------------- Penetration ---------------- */
-export function PenPrintSheet({ t, u, lang, input, plan, events, agencyLabel, envLabel, flowLabel, evText, decoStages }: {
+export function PenPrintSheet({ t, u, lang, input, plan, events, agencyLabel, envLabel, flowLabel, evText, packing }: {
   t: Dict; u: Units; lang: 'hu' | 'en'; input: PenetrationInput; plan: PenetrationPlan; events: PenEvent[];
   agencyLabel: string; envLabel: string; flowLabel: string; evText: (e: PenEvent) => string; decoStages?: DecoGasRequirement[];
+  packing?: { count: number; cylinder: string; gas: string; fillBar: number; role: 'back' | 'stage' | 'deco'; divers?: string }[];
 }) {
   const fmt = fmtFor(lang);
   const vol = (l: number) => fmt(u.volumeN(l), u.sys === 'metric' ? 0 : 1);
@@ -132,11 +133,13 @@ export function PenPrintSheet({ t, u, lang, input, plan, events, agencyLabel, en
         <p className="ps-note">{t.penDecoNote(u.depth(input.maxDepth))}</p>
       </section>
       <section className="ps-half">
-        <h3>{t.penTeam}</h3>
+        <h3>{t.packing} · {t.penTeamSize.toLowerCase()} {input.team.length}</h3>
+        <table>
+          <thead><tr><th className="num">#</th><th>{t.cylinder}</th><th>{t.gas}</th><th className="num">{t.minFill}</th></tr></thead>
+          <tbody>{(packing ?? []).map((p, i) => <tr key={i}><td className="num">{p.count}×</td><td>{p.cylinder.split(' (')[0]}</td><td>{p.gas} <small>({p.role === 'back' ? t.roleBackShort : p.role === 'stage' ? t.penStageShort : t.roleDecoShort}{p.divers ? `: ${p.divers}` : ''})</small></td><td className="num">{u.pressure(p.fillBar)}</td></tr>)}</tbody>
+        </table>
         <table className="kv"><tbody>
-          <tr><td>{t.penTeamSize}</td><td>{input.team.length} · {input.team[0]?.cylinder.name.split(' (')[0]}</td></tr>
           <tr><td>{t.penStages}</td><td>{input.stages.length ? `${input.stages[0].count} × ${input.stages[0].cylinder.name.split(' (')[0]} · ${input.stageRule === 'halfPlus' ? t.penRuleHalfPlus : t.penRuleThirds}` : '—'}</td></tr>
-          {(decoStages ?? []).map((d) => <tr key={d.name}><td>{t.penDecoStages}: {d.name}</td><td>{d.suggestedCylinder.name.split(' (')[0]} · {u.pressure(Math.ceil(d.barNeeded / 10) * 10)}</td></tr>)}
           <tr><td>{t.decoTotal}</td><td>{fmt(plan.deco.decoTime)}</td></tr>
           <tr><td>{t.runtime}</td><td>{fmt(plan.deco.runtime)}</td></tr>
         </tbody></table>
