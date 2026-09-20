@@ -393,5 +393,14 @@ describe('recreational planning', () => {
     expect(lowGas.blockers.some((b) => b.code === 'recGasShort')).toBe(true);
     expect(lowGas.rockBottomBar).toBeGreaterThan(0);
     expect(lowGas.runtime).toBeGreaterThan(15 + 3);
+    // surface reserve rule: a plan that would surface below 50 bar is blocked, one that surfaces above it passes
+    const single15 = CYLINDERS.find((c) => c.name.startsWith('Single 15'))!;
+    const tight = planRecreational({ maxDepth: 20, bottomTime: 40, gas: EAN32, cylinder: single15, startBar: 200, sacLpm: 20, gfHigh: 0.85 });
+    expect(tight.surfaceReserveBar).toBe(50);
+    expect(tight.gasOk).toBe(tight.surfaceBar >= 50 && tight.surfaceBar >= 0);
+    const fine = planRecreational({ maxDepth: 20, bottomTime: 25, gas: EAN32, cylinder: single15, startBar: 200, sacLpm: 20, gfHigh: 0.85 });
+    expect(fine.surfaceBar).toBeGreaterThanOrEqual(50);
+    expect(fine.gasOk).toBe(true);
+    expect(fine.turnBar).toBeGreaterThanOrEqual(50);
   });
 });

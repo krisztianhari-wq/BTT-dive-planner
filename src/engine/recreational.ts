@@ -22,6 +22,8 @@ export interface RecInput {
   safetyStopMinutes?: number;
   /** recreational depth limit, m */
   maxDepthLimit?: number;
+  /** pressure the diver must surface with, bar (default 50) */
+  surfaceReserveBar?: number;
 }
 
 export interface RecPlan {
@@ -39,8 +41,12 @@ export interface RecPlan {
   /** rock bottom reserve (2 divers, stressed SAC, 1 min problem solving, ascent, safety stop), litres and bar */
   rockBottomLitres: number;
   rockBottomBar: number;
-  /** pressure at which the dive must be turned/ended to keep rock bottom, bar */
+  /** pressure the diver must surface with, bar */
+  surfaceReserveBar: number;
+  /** latest pressure at which the ascent must start so that the diver surfaces with the reserve (and never below rock bottom), bar */
   turnBar: number;
+  /** pressure at the surface with the planned profile, bar */
+  surfaceBar: number;
   gasOk: boolean;
   /** bar missing when not ok */
   shortBar: number;
@@ -79,15 +85,19 @@ export function planRecreational(i: RecInput): RecPlan {
   const stressed = 20 * 2;
   const rockBottomLitres = stressed * (depthToAmbient(i.maxDepth) * 1 + avg(i.maxDepth, ssDepth) * a1 + depthToAmbient(ssDepth) * ssMin + avg(ssDepth, 0) * a2);
   const rockBottomBar = roundBar(rockBottomLitres / i.cylinder.volumeL);
-  const turnBar = rockBottomBar;
-  const availableBar = i.startBar - rockBottomBar;
-  const gasOk = gasUsedBar <= availableBar;
-  const shortBar = Math.max(0, gasUsedBar - availableBar);
-  if (!gasOk) blockers.push(msg('recGasShort', { short: Math.ceil(shortBar), shortL: Math.round(shortBar * i.cylinder.volumeL) }));
+  const surfaceReserveBar = i.surfaceReserveBar ?? 50;
+  // gas for the ascent + safety stop at the planned SAC
+  const ascentLitres = i.sacLpm * (avg(i.maxDepth, ssDepth) * a1 + depthToAmbient(ssDepth) * ssMin + avg(ssDepth, 0) * a2);
+  // start the ascent no later than: surface reserve + ascent gas, and never below rock bottom
+  const turnBar = Math.max(roundBar(surfaceReserveBar + ascentLitres / i.cylinder.volumeL), rockBottomBar);
+  const surfaceBar = i.startBar - gasUsedBar;
+  const gasOk = surfaceBar >= surfaceReserveBar && (i.startBar - (gasUsedLitres - ascentLitres) / i.cylinder.volumeL) >= turnBar;
+  const shortBar = Math.max(0, surfaceReserveBar - surfaceBar, turnBar - (i.startBar - (gasUsedLitres - ascentLitres) / i.cylinder.volumeL));
+  if (!gasOk) blockers.push(msg('recGasShort', { short: Math.ceil(shortBar), shortL: Math.round(shortBar * i.cylinder.volumeL), reserve: surfaceReserveBar }));
 
   return {
     ndlMinutes, maxBottomTime, feasible: blockers.length === 0, blockers, warnings,
     ascentMinutes, runtime: i.bottomTime + ascentMinutes, gasUsedLitres, gasUsedBar,
-    rockBottomLitres, rockBottomBar, turnBar, gasOk, shortBar,
+    rockBottomLitres, rockBottomBar, surfaceReserveBar, turnBar, surfaceBar, gasOk, shortBar,
   };
 }

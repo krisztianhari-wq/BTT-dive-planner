@@ -19,8 +19,11 @@ const hu = {
   recRockBottomDesc: '2 búvár × 20 l/min: 1 perc a mélységben, felszállás, biztonsági megálló',
   recGasUsed: 'A merülés gázigénye',
   recTurn: 'Legkésőbbi indulás felfelé ennél a nyomásnál',
+  recSurfaceWith: (bar: string) => `Felszínre érés ${bar}-ral`,
+  recSurfaceBar: 'Nyomás a felszínen a terv szerint',
+  recSurfaceKpi: (u: Units) => `felszínen (${u.p})`,
   recGasOk: 'Gáz elég?',
-  recNote: 'A rekreációs mód nem tervez dekompressziót: a fenékidőnek a nulla-dekó limiten belül kell maradnia, egyetlen gázzal, közvetlen felszállással.',
+  recNote: 'A rekreációs mód nem tervez dekompressziót: a fenékidőnek a nulla-dekó limiten belül kell maradnia, egyetlen gázzal, közvetlen felszállással, és 50 bar-ral kell felszínre érni.',
   envPen: 'Penetrációs',
   penEnvironment: 'Környezet',
   penType: 'Típus',
@@ -217,7 +220,7 @@ const hu = {
       case 'penDecoNoGas': return `A terv ${p.deco} perc dekót ad, de nincs dekógáz megadva.`;
       case 'recOverNdl': return `Ezt nem tudod dekó nélkül merülni: a nulla-dekó limit ${p.ndl} perc, a tervezett ${p.bottom} perc ${p.over} perccel túllépi.`;
       case 'recDepthLimit': return `A ${u.depth(n('depth'))} mélység meghaladja a rekreációs ${u.depth(n('limit'))} limitet.`;
-      case 'recGasShort': return `Nem elég a gáz a rock bottom tartalék megtartásával: ${u.pressure(n('short'))} (${u.volume(n('shortL'))}) hiányzik.`;
+      case 'recGasShort': return `Nem elég a gáz: ${u.pressure(n('reserve'))}-ral kell felszínre érni, ehhez ${u.pressure(n('short'))} (${u.volume(n('shortL'))}) hiányzik.`;
     }
   },
   isBlocking: (m: Msg) => ['ppo2AboveMax', 'decoSwitchExceedsMod', 'backEndAboveLimit', 'gasShort', 'missingGas', 'noBackGas', 'stopTooLong', 'penNoTeam', 'penDepthLimit', 'penMinStartGas', 'penSharedExitShort', 'recOverNdl', 'recDepthLimit', 'recGasShort'].includes(m.code),
@@ -241,8 +244,11 @@ const en: Dict = {
   recRockBottomDesc: '2 divers × 20 l/min: 1 min at depth, ascent, safety stop',
   recGasUsed: 'Gas needed for the dive',
   recTurn: 'Latest pressure to start the ascent',
+  recSurfaceWith: (bar) => `Surface with ${bar}`,
+  recSurfaceBar: 'Pressure at the surface with this plan',
+  recSurfaceKpi: (u) => `at the surface (${u.p})`,
   recGasOk: 'Enough gas?',
-  recNote: 'Recreational mode plans no decompression: bottom time must stay within the no-deco limit, single gas, direct ascent.',
+  recNote: 'Recreational mode plans no decompression: bottom time must stay within the no-deco limit, single gas, direct ascent, and you must surface with 50 bar.',
   envPen: 'Penetration',
   penEnvironment: 'Environment',
   penType: 'Type',
@@ -439,7 +445,7 @@ const en: Dict = {
       case 'penDecoNoGas': return `The plan requires ${p.deco} min of deco but no deco gas is specified.`;
       case 'recOverNdl': return `You cannot dive this without deco: the no-deco limit is ${p.ndl} min, the planned ${p.bottom} min exceeds it by ${p.over} min.`;
       case 'recDepthLimit': return `Depth ${u.depth(n('depth'))} exceeds the recreational ${u.depth(n('limit'))} limit.`;
-      case 'recGasShort': return `Not enough gas while keeping the rock-bottom reserve: ${u.pressure(n('short'))} (${u.volume(n('shortL'))}) short.`;
+      case 'recGasShort': return `Not enough gas: you must surface with ${u.pressure(n('reserve'))}, which is ${u.pressure(n('short'))} (${u.volume(n('shortL'))}) short.`;
     }
   },
   isBlocking: hu.isBlocking,

@@ -58,7 +58,8 @@ export function RecreationalView({ t, u, lang, gfHigh, side, state: s, setState 
           <div className="kpi"><div className="v">{plan.ndlMinutes >= 999 ? '∞' : plan.ndlMinutes}</div><div className="l">{t.recNdl}</div></div>
           <div className="kpi"><div className="v">{fmt(s.bottomTime)}</div><div className="l">{t.bottomTime}</div></div>
           <div className="kpi"><div className="v">{fmt(plan.runtime)}</div><div className="l">{t.runtime}</div></div>
-          <div className="kpi"><div className="v">{u.pressureN(plan.turnBar)}</div><div className="l">{t.recRockBottom} ({u.p})</div></div>
+          <div className="kpi"><div className="v">{u.pressureN(plan.turnBar)}</div><div className="l">{t.recTurn} ({u.p})</div></div>
+          <div className="kpi"><div className={`v ${plan.gasOk ? 'ok' : 'bad'}`}>{u.pressureN(plan.surfaceBar)}</div><div className="l">{t.recSurfaceKpi(u)}</div></div>
         </div>
         <div className="small">{t.recSafetyStop(u.depth(5), 3)}</div>
         {msgs.filter((m) => !m.bad).length > 0 && <ul className="warnings">{msgs.filter((m) => !m.bad).map((w, i) => <li key={i}>{w.text}</li>)}</ul>}
@@ -67,10 +68,11 @@ export function RecreationalView({ t, u, lang, gfHigh, side, state: s, setState 
         <h2>{t.gasPlan}</h2>
         <table>
           <tbody>
-            <tr><td>{t.recRockBottom}<div className="small">{t.recRockBottomDesc}</div></td><td className="num"><b>{u.pressure(plan.rockBottomBar)}</b> · {u.volume(plan.rockBottomLitres)}</td></tr>
+            <tr><td>{t.recSurfaceWith(u.pressure(plan.surfaceReserveBar))}</td><td className="num"><b>{u.pressure(plan.surfaceReserveBar)}</b></td></tr>
             <tr><td>{t.recGasUsed}</td><td className="num">{u.pressure(plan.gasUsedBar)} · {u.volume(plan.gasUsedLitres)}</td></tr>
-            <tr><td>{t.usableBackGas(cyl.name, s.startBar, u)}</td><td className="num">{u.pressure(s.startBar - plan.rockBottomBar)}</td></tr>
-            <tr><td>{t.recTurn}</td><td className="num">{u.pressure(plan.turnBar)}</td></tr>
+            <tr><td>{t.recSurfaceBar}</td><td className={`num ${plan.gasOk ? 'ok' : 'bad'}`}><b>{u.pressure(plan.surfaceBar)}</b></td></tr>
+            <tr><td>{t.recTurn}</td><td className="num"><b>{u.pressure(plan.turnBar)}</b></td></tr>
+            <tr><td>{t.recRockBottom}<div className="small">{t.recRockBottomDesc}</div></td><td className="num">{u.pressure(plan.rockBottomBar)} · {u.volume(plan.rockBottomLitres)}</td></tr>
             <tr><td>{t.recGasOk}</td><td className={`num ${plan.gasOk ? 'ok' : 'bad'}`}><b>{plan.gasOk ? t.yes : t.no}</b></td></tr>
           </tbody>
         </table>
