@@ -312,10 +312,10 @@ describe('penetration planning', () => {
     expect(siphon.warnings.some((w) => w.code === 'penSiphon')).toBe(true);
   });
 
-  it('GUE depth limit and minimum start gas are enforced as blockers', async () => {
+  it('GUE depth limit is flagged as unsupported, minimum start gas is a blocker', async () => {
     const { planPenetration } = await import('../src/engine');
     // beyond the agency depth limit: computed anyway, flagged as unsupported, not blocked
-    const deep = planPenetration({ ...base, team: two, maxDepth: 35 });
+    const deep = planPenetration({ ...base, team: two, maxDepth: 32 }); // EAN32 pO2 1.34 – only the depth rule applies
     expect(deep.unsupported).toBe(true);
     expect(deep.feasible).toBe(true);
     expect(deep.warnings.some((w) => w.code === 'penUnsupportedDepth')).toBe(true);
