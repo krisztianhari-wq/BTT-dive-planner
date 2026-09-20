@@ -465,3 +465,26 @@ describe('stages needed', () => {
     expect(stagesNeeded({ ...input, plannedPenetrationMinutes: 500 }, { cylinder: S80, gas: EAN32, startBar: 200 })).toBeNull();
   });
 });
+
+describe('penetration per-diver gases', () => {
+  it('checks each diver\'s gas and computes deco for the longest-deco gas', async () => {
+    const { planPenetration, gasName } = await import('../src/engine');
+    const D12 = CYLINDERS[0];
+    const base = { agency: 'tdi' as const, environment: 'cave' as const, flow: 'outflow' as const, bottomGas: EAN32, stages: [], stageRule: 'thirds' as const, stageReserveBar: 15, avgDepth: 28, maxDepth: 30, swimSpeedMpm: 15, descentMinutes: 1, decoGases: [], plannedPenetrationMinutes: 15 };
+    const mixed = planPenetration({ ...base, team: [
+      { id: 'a', name: 'A', cylinder: D12, startBar: 200, sacLpm: 18, gas: EAN32 },
+      { id: 'b', name: 'B', cylinder: D12, startBar: 200, sacLpm: 18, gas: AIR },
+    ] });
+    expect(gasName(mixed.decoGas)).toBe('Air'); // air loads more nitrogen → longer deco
+    const allNx = planPenetration({ ...base, team: [
+      { id: 'a', name: 'A', cylinder: D12, startBar: 200, sacLpm: 18, gas: EAN32 },
+      { id: 'b', name: 'B', cylinder: D12, startBar: 200, sacLpm: 18, gas: EAN32 },
+    ] });
+    expect(mixed.deco.decoTime).toBeGreaterThanOrEqual(allNx.deco.decoTime);
+    const hot = planPenetration({ ...base, maxDepth: 36, avgDepth: 34, team: [
+      { id: 'a', name: 'A', cylinder: D12, startBar: 200, sacLpm: 18, gas: AIR },
+      { id: 'b', name: 'B', cylinder: D12, startBar: 200, sacLpm: 18, gas: EAN32 },
+    ] });
+    expect(hot.blockers.some((b) => b.code === 'ppo2AboveMax' && b.params.gas === 'EAN32')).toBe(true); // 0.32 × 4.6 = 1.47
+  });
+});

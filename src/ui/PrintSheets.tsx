@@ -103,8 +103,8 @@ export function PenPrintSheet({ t, u, lang, input, plan, events, agencyLabel, en
       <section className="ps-span">
         <h3>{t.penGasMatching}</h3>
         <table>
-          <thead><tr><th>{t.penDiver}</th><th>{t.cylinder}</th><th className="num">{t.penStart(u)}</th><th className="num">{t.penTurn(u)}</th><th className="num">{t.penPenGas(u)}</th><th className="num">{t.penExitLeft(u)}</th><th className="num">{t.penSharedLeft(u)}</th></tr></thead>
-          <tbody>{plan.members.map((m) => <tr key={m.member.id}><td>{m.member.name}{m.member.id === plan.limiting.id ? ` (${t.penLimiting})` : ''}</td><td>{m.member.cylinder.name.split(' (')[0]}</td><td className="num">{u.pressureN(m.member.startBar)}</td><td className="num"><b>{u.pressureN(m.turnBar)}</b></td><td className="num">{vol(m.penetrationLitres)}</td><td className="num">{vol(m.exitRemainingLitres)}</td><td className={`num ${m.sharedExitRemainingLitres < 0 ? 'bad' : ''}`}>{vol(m.sharedExitRemainingLitres)}</td></tr>)}</tbody>
+          <thead><tr><th>{t.penDiver}</th><th>{t.gas}</th><th className="num">{t.penStart(u)}</th><th className="num">{t.penTurn(u)}</th><th className="num">{t.penPenGas(u)}</th><th className="num">{t.penExitLeft(u)}</th><th className="num">{t.penSharedLeft(u)}</th></tr></thead>
+          <tbody>{plan.members.map((m) => <tr key={m.member.id}><td>{m.member.name}{m.member.id === plan.limiting.id ? ` (${t.penLimiting})` : ''}</td><td>{gasName(m.member.gas ?? input.bottomGas)}</td><td className="num">{u.pressureN(m.member.startBar)}</td><td className="num"><b>{u.pressureN(m.turnBar)}</b></td><td className="num">{vol(m.penetrationLitres)}</td><td className="num">{vol(m.exitRemainingLitres)}</td><td className={`num ${m.sharedExitRemainingLitres < 0 ? 'bad' : ''}`}>{vol(m.sharedExitRemainingLitres)}</td></tr>)}</tbody>
         </table>
       </section>
       {plan.stages.length > 0 && (
@@ -134,7 +134,7 @@ export function PenPrintSheet({ t, u, lang, input, plan, events, agencyLabel, en
       <section className="ps-half">
         <h3>{t.penTeam}</h3>
         <table className="kv"><tbody>
-          <tr><td>{t.penTeamSize}</td><td>{input.team.length}</td></tr>
+          <tr><td>{t.penTeamSize}</td><td>{input.team.length} · {input.team[0]?.cylinder.name.split(' (')[0]}</td></tr>
           <tr><td>{t.penStages}</td><td>{input.stages.length ? `${input.stages[0].count} × ${input.stages[0].cylinder.name.split(' (')[0]} · ${input.stageRule === 'halfPlus' ? t.penRuleHalfPlus : t.penRuleThirds}` : '—'}</td></tr>
           {(decoStages ?? []).map((d) => <tr key={d.name}><td>{t.penDecoStages}: {d.name}</td><td>{d.suggestedCylinder.name.split(' (')[0]} · {u.pressure(Math.ceil(d.barNeeded / 10) * 10)}</td></tr>)}
           <tr><td>{t.decoTotal}</td><td>{fmt(plan.deco.decoTime)}</td></tr>

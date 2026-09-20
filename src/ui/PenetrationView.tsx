@@ -20,7 +20,7 @@ export interface PenState {
   avgDepth: number; maxDepth: number; swimSpeed: number; descentMinutes: number; plannedMinutes: number; brave: boolean;
   teamSize: number; sameForAll: boolean;
   shared: { cylIdx: number; startBar: number; sac: number };
-  members: { name: string; cylIdx: number; startBar: number; sac: number }[];
+  members: { name: string; gasIdx: number | 'team'; startBar: number; sac: number }[];
   bottomGasIdx: number | 'auto';
   stageCount: number; stageCylIdx: number; stageBar: number | null; stageRule: StageRule; stageReserveBar: number; stageGasIdx: number | 'bottom';
   decoOn: Record<string, boolean>;
@@ -33,7 +33,7 @@ export const defaultPenState = (): PenState => ({
   avgDepth: 18, maxDepth: 24, swimSpeed: 15, descentMinutes: 1, plannedMinutes: 20, brave: false,
   teamSize: 2, sameForAll: true,
   shared: { cylIdx: 0, startBar: 200, sac: 18 },
-  members: [1, 2, 3, 4].map((i) => ({ name: `B${i}`, cylIdx: 0, startBar: 200, sac: 18 })),
+  members: [1, 2, 3, 4].map((i) => ({ name: `B${i}`, gasIdx: 'team' as const, startBar: 200, sac: 18 })),
   bottomGasIdx: 'auto',
   stageCount: 0, stageCylIdx: S80_IDX, stageBar: null, stageRule: 'halfPlus', stageReserveBar: 15, stageGasIdx: 'bottom',
   decoOn: {},
@@ -53,13 +53,16 @@ export function penStageGases(std: GasStandard): Gas[] {
 
 export function usePenetrationPlan(s: PenState, std: GasStandard, settings: Partial<PlanSettings>) {
   return useMemo(() => {
-    const team: TeamMember[] = Array.from({ length: s.teamSize }, (_, i) => {
-      const m = s.sameForAll ? { name: `B${i + 1}`, ...s.shared } : s.members[i];
-      return { id: String(i), name: m.name, cylinder: CYLINDERS[m.cylIdx], startBar: m.startBar, sacLpm: m.sac };
-    });
     const auto = std.bottomGasFor(s.maxDepth);
     const bottomList = penBottomGases(std);
     const bottomGas: Gas = s.bottomGasIdx === 'auto' || !bottomList[s.bottomGasIdx] ? (auto?.gas ?? bottomList[0].gas) : bottomList[s.bottomGasIdx].gas;
+    const cylinder = CYLINDERS[s.shared.cylIdx] ?? CYLINDERS[0]; // one cylinder type for the whole team; divers differ by gas, pressure and SAC
+    const team: TeamMember[] = Array.from({ length: s.teamSize }, (_, i) => {
+      if (s.sameForAll) return { id: String(i), name: `B${i + 1}`, cylinder, startBar: s.shared.startBar, sacLpm: s.shared.sac };
+      const m = s.members[i];
+      const g = typeof m.gasIdx === 'number' && bottomList[m.gasIdx] ? bottomList[m.gasIdx].gas : bottomGas;
+      return { id: String(i), name: m.name, cylinder, startBar: m.startBar, sacLpm: m.sac, gas: g };
+    });
     const decoGases: DecoGasSpec[] = std.decoGases.filter((d) => s.decoOn[d.gas.name!]).map((d) => ({ gas: d.gas, switchDepth: d.switchDepth }));
     const stageList = penStageGases(std);
     const stageGas: Gas = typeof s.stageGasIdx === 'number' && stageList[s.stageGasIdx] ? stageList[s.stageGasIdx] : bottomGas;
@@ -144,10 +147,10 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
                 <button style={{ flex: 1 }} className={!s.sameForAll ? 'on' : ''} onClick={() => set({ sameForAll: false })}>{t.no}</button>
               </div></div>
           </div>
+          <label>{t.backCylinder}</label>
+          <select value={s.shared.cylIdx} onChange={(e) => set({ shared: { ...s.shared, cylIdx: +e.target.value } })}>{CYLINDERS.map((c, i) => <option key={c.name} value={i}>{c.name}</option>)}</select>
           {s.sameForAll ? (
             <>
-              <label>{t.backCylinder}</label>
-              <select value={s.shared.cylIdx} onChange={(e) => set({ shared: { ...s.shared, cylIdx: +e.target.value } })}>{CYLINDERS.map((c, i) => <option key={c.name} value={i}>{c.name}</option>)}</select>
               <div className="row">
                 <div><label>{t.startPressure(u)}</label><NumInput min={0} value={u.pressureN(s.shared.startBar)} onChange={(v) => set({ shared: { ...s.shared, startBar: u.toBar(v) } })} /></div>
                 <div><label>{t.penSac(u)}</label><NumInput min={0} step={u.sacStep} decimals={u.sys === 'metric' ? 0 : 2} value={u.sacN(s.shared.sac)} onChange={(v) => set({ shared: { ...s.shared, sac: u.toLpm(v) } })} /></div>
@@ -157,8 +160,11 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
             Array.from({ length: s.teamSize }, (_, i) => s.members[i]).map((m, i) => (
               <div className="inv-row pen" key={i}>
                 <div className="full"><label>{t.penDiver} {i + 1}</label><input value={m.name} onChange={(e) => { const ms = [...s.members]; ms[i] = { ...m, name: e.target.value }; set({ members: ms }); }} /></div>
-                <div className="full"><label>{t.backCylinder}</label>
-                  <select value={m.cylIdx} onChange={(e) => { const ms = [...s.members]; ms[i] = { ...m, cylIdx: +e.target.value }; set({ members: ms }); }}>{CYLINDERS.map((c, j) => <option key={c.name} value={j}>{c.name}</option>)}</select></div>
+                <div className="full"><label>{t.bottomGas}</label>
+                  <select value={m.gasIdx} onChange={(e) => { const ms = [...s.members]; ms[i] = { ...m, gasIdx: e.target.value === 'team' ? 'team' : +e.target.value }; set({ members: ms }); }}>
+                    <option value="team">{t.penGasTeam}</option>
+                    {bottomList.map((g, j) => <option key={g.gas.name} value={j}>{g.gas.name}</option>)}
+                  </select></div>
                 <div><label>{t.startPressure(u)}</label><NumInput min={0} value={u.pressureN(m.startBar)} onChange={(v) => { const ms = [...s.members]; ms[i] = { ...m, startBar: u.toBar(v) }; set({ members: ms }); }} /></div>
                 <div><label>{t.penSac(u)}</label><NumInput min={0} step={u.sacStep} decimals={u.sys === 'metric' ? 0 : 2} value={u.sacN(m.sac)} onChange={(v) => { const ms = [...s.members]; ms[i] = { ...m, sac: u.toLpm(v) }; set({ members: ms }); }} /></div>
               </div>
@@ -245,12 +251,12 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
       <section className="panel pen">
         <h2>{t.penGasMatching}</h2>
         <table>
-          <thead><tr><th>{t.penDiver}</th><th>{t.cylinder}</th><th className="num">{t.penStart(u)}</th><th className="num">{t.penTurn(u)}</th><th className="num">{t.penPenGas(u)}</th><th className="num">{t.penExitLeft(u)}</th><th className="num">{t.penSharedLeft(u)}</th></tr></thead>
+          <thead><tr><th>{t.penDiver}</th><th>{t.gas}</th><th className="num">{t.penStart(u)}</th><th className="num">{t.penTurn(u)}</th><th className="num">{t.penPenGas(u)}</th><th className="num">{t.penExitLeft(u)}</th><th className="num">{t.penSharedLeft(u)}</th></tr></thead>
           <tbody>
             {plan.members.map((m) => (
               <tr key={m.member.id}>
                 <td>{m.member.name}{m.member.id === plan.limiting.id ? <span className="tag pen" style={{ marginLeft: 6 }}>{t.penLimiting}</span> : null}</td>
-                <td>{m.member.cylinder.name.split(' (')[0]}</td>
+                <td>{gasName(m.member.gas ?? input.bottomGas)}</td>
                 <td className="num">{u.pressureN(m.member.startBar)}</td>
                 <td className="num"><b>{u.pressureN(m.turnBar)}</b></td>
                 <td className="num">{vol(m.penetrationLitres)}</td>
@@ -260,7 +266,7 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
             ))}
           </tbody>
         </table>
-        <div className="small" style={{ marginTop: 8 }}>{t.penMatchingNote}</div>
+        <div className="small" style={{ marginTop: 8 }}>{t.penMatchingNote} {t.penDecoGasNote(gasName(plan.decoGas), plan.members[0].member.cylinder.name.split(' (')[0])}</div>
       </section>
 
       {plan.stages.length > 0 && (

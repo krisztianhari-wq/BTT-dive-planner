@@ -20,6 +20,8 @@ export interface TeamMember {
   cylinder: Cylinder;
   startBar: number;
   sacLpm: number;
+  /** this diver's bottom gas; defaults to the team bottom gas */
+  gas?: Gas;
 }
 
 export interface StageSpec {
@@ -130,7 +132,8 @@ export interface PenetrationPlan {
   /** total bottom time used for deco (descent + overhead), minutes */
   bottomTime: number;
   deco: DivePlan;
-  /** deco gas volumes needed, litres, by gas name */
+  /** the bottom gas the deco schedule was computed for (the team member's gas with the longest deco) */
+  decoGas: Gas;
   warnings: Msg[];
   blockers: Msg[];
   feasible: boolean;
@@ -224,8 +227,16 @@ export function planPenetration(input: PenetrationInput): PenetrationPlan {
   const bottomTime = input.descentMinutes + overheadMinutes;
   const penetrationDistanceM = penetrationMinutes * input.swimSpeedMpm;
 
-  // ---- deco for the whole exposure, conservatively at max depth ----
-  const deco = planDive({ maxDepth: input.maxDepth, bottomTime: Math.max(bottomTime, 1), bottomGas: input.bottomGas, decoGases: input.decoGases, settings: input.settings });
+  // ---- deco for the whole exposure, conservatively at max depth, for the team member's gas with the longest deco ----
+  const memberGases: Gas[] = [];
+  for (const m of team) { const g = m.gas ?? input.bottomGas; if (!memberGases.some((x) => gasName(x) === gasName(g))) memberGases.push(g); }
+  if (memberGases.length === 0) memberGases.push(input.bottomGas);
+  let deco = planDive({ maxDepth: input.maxDepth, bottomTime: Math.max(bottomTime, 1), bottomGas: memberGases[0], decoGases: input.decoGases, settings: input.settings });
+  let decoGas = memberGases[0];
+  for (const g of memberGases.slice(1)) {
+    const d = planDive({ maxDepth: input.maxDepth, bottomTime: Math.max(bottomTime, 1), bottomGas: g, decoGases: input.decoGases, settings: input.settings });
+    if (d.decoTime > deco.decoTime) { deco = d; decoGas = g; }
+  }
 
   // ---- checks ----
   const unsupported = input.maxDepth > rules.maxDepthM;
@@ -233,11 +244,13 @@ export function planPenetration(input: PenetrationInput): PenetrationPlan {
   const totalStart = totals.reduce((a, b) => a + b, 0) / Math.max(team.length, 1);
   if (rules.minStartLitres && team.some((m) => m.cylinder.volumeL * m.startBar < rules.minStartLitres)) blockers.push(msg('penMinStartGas', { min: rules.minStartLitres, have: Math.round(Math.min(...totals)) }));
   for (const x of members) if (x.sharedExitRemainingLitres < 0) blockers.push(msg('penSharedExitShort', { diver: x.member.name, short: Math.round(-x.sharedExitRemainingLitres) }));
-  const p = ppO2(input.bottomGas, input.maxDepth);
-  if (p > 1.4) blockers.push(msg('ppo2AboveMax', { gas: gasName(input.bottomGas), ppo2: p.toFixed(2), depth: input.maxDepth, mod: '', limit: 1.4 }));
-  else if (p > 1.2) warnings.push(msg('ppo2AboveWorking', { gas: gasName(input.bottomGas), ppo2: p.toFixed(2), limit: 1.2 }));
-  const e = end(input.bottomGas, input.maxDepth);
-  if (e > 30) warnings.push(msg('endHigh', { gas: gasName(input.bottomGas), end: e.toFixed(0), limit: 30 }));
+  for (const g of memberGases) {
+    const p = ppO2(g, input.maxDepth);
+    if (p > 1.4) blockers.push(msg('ppo2AboveMax', { gas: gasName(g), ppo2: p.toFixed(2), depth: input.maxDepth, mod: '', limit: 1.4 }));
+    else if (p > 1.2) warnings.push(msg('ppo2AboveWorking', { gas: gasName(g), ppo2: p.toFixed(2), limit: 1.2 }));
+    const e = end(g, input.maxDepth);
+    if (e > 30) warnings.push(msg('endHigh', { gas: gasName(g), end: e.toFixed(0), limit: 30 }));
+  }
   if (input.flow === 'siphon') warnings.push(msg('penSiphon'));
   const vols = new Set(team.map((m) => m.cylinder.volumeL));
   if (vols.size > 1) warnings.push(msg('penDissimilar', { diver: limiting.name }));
@@ -246,7 +259,7 @@ export function planPenetration(input: PenetrationInput): PenetrationPlan {
   void totalStart;
 
   return {
-    rules, members, limiting, stages: stagePlans, penetrationMinutes, maxPenetrationMinutes, overridden, unsupported, penetrationDistanceM, overheadMinutes, bottomTime, deco,
+    rules, members, limiting, stages: stagePlans, penetrationMinutes, maxPenetrationMinutes, overridden, unsupported, penetrationDistanceM, overheadMinutes, bottomTime, deco, decoGas,
     warnings, blockers, feasible: blockers.length === 0,
   };
 }
