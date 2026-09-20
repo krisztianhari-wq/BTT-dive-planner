@@ -200,6 +200,17 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
             <option value="bottom">{t.penStageGasBottom}</option>
             {stageList.map((g, i) => <option key={gasName(g)} value={i}>{gasName(g)}</option>)}
           </select>
+          <label>{t.penStagesCarried}</label>
+          {(s.stageCount === 0 && decoStages.length === 0) ? <div className="small">{t.penNoStages}</div> : (
+            <table>
+              <thead><tr><th className="num">#</th><th>{t.cylinder}</th><th>{t.gas}</th><th className="num">{t.minFill}</th><th>{t.role}</th></tr></thead>
+              <tbody>
+                {s.stageCount > 0 && <tr><td className="num">{s.stageCount}×</td><td>{(CYLINDERS[s.stageCylIdx] ?? CYLINDERS[S80_IDX]).name.split(' (')[0]}</td><td>{gasName(input.stages[0]?.gas ?? input.bottomGas)}</td><td className="num">{u.pressure(stageBar)}</td><td>{t.penStageShort}</td></tr>}
+                {decoStages.map((d) => <tr key={d.name}><td className="num">1×</td><td>{d.suggestedCylinder.name.split(' (')[0]}</td><td>{d.name}</td><td className="num">{u.pressure(Math.ceil(d.barNeeded / 10) * 10)}</td><td>{t.roleDecoShort}</td></tr>)}
+                {unusedDecoGases.map((n) => <tr key={n} className="muted"><td className="num">–</td><td colSpan={4} className="small">{n}: {t.penDecoNotNeeded}</td></tr>)}
+              </tbody>
+            </table>
+          )}
           <div className="small" style={{ marginTop: 8 }}>{t.penStageNote}</div>
         </section>
       </>
