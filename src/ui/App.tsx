@@ -199,7 +199,7 @@ export function App() {
           </div>
           <div className="controls">
             <div className="seg env" role="tablist">
-              <button className={env === 'rec' ? 'on rec' : ''} onClick={() => setEnv('rec')}>🐠 {t.envRec}</button>
+              <button className={env === 'rec' ? 'on rec' : ''} onClick={() => setEnv('rec')}>🐰 {t.envRec}</button>
               <button className={env === 'open' ? 'on' : ''} onClick={() => setEnv('open')}>🌊 {t.envOpen}</button>
               <button className={env === 'pen' ? 'on pen' : ''} onClick={() => setEnv('pen')}>⛰ {t.envPen}</button>
             </div>
