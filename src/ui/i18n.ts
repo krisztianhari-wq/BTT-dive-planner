@@ -44,6 +44,10 @@ const hu = {
   penSwimSpeed: (u: Units) => `Úszási sebesség (${u.d}/perc)`,
   penDescent: 'Leszállás a bejáratig (perc)',
   penPlannedTime: 'Tervezett penetráció (perc, 0 = gáz szerint)',
+  penBrave: 'Bátor vagyok – számold ki így is',
+  penBraveConfirm: 'A terv túllépi a gázkezelési szabályt (harmadok / hatodok). A szabályon kívüli tervnél a tartalék nem fedezi a társ ellátását a kijövetelnél. Megerősíted, hogy ennek tudatában, saját felelősségre kéred a számítást?',
+  penBraveActive: 'Szabályon kívüli terv – „bátor vagyok” jóváhagyva',
+  penBraveRevert: 'Vissza a szabályokhoz',
   penKpiMaxPen: 'max penetráció gáz szerint (perc)',
   penTeam: 'Csapat',
   penTeamSize: 'Létszám',
@@ -225,6 +229,7 @@ const hu = {
       case 'penStageRuleDiffers': return `A ${p.agency} alapértelmezett stage-szabálya: ${p.rule === 'halfPlus' ? 'fél + tartalék' : 'harmadok'}.`;
       case 'penDecoNoGas': return `A terv ${p.deco} perc dekót ad, de nincs dekógáz megadva.`;
       case 'penTimeOverGas': return `Ezt nem tudod megmerülni: a tervezett ${p.planned} perc penetrációhoz nincs elég gáz a szabály szerint, legfeljebb ${p.max} perc tervezhető.`;
+      case 'penOverrideActive': return `SZABÁLYON KÍVÜLI TERV: a ${p.rule} szabály legfeljebb ${p.max} percet engedne, a terv ${p.planned} perccel számol. A tartalék nem fedez gázosztásos kijövetelt.`;
       case 'recOverNdl': return `Ezt nem tudod dekó nélkül merülni: a nulla-dekó limit ${p.ndl} perc, a tervezett ${p.bottom} perc ${p.over} perccel túllépi.`;
       case 'recDepthLimit': return `A ${u.depth(n('depth'))} mélység meghaladja a rekreációs ${u.depth(n('limit'))} limitet.`;
       case 'recGasShort': return `Nem elég a gáz: ${u.pressure(n('reserve'))}-ral kell felszínre érni, ehhez ${u.pressure(n('short'))} (${u.volume(n('shortL'))}) hiányzik.`;
@@ -276,6 +281,10 @@ const en: Dict = {
   penSwimSpeed: (u) => `Swim speed (${u.d}/min)`,
   penDescent: 'Descent to the entrance (min)',
   penPlannedTime: 'Planned penetration (min, 0 = by gas)',
+  penBrave: 'I am brave – calculate it anyway',
+  penBraveConfirm: 'The plan exceeds the gas management rule (thirds / sixths). Outside the rule the reserve does not cover supporting a team mate on the exit. Do you confirm that you request this calculation knowingly and at your own risk?',
+  penBraveActive: 'Plan outside the rules – "I am brave" accepted',
+  penBraveRevert: 'Back to the rules',
   penKpiMaxPen: 'max penetration by gas (min)',
   penTeam: 'Team',
   penTeamSize: 'Team size',
@@ -457,6 +466,7 @@ const en: Dict = {
       case 'penStageRuleDiffers': return `${p.agency}'s default stage rule is ${p.rule === 'halfPlus' ? 'half + reserve' : 'thirds'}.`;
       case 'penDecoNoGas': return `The plan requires ${p.deco} min of deco but no deco gas is specified.`;
       case 'penTimeOverGas': return `You cannot dive this: the gas rule does not cover a ${p.planned} min penetration, at most ${p.max} min can be planned.`;
+      case 'penOverrideActive': return `PLAN OUTSIDE THE RULES: the ${p.rule} rule allows at most ${p.max} min, this plan uses ${p.planned} min. The reserve does not cover a gas-sharing exit.`;
       case 'recOverNdl': return `You cannot dive this without deco: the no-deco limit is ${p.ndl} min, the planned ${p.bottom} min exceeds it by ${p.over} min.`;
       case 'recDepthLimit': return `Depth ${u.depth(n('depth'))} exceeds the recreational ${u.depth(n('limit'))} limit.`;
       case 'recGasShort': return `Not enough gas: you must surface with ${u.pressure(n('reserve'))}, which is ${u.pressure(n('short'))} (${u.volume(n('shortL'))}) short.`;

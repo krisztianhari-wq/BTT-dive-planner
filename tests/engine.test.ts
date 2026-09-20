@@ -423,3 +423,23 @@ describe('penetration planned time', () => {
     expect(long.feasible).toBe(false);
   });
 });
+
+describe('penetration "I am brave" override', () => {
+  it('plans the full time outside the rule, flags it, and shows real turn pressures', async () => {
+    const { planPenetration } = await import('../src/engine');
+    const D12 = CYLINDERS[0];
+    const two = [{ id: 'a', name: 'A', cylinder: D12, startBar: 200, sacLpm: 18 }, { id: 'b', name: 'B', cylinder: D12, startBar: 200, sacLpm: 18 }];
+    const base = { agency: 'tdi' as const, environment: 'cave' as const, flow: 'outflow' as const, bottomGas: EAN32, stages: [], stageRule: 'thirds' as const, stageReserveBar: 15, avgDepth: 18, maxDepth: 24, swimSpeedMpm: 15, descentMinutes: 1, decoGases: [], team: two, plannedPenetrationMinutes: 45 };
+    const blocked = planPenetration(base);
+    expect(blocked.feasible).toBe(false); expect(blocked.overridden).toBe(false);
+    const brave = planPenetration({ ...base, overrideGasRule: true });
+    expect(brave.overridden).toBe(true);
+    expect(brave.penetrationMinutes).toBeCloseTo(45, 5);
+    expect(brave.blockers.some((b) => b.code === 'penTimeOverGas')).toBe(false);
+    expect(brave.warnings.some((w) => w.code === 'penOverrideActive')).toBe(true);
+    // 45 min × 18 l/min × 2.8 bar ≈ 2268 L → turn at ~105 bar, well inside the rule's 140
+    expect(brave.members[0].turnBar).toBeLessThan(140);
+    expect(brave.members[0].sharedExitRemainingLitres).toBeLessThan(0); // reality: no gas to share
+    expect(brave.feasible).toBe(false); // shared-exit blocker stays honest
+  });
+});

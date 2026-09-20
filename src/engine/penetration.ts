@@ -50,6 +50,8 @@ export interface PenetrationInput {
   descentMinutes: number;
   /** planned one-way penetration time, minutes; 0 / undefined = as far as the gas rule allows */
   plannedPenetrationMinutes?: number;
+  /** "I am brave": plan the full planned time even beyond the gas rule; results are flagged as outside the rules */
+  overrideGasRule?: boolean;
   decoGases: DecoGasSpec[];
   settings?: Partial<PlanSettings>;
 }
@@ -117,6 +119,8 @@ export interface PenetrationPlan {
   penetrationMinutes: number;
   /** longest penetration the gas rule allows, minutes */
   maxPenetrationMinutes: number;
+  /** the plan exceeds the gas rule and the user explicitly accepted it */
+  overridden: boolean;
   /** estimated one-way penetration distance, m */
   penetrationDistanceM: number;
   /** total time in the overhead (in + out + stage handling), minutes */
@@ -181,12 +185,24 @@ export function planPenetration(input: PenetrationInput): PenetrationPlan {
   const backGasMax = members.length ? Math.min(...members.map((x) => x.penetrationMinutes)) : 0;
   const maxPenetrationMinutes = stageMinutes + backGasMax;
   const planned = input.plannedPenetrationMinutes && input.plannedPenetrationMinutes > 0 ? input.plannedPenetrationMinutes : maxPenetrationMinutes;
-  const penetrationMinutes = Math.min(planned, maxPenetrationMinutes);
+  const overRule = planned > maxPenetrationMinutes + 1e-9;
+  const overridden = overRule && !!input.overrideGasRule;
+  const penetrationMinutes = overridden ? planned : Math.min(planned, maxPenetrationMinutes);
   // a shorter planned penetration shortens the stage legs first, then the back-gas leg
   let remaining = penetrationMinutes;
   for (const st of stagePlans) { const m = Math.min(st.minutes, remaining); st.minutes = m; remaining -= m; }
   const backGasMinutes = Math.max(0, remaining);
-  if (planned > maxPenetrationMinutes + 1e-9) blockers.push(msg('penTimeOverGas', { planned: Math.round(planned), max: Math.floor(maxPenetrationMinutes) }));
+  if (overRule && !overridden) blockers.push(msg('penTimeOverGas', { planned: Math.round(planned), max: Math.floor(maxPenetrationMinutes) }));
+  if (overridden) {
+    warnings.push(msg('penOverrideActive', { planned: Math.round(planned), max: Math.floor(maxPenetrationMinutes), rule: rules.fractionLabel }));
+    // real turn pressures for the planned time (outside the rule)
+    for (const x of members) {
+      const usedL = backGasMinutes * x.member.sacLpm * pAvg;
+      x.penetrationLitres = usedL;
+      x.turnBar = Math.max(0, ceilTo(x.member.startBar - usedL / x.member.cylinder.volumeL, rules.roundBar));
+      x.penetrationMinutes = backGasMinutes;
+    }
+  }
 
   // exit: same time back at the same pace; stages are picked up and breathed on the way out where they were dropped
   // (exit gas on back gas = back-gas penetration minutes × SAC; the stage covers its own leg on the way out)
@@ -227,7 +243,7 @@ export function planPenetration(input: PenetrationInput): PenetrationPlan {
   void totalStart;
 
   return {
-    rules, members, limiting, stages: stagePlans, penetrationMinutes, maxPenetrationMinutes, penetrationDistanceM, overheadMinutes, bottomTime, deco,
+    rules, members, limiting, stages: stagePlans, penetrationMinutes, maxPenetrationMinutes, overridden, penetrationDistanceM, overheadMinutes, bottomTime, deco,
     warnings, blockers, feasible: blockers.length === 0,
   };
 }

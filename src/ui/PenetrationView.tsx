@@ -17,7 +17,7 @@ interface Props {
 
 export interface PenState {
   agency: Agency; environment: Environment; flow: Flow;
-  avgDepth: number; maxDepth: number; swimSpeed: number; descentMinutes: number; plannedMinutes: number;
+  avgDepth: number; maxDepth: number; swimSpeed: number; descentMinutes: number; plannedMinutes: number; brave: boolean;
   teamSize: number; sameForAll: boolean;
   shared: { cylIdx: number; startBar: number; sac: number };
   members: { name: string; cylIdx: number; startBar: number; sac: number }[];
@@ -30,7 +30,7 @@ export const S80_IDX = CYLINDERS.findIndex((c) => c.name.startsWith('AL80'));
 
 export const defaultPenState = (): PenState => ({
   agency: 'gue', environment: 'cave', flow: 'outflow',
-  avgDepth: 18, maxDepth: 24, swimSpeed: 15, descentMinutes: 1, plannedMinutes: 20,
+  avgDepth: 18, maxDepth: 24, swimSpeed: 15, descentMinutes: 1, plannedMinutes: 20, brave: false,
   teamSize: 2, sameForAll: true,
   shared: { cylIdx: 0, startBar: 200, sac: 18 },
   members: [1, 2, 3, 4].map((i) => ({ name: `B${i}`, cylIdx: 0, startBar: 200, sac: 18 })),
@@ -51,7 +51,7 @@ export function usePenetrationPlan(s: PenState, std: GasStandard, settings: Part
     const stages = s.stageCount > 0 ? [{ cylinder: CYLINDERS[s.stageCylIdx], gas: bottomGas, startBar: s.stageBar, count: s.stageCount }] : [];
     const input = {
       agency: s.agency, environment: s.environment, flow: s.flow, team, bottomGas, stages, stageRule: s.stageRule, stageReserveBar: s.stageReserveBar,
-      avgDepth: s.avgDepth, maxDepth: s.maxDepth, swimSpeedMpm: s.swimSpeed, descentMinutes: s.descentMinutes, plannedPenetrationMinutes: s.plannedMinutes, decoGases, settings,
+      avgDepth: s.avgDepth, maxDepth: s.maxDepth, swimSpeedMpm: s.swimSpeed, descentMinutes: s.descentMinutes, plannedPenetrationMinutes: s.plannedMinutes, overrideGasRule: s.brave, decoGases, settings,
     };
     const plan = team.length ? planPenetration(input) : null;
     const events: PenEvent[] = plan ? penetrationItinerary(input, plan) : [];
@@ -175,10 +175,15 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
     <>
       <section className="panel pen">
         <h2>{t.penPlan}</h2>
-        <div className={`verdict ${plan.feasible ? 'ok' : 'bad'}`} style={{ marginBottom: 12 }}>
-          <div className="icon">{plan.feasible ? '✓' : '✕'}</div>
-          <div><div className="title">{plan.feasible ? t.penFeasible : t.feasibleNo}</div>
-            <div className="small" style={{ color: 'inherit' }}>{t.penRuleSummary(plan.rules.fractionLabel, s.agency.toUpperCase(), u.depth(plan.rules.maxDepthM))}</div></div>
+        <div className={`verdict ${plan.overridden ? 'bad brave' : plan.feasible ? 'ok' : 'bad'}`} style={{ marginBottom: 12 }}>
+          <div className="icon">{plan.overridden ? '⚠' : plan.feasible ? '✓' : '✕'}</div>
+          <div style={{ flex: 1 }}><div className="title">{plan.overridden ? t.penBraveActive : plan.feasible ? t.penFeasible : t.feasibleNo}</div>
+            <div className="small" style={{ color: 'inherit' }}>{t.penRuleSummary(plan.rules.fractionLabel, s.agency.toUpperCase(), u.depth(plan.rules.maxDepthM))}</div>
+            {plan.blockers.some((b) => b.code === 'penTimeOverGas') && !s.brave && (
+              <button className="btn brave" onClick={() => { if (window.confirm(t.penBraveConfirm)) set({ brave: true }); }}>{t.penBrave}</button>
+            )}
+            {s.brave && <button className="btn" style={{ marginTop: 8 }} onClick={() => set({ brave: false })}>{t.penBraveRevert}</button>}
+          </div>
         </div>
         <div className="kpis">
           <div className="kpi"><div className="v">{u.pressureN(limitingPlan.turnBar)}</div><div className="l">{t.penKpiTurn(u)}</div></div>
