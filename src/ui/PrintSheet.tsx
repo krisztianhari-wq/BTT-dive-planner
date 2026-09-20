@@ -95,7 +95,7 @@ export function PrintSheet(d: PrintData) {
         </section>
 
         {/* Gas plan */}
-        <section>
+        <section className="ps-half">
           <h3>{t.gasPlan}</h3>
           <table className="kv">
             <tbody>
@@ -114,7 +114,7 @@ export function PrintSheet(d: PrintData) {
         </section>
 
         {/* What to bring / feasibility */}
-        <section>
+        <section className="ps-half">
           <h3>{d.mode === 'standard' ? t.packing : t.feasibleTitle}</h3>
           {d.mode === 'standard' ? (
             <table>
