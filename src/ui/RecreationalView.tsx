@@ -5,7 +5,9 @@ import { Units } from './units';
 import { NumInput } from './NumInput';
 
 export interface RecState { maxDepth: number; bottomTime: number; gasIdx: number | 'auto'; cylIdx: number; startBar: number; sac: number }
-export const defaultRecState = (): RecState => ({ maxDepth: 18, bottomTime: 30, gasIdx: 'auto', cylIdx: CYLINDERS.findIndex((c) => c.name.startsWith('Single 12')), startBar: 200, sac: 18 });
+/** Recreational mode: single 12 L or 15 L back cylinder only */
+export const REC_CYLINDERS = CYLINDERS.filter((c) => c.name.startsWith('Single 12') || c.name.startsWith('Single 15'));
+export const defaultRecState = (): RecState => ({ maxDepth: 18, bottomTime: 30, gasIdx: 'auto', cylIdx: 0, startBar: 200, sac: 18 });
 
 const REC_GASES = GENERIC_STANDARD.bottomGases.filter((g) => g.gas.he === 0); // Air, EAN28/32/36/40
 
@@ -14,7 +16,7 @@ export function RecreationalView({ t, u, lang, gfHigh, side, state: s, setState 
   const fmt = (v: number, d = 0) => v.toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: d, minimumFractionDigits: d });
   const auto = GENERIC_STANDARD.bottomGasFor(Math.min(s.maxDepth, 40));
   const gas: Gas = s.gasIdx === 'auto' ? (auto?.gas ?? REC_GASES[REC_GASES.length - 1].gas) : REC_GASES[s.gasIdx].gas;
-  const cyl = CYLINDERS[s.cylIdx];
+  const cyl = REC_CYLINDERS[s.cylIdx] ?? REC_CYLINDERS[0];
   const plan = useMemo(() => planRecreational({ maxDepth: s.maxDepth, bottomTime: s.bottomTime, gas, cylinder: cyl, startBar: s.startBar, sacLpm: s.sac, gfHigh: gfHigh / 100 }), [s, gas, cyl, gfHigh]);
 
   if (side === 'left') {
@@ -32,7 +34,7 @@ export function RecreationalView({ t, u, lang, gfHigh, side, state: s, setState 
         </select>
         <div className="small" style={{ marginTop: 8 }}>{gasName(gas)}: pO2 <b className={ppO2(gas, s.maxDepth) > 1.4 ? 'bad' : 'ok'}>{ppO2(gas, s.maxDepth).toFixed(2)}</b> bar · END {u.depth(end(gas, s.maxDepth))}</div>
         <label>{t.backCylinder}</label>
-        <select value={s.cylIdx} onChange={(e) => set({ cylIdx: +e.target.value })}>{CYLINDERS.map((c, i) => <option key={c.name} value={i}>{c.name}</option>)}</select>
+        <select value={s.cylIdx} onChange={(e) => set({ cylIdx: +e.target.value })}>{REC_CYLINDERS.map((c, i) => <option key={c.name} value={i}>{c.name}</option>)}</select>
         <div className="row">
           <div><label>{t.startPressure(u)}</label><NumInput min={0} value={u.pressureN(s.startBar)} onChange={(v) => set({ startBar: u.toBar(v) })} /></div>
           <div><label>{t.penSac(u)}</label><NumInput min={0} step={u.sacStep} decimals={u.sys === 'metric' ? 0 : 2} value={u.sacN(s.sac)} onChange={(v) => set({ sac: u.toLpm(v) })} /></div>
