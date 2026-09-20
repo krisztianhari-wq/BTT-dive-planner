@@ -226,7 +226,8 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
         <h2>{t.penPlan}</h2>
         <div className={`verdict ${plan.overridden ? 'bad brave' : !plan.feasible ? 'bad' : plan.unsupported ? 'unsupported' : 'ok'}`} style={{ marginBottom: 12 }}>
           <div className="icon">{plan.overridden ? '⚠' : !plan.feasible ? '✕' : plan.unsupported ? '⚠' : '✓'}</div>
-          <div style={{ flex: 1 }}><div className="title">{plan.overridden ? t.penBraveActive : !plan.feasible ? (plan.blockers.some((b) => b.code === 'penSharedExitShort') ? t.penTeamDies : t.feasibleNo) : plan.unsupported ? t.penUnsupported(s.agency.toUpperCase()) : t.penFeasible}</div>
+          <div style={{ flex: 1 }}><div className="title">{plan.blockers.some((b) => b.code === 'penSharedExitShort') ? t.penTeamDies : plan.overridden ? t.penBraveActive : !plan.feasible ? t.feasibleNo : plan.unsupported ? t.penUnsupported(s.agency.toUpperCase()) : t.penFeasible}</div>
+            {plan.overridden && plan.blockers.some((b) => b.code === 'penSharedExitShort') && <div className="small" style={{ color: 'inherit', fontWeight: 600 }}>{t.penBraveActive}</div>}
             <div className="small" style={{ color: 'inherit' }}>{t.penRuleSummary(plan.rules.fractionLabel, s.agency.toUpperCase(), u.depth(plan.rules.maxDepthM))}{s.teamSize === 1 ? ` ${t.penSoloNote}` : ''}</div>
             {plan.blockers.some((b) => b.code === 'penTimeOverGas') && !s.brave && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>

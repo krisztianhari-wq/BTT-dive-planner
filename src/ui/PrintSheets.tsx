@@ -90,7 +90,7 @@ export function PenPrintSheet({ t, u, lang, input, plan, events, agencyLabel, en
       </section>
       <section className="ps-half">
         <h3>{t.penPlan}</h3>
-        <p className={`ps-verdict ${plan.overridden || !plan.feasible ? 'bad' : plan.unsupported ? 'warn' : 'ok'}`}>{plan.overridden ? `⚠ ${t.penBraveActive}` : !plan.feasible ? (plan.blockers.some((b) => b.code === 'penSharedExitShort') ? t.penTeamDies : t.feasibleNo) : plan.unsupported ? `⚠ ${t.penUnsupported(agencyLabel)}` : t.penFeasible}</p>
+        <p className={`ps-verdict ${plan.overridden || !plan.feasible ? 'bad' : plan.unsupported ? 'warn' : 'ok'}`}>{plan.blockers.some((b) => b.code === 'penSharedExitShort') ? `✕ ${t.penTeamDies}${plan.overridden ? ` – ${t.penBraveActive}` : ''}` : plan.overridden ? `⚠ ${t.penBraveActive}` : !plan.feasible ? t.feasibleNo : plan.unsupported ? `⚠ ${t.penUnsupported(agencyLabel)}` : t.penFeasible}</p>
         <div className="ps-kpis">
           <div><b>{u.pressureN(limiting.turnBar)}</b><span>{t.penKpiTurn(u)}</span></div>
           <div><b>{fmt(plan.penetrationMinutes)}</b><span>{t.penKpiPenMin}</span></div>
