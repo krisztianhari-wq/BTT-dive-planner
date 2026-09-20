@@ -68,3 +68,6 @@ An independent Bühlmann implementation (the [dive-deco](https://github.com/KG32
 - `scripts/` – single-file build post-processing, golden fixture generation, schedule printers
 - `.github/workflows/` – `pages.yml` (web deployment), `desktop.yml` (installers)
 - `tests/` – Vitest unit, property and golden tests
+
+## Credits
+Made by **sadrobot** for BTT Explorers Hungary. Logo © BTT Explorers Hungary.

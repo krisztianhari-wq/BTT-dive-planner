@@ -2,7 +2,7 @@
 name = "btt-dive-planner"
 version = "0.4.1"
 description = "BTT Dive Planner – decompression and gas planner"
-authors = ["BTT Explorers Hungary"]
+authors = ["sadrobot", "BTT Explorers Hungary"]
 edition = "2021"
 
 [lib]

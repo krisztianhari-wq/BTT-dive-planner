@@ -442,7 +442,7 @@ export function App() {
       <footer className="footer">
         <img src={logoUrl} alt="" aria-hidden="true" />
         <span className="motto">Mindig van lejjebb!!!</span>
-        <span className="small">BTT Explorers Hungary · 2018</span>
+        <span className="small">BTT Explorers Hungary · 2018 · made by sadrobot</span>
       </footer>
     </div>
   );

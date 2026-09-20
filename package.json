@@ -1,6 +1,7 @@
 {
   "name": "gue-dive-planner",
   "private": true,
+  "author": "sadrobot",
   "version": "0.4.1",
   "type": "module",
   "scripts": {
