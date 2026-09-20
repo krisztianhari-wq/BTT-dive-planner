@@ -78,7 +78,8 @@ export function usePenetrationPlan(s: PenState, std: GasStandard, settings: Part
     const suggestedStages = plan && !plan.overridden && plan.blockers.some((b) => b.code === 'penTimeOverGas') ? stagesNeeded(input, stageTemplate) : null;
     // deco stages derived from the selected deco gases: volume per diver from the deco schedule, ×1.5 reserve
     const sac = s.sameForAll ? s.shared.sac : Math.max(...team.map((m) => m.sacLpm), 1);
-    const decoStages: DecoGasRequirement[] = plan ? decoGasRequirements(planConsumption(plan.deco, sac, sac), bottomGas) : [];
+    const decoNames = new Set(decoGases.map((d) => gasName(d.gas)));
+    const decoStages: DecoGasRequirement[] = plan ? decoGasRequirements(planConsumption(plan.deco, sac, sac), plan.decoGas).filter((d) => decoNames.has(d.name)) : [];
     return { input, plan, events, bottomGas, autoBottom: auto, stageTemplate, stageBar, suggestedStages, decoStages, bottomList, stageList };
   }, [s, std, settings]);
 }
@@ -138,9 +139,14 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
 
         <section className="panel pen">
           <h2>{t.penTeam}</h2>
+          <label>{t.penSoloOrTeam}</label>
+          <div className="seg" style={{ display: 'flex', marginBottom: 4 }}>
+            <button style={{ flex: 1 }} className={s.teamSize > 1 ? 'on' : ''} onClick={() => set({ teamSize: Math.max(2, s.teamSize) })}>{t.penTeam}</button>
+            <button style={{ flex: 1 }} className={s.teamSize === 1 ? 'on' : ''} onClick={() => set({ teamSize: 1 })}>{t.penSolo}</button>
+          </div>
           <div className="row">
             <div><label>{t.penTeamSize}</label>
-              <select value={s.teamSize} onChange={(e) => set({ teamSize: +e.target.value })}>{[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}</select></div>
+              <select value={s.teamSize} disabled={s.teamSize === 1} onChange={(e) => set({ teamSize: +e.target.value })}>{[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}</select></div>
             <div><label>{t.penSameForAll}</label>
               <div className="seg" style={{ display: 'flex' }}>
                 <button style={{ flex: 1 }} className={s.sameForAll ? 'on' : ''} onClick={() => set({ sameForAll: true })}>{t.yes}</button>
@@ -220,8 +226,8 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
         <h2>{t.penPlan}</h2>
         <div className={`verdict ${plan.overridden ? 'bad brave' : !plan.feasible ? 'bad' : plan.unsupported ? 'unsupported' : 'ok'}`} style={{ marginBottom: 12 }}>
           <div className="icon">{plan.overridden ? '⚠' : !plan.feasible ? '✕' : plan.unsupported ? '⚠' : '✓'}</div>
-          <div style={{ flex: 1 }}><div className="title">{plan.overridden ? t.penBraveActive : !plan.feasible ? t.feasibleNo : plan.unsupported ? t.penUnsupported(s.agency.toUpperCase()) : t.penFeasible}</div>
-            <div className="small" style={{ color: 'inherit' }}>{t.penRuleSummary(plan.rules.fractionLabel, s.agency.toUpperCase(), u.depth(plan.rules.maxDepthM))}</div>
+          <div style={{ flex: 1 }}><div className="title">{plan.overridden ? t.penBraveActive : !plan.feasible ? (plan.blockers.some((b) => b.code === 'penSharedExitShort') ? t.penTeamDies : t.feasibleNo) : plan.unsupported ? t.penUnsupported(s.agency.toUpperCase()) : t.penFeasible}</div>
+            <div className="small" style={{ color: 'inherit' }}>{t.penRuleSummary(plan.rules.fractionLabel, s.agency.toUpperCase(), u.depth(plan.rules.maxDepthM))}{s.teamSize === 1 ? ` ${t.penSoloNote}` : ''}</div>
             {plan.blockers.some((b) => b.code === 'penTimeOverGas') && !s.brave && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                 {suggestedStages !== null && suggestedStages > s.stageCount && (
