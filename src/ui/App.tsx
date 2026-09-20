@@ -30,6 +30,18 @@ function stored<T extends string>(key: string, allowed: T[], fallback: T): T {
   return fallback;
 }
 
+/** Small cave-entrance glyph (there is no cave emoji); sized like an emoji. */
+function CaveIcon() {
+  return (
+    <svg className="cave-icon" viewBox="0 0 24 24" width="1.05em" height="1.05em" aria-hidden="true">
+      <path d="M2 21V13.5C2 8 6.5 3.5 12 3.5S22 8 22 13.5V21H2Z" fill="#8a5a2b" />
+      <path d="M6 21v-5.5C6 12 8.7 9.5 12 9.5s6 2.5 6 6V21H6Z" fill="#2b1a0e" />
+      <path d="M9.2 9.8l.9 2.6.9-2.6M12.6 9.6l.7 3.4.7-3.4" stroke="#8a5a2b" strokeWidth="1.1" fill="none" strokeLinecap="round" />
+      <path d="M2 21h20" stroke="#5b3a1a" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
 let nextId = 1;
 const newItem = (over: Partial<InventoryItem> = {}): InventoryItem => ({
   id: String(nextId++), cylinder: CYLINDERS[0], count: 1, gas: { o2: 0.21, he: 0.35 }, pressureBar: 200, role: 'back', ...over,
@@ -201,7 +213,7 @@ export function App() {
             <div className="seg env" role="tablist">
               <button className={env === 'rec' ? 'on rec' : ''} onClick={() => setEnv('rec')}>🐰 {t.envRec}</button>
               <button className={env === 'open' ? 'on' : ''} onClick={() => setEnv('open')}>🌊 {t.envOpen}</button>
-              <button className={env === 'pen' ? 'on pen' : ''} onClick={() => setEnv('pen')}>⛰ {t.envPen}</button>
+              <button className={env === 'pen' ? 'on pen' : ''} onClick={() => setEnv('pen')}><CaveIcon /> {t.envPen}</button>
             </div>
             {env === 'open' && (
             <div className="seg" role="tablist">

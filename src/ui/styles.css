@@ -216,3 +216,5 @@ table.itinerary tr.ev-turn td { background: var(--accent-soft); font-weight: 600
 .seg button.on.brave { background: #7f1d1d; color: #fff; }
 
 table tr.muted td { color: var(--muted); }
+
+.cave-icon { vertical-align: -0.18em; margin-right: 2px; }
