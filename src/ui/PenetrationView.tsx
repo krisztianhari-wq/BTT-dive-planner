@@ -80,13 +80,14 @@ export function usePenetrationPlan(s: PenState, std: GasStandard, settings: Part
     const sac = s.sameForAll ? s.shared.sac : Math.max(...team.map((m) => m.sacLpm), 1);
     const decoNames = new Set(decoGases.map((d) => gasName(d.gas)));
     const decoStages: DecoGasRequirement[] = plan ? decoGasRequirements(planConsumption(plan.deco, sac, sac), plan.decoGas).filter((d) => decoNames.has(d.name)) : [];
-    return { input, plan, events, bottomGas, autoBottom: auto, stageTemplate, stageBar, suggestedStages, decoStages, bottomList, stageList };
+    const unusedDecoGases = decoGases.map((d) => gasName(d.gas)).filter((n) => !decoStages.some((d) => d.name === n));
+    return { input, plan, events, bottomGas, autoBottom: auto, stageTemplate, stageBar, suggestedStages, decoStages, unusedDecoGases, bottomList, stageList };
   }, [s, std, settings]);
 }
 
 export function PenetrationView({ t, u, lang, std, settings, side, state: s, setState }: Props) {
   const set = (patch: Partial<PenState>) => setState({ ...s, ...patch });
-  const { input, plan, events, autoBottom, stageBar, suggestedStages, decoStages, bottomList, stageList } = usePenetrationPlan(s, std, settings);
+  const { input, plan, events, autoBottom, stageBar, suggestedStages, decoStages, unusedDecoGases, bottomList, stageList } = usePenetrationPlan(s, std, settings);
   const vol0 = (l: number) => (u.volumeN(l)).toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: u.sys === 'metric' ? 0 : 1 });
   const fmt = (v: number, d = 0) => v.toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: d, minimumFractionDigits: d });
   const vol = (l: number) => fmt(u.volumeN(l), u.sys === 'metric' ? 0 : 1);
@@ -190,23 +191,6 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
             <option value="bottom">{t.penStageGasBottom}</option>
             {stageList.map((g, i) => <option key={gasName(g)} value={i}>{gasName(g)}</option>)}
           </select>
-          {decoStages.length > 0 && (
-            <>
-              <label>{t.penDecoStages}</label>
-              <table>
-                <thead><tr><th>{t.gas}</th><th>{t.cylinder}</th><th className="num">{t.penDecoNeed(u)}</th><th className="num">{t.minFill}</th></tr></thead>
-                <tbody>{decoStages.map((d) => <tr key={d.name}><td>{d.name}</td><td>{d.suggestedCylinder.name.split(' (')[0]}</td><td className="num">{vol0(d.litresWithReserve)}</td><td className={`num ${d.fits ? '' : 'bad'}`}>{u.pressure(Math.ceil(d.barNeeded / 10) * 10)}</td></tr>)}</tbody>
-              </table>
-              <div className="small">{t.penDecoStagesNote}</div>
-            </>
-          )}
-          <div className="row">
-            <div><label>{t.penStageRule}</label>
-              <select value={s.stageRule} onChange={(e) => set({ stageRule: e.target.value as StageRule })}>
-                <option value="halfPlus">{t.penRuleHalfPlus}</option><option value="thirds">{t.penRuleThirds}</option>
-              </select></div>
-            <div><label>{t.penStageReserve(u)}</label><NumInput min={0} value={u.pressureN(s.stageReserveBar)} onChange={(v) => set({ stageReserveBar: u.toBar(v) })} /></div>
-          </div>
           <div className="small" style={{ marginTop: 8 }}>{t.penStageNote}</div>
         </section>
       </>
@@ -277,18 +261,36 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
         <div className="small" style={{ marginTop: 8 }}>{t.penMatchingNote} {t.penDecoGasNote(gasName(plan.decoGas), plan.members[0].member.cylinder.name.split(' (')[0])}</div>
       </section>
 
-      {plan.stages.length > 0 && (
+      {(plan.stages.length > 0 || decoStages.length > 0 || unusedDecoGases.length > 0) && (
         <section className="panel pen">
           <h2>{t.penStagePlan}</h2>
-          <table>
-            <thead><tr><th>#</th><th>{t.cylinder}</th><th>{t.gas}</th><th className="num">{t.penDropAt(u)}</th><th className="num">{t.penUsableIn(u)}</th><th className="num">{t.minutes}</th><th className="num">{t.penDropDistance(u)}</th></tr></thead>
-            <tbody>
-              {plan.stages.map((st, i) => {
-                const cum = plan.stages.slice(0, i + 1).reduce((a, x) => a + x.minutes, 0);
-                return <tr key={i}><td>{i + 1}</td><td>{st.stage.cylinder.name.split(' (')[0]}</td><td>{gasName(st.stage.gas)}</td><td className="num"><b>{u.pressureN(st.dropBar)}</b></td><td className="num">{vol(st.usableInLitres)}</td><td className="num">{fmt(st.minutes)}</td><td className="num">{u.depthN(cum * s.swimSpeed)}</td></tr>;
-              })}
-            </tbody>
-          </table>
+          {plan.stages.length > 0 && (
+            <>
+              <div className="small" style={{ marginBottom: 4 }}>{t.penBottomStages}</div>
+              <table>
+                <thead><tr><th>#</th><th>{t.cylinder}</th><th>{t.gas}</th><th className="num">{t.penDropAt(u)}</th><th className="num">{t.penUsableIn(u)}</th><th className="num">{t.minutes}</th><th className="num">{t.penDropDistance(u)}</th></tr></thead>
+                <tbody>
+                  {plan.stages.map((st, i) => {
+                    const cum = plan.stages.slice(0, i + 1).reduce((a, x) => a + x.minutes, 0);
+                    return <tr key={i}><td>{i + 1}</td><td>{st.stage.cylinder.name.split(' (')[0]}</td><td>{gasName(st.stage.gas)}</td><td className="num"><b>{u.pressureN(st.dropBar)}</b></td><td className="num">{vol(st.usableInLitres)}</td><td className="num">{fmt(st.minutes)}</td><td className="num">{u.depthN(cum * s.swimSpeed)}</td></tr>;
+                  })}
+                </tbody>
+              </table>
+            </>
+          )}
+          {(decoStages.length > 0 || unusedDecoGases.length > 0) && (
+            <>
+              <div className="small" style={{ margin: '10px 0 4px' }}>{t.penDecoStages}</div>
+              <table>
+                <thead><tr><th>{t.gas}</th><th>{t.cylinder}</th><th className="num">{t.penDecoNeed(u)}</th><th className="num">{t.minFill}</th><th>{t.penDropWhere}</th></tr></thead>
+                <tbody>
+                  {decoStages.map((d) => <tr key={d.name}><td>{d.name}</td><td>{d.suggestedCylinder.name.split(' (')[0]}</td><td className="num">{vol0(d.litresWithReserve)}</td><td className={`num ${d.fits ? '' : 'bad'}`}><b>{u.pressure(Math.ceil(d.barNeeded / 10) * 10)}</b></td><td>{t.penDropEntrance}</td></tr>)}
+                  {unusedDecoGases.map((n) => <tr key={n} className="muted"><td>{n}</td><td colSpan={4} className="small">{t.penDecoNotNeeded}</td></tr>)}
+                </tbody>
+              </table>
+              <div className="small" style={{ marginTop: 6 }}>{t.penDecoStagesNote}</div>
+            </>
+          )}
         </section>
       )}
 
