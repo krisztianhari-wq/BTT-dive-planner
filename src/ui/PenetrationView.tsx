@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   Agency, CYLINDERS, DecoGasSpec, Environment, Flow, Gas, GasStandard, PenEvent, PlanSettings, StageRule, TeamMember,
-  gasName, penetrationItinerary, planPenetration, stagesNeeded, stopTable,
+  gasName, penetrationItinerary, planPenetration, stagesNeeded, stopTable, planConsumption, decoGasRequirements, DecoGasRequirement,
 } from '../engine';
 import { Dict } from './i18n';
 import { Units } from './units';
@@ -39,6 +39,18 @@ export const defaultPenState = (): PenState => ({
   decoOn: {},
 });
 
+const AIR: Gas = { o2: 0.21, he: 0, name: 'Air' };
+/** Bottom gas options: the standard's gases plus Air (GUE lists no air, but clubs dive it in shallow caves). */
+export function penBottomGases(std: GasStandard) {
+  return std.bottomGases.some((g) => Math.abs(g.gas.o2 - 0.21) < 0.005 && g.gas.he === 0) ? std.bottomGases : [{ gas: AIR, minDepth: 0, maxDepth: 30 }, ...std.bottomGases];
+}
+/** Stage gas options: bottom gases first, then the standard deco gases (EAN50, O2, ...). */
+export function penStageGases(std: GasStandard): Gas[] {
+  const out: Gas[] = penBottomGases(std).map((g) => g.gas);
+  for (const d of std.decoGases) if (!out.some((g) => gasName(g) === gasName(d.gas))) out.push(d.gas);
+  return out;
+}
+
 export function usePenetrationPlan(s: PenState, std: GasStandard, settings: Partial<PlanSettings>) {
   return useMemo(() => {
     const team: TeamMember[] = Array.from({ length: s.teamSize }, (_, i) => {
@@ -46,9 +58,11 @@ export function usePenetrationPlan(s: PenState, std: GasStandard, settings: Part
       return { id: String(i), name: m.name, cylinder: CYLINDERS[m.cylIdx], startBar: m.startBar, sacLpm: m.sac };
     });
     const auto = std.bottomGasFor(s.maxDepth);
-    const bottomGas: Gas = s.bottomGasIdx === 'auto' || s.bottomGasIdx >= std.bottomGases.length ? (auto?.gas ?? std.bottomGases[0].gas) : std.bottomGases[s.bottomGasIdx].gas;
+    const bottomList = penBottomGases(std);
+    const bottomGas: Gas = s.bottomGasIdx === 'auto' || !bottomList[s.bottomGasIdx] ? (auto?.gas ?? bottomList[0].gas) : bottomList[s.bottomGasIdx].gas;
     const decoGases: DecoGasSpec[] = std.decoGases.filter((d) => s.decoOn[d.gas.name!]).map((d) => ({ gas: d.gas, switchDepth: d.switchDepth }));
-    const stageGas: Gas = typeof s.stageGasIdx === 'number' && std.bottomGases[s.stageGasIdx] ? std.bottomGases[s.stageGasIdx].gas : bottomGas;
+    const stageList = penStageGases(std);
+    const stageGas: Gas = typeof s.stageGasIdx === 'number' && stageList[s.stageGasIdx] ? stageList[s.stageGasIdx] : bottomGas;
     const stageBar = s.stageBar ?? (s.sameForAll ? s.shared.startBar : Math.min(...team.map((m) => m.startBar)));
     const stageTemplate = { cylinder: CYLINDERS[s.stageCylIdx] ?? CYLINDERS[S80_IDX], gas: stageGas, startBar: stageBar };
     const stages = s.stageCount > 0 ? [{ ...stageTemplate, count: s.stageCount }] : [];
@@ -59,13 +73,17 @@ export function usePenetrationPlan(s: PenState, std: GasStandard, settings: Part
     const plan = team.length ? planPenetration(input) : null;
     const events: PenEvent[] = plan ? penetrationItinerary(input, plan) : [];
     const suggestedStages = plan && !plan.overridden && plan.blockers.some((b) => b.code === 'penTimeOverGas') ? stagesNeeded(input, stageTemplate) : null;
-    return { input, plan, events, bottomGas, autoBottom: auto, stageTemplate, stageBar, suggestedStages };
+    // deco stages derived from the selected deco gases: volume per diver from the deco schedule, ×1.5 reserve
+    const sac = s.sameForAll ? s.shared.sac : Math.max(...team.map((m) => m.sacLpm), 1);
+    const decoStages: DecoGasRequirement[] = plan ? decoGasRequirements(planConsumption(plan.deco, sac, sac), bottomGas) : [];
+    return { input, plan, events, bottomGas, autoBottom: auto, stageTemplate, stageBar, suggestedStages, decoStages, bottomList, stageList };
   }, [s, std, settings]);
 }
 
 export function PenetrationView({ t, u, lang, std, settings, side, state: s, setState }: Props) {
   const set = (patch: Partial<PenState>) => setState({ ...s, ...patch });
-  const { input, plan, events, autoBottom, stageBar, suggestedStages } = usePenetrationPlan(s, std, settings);
+  const { input, plan, events, autoBottom, stageBar, suggestedStages, decoStages, bottomList, stageList } = usePenetrationPlan(s, std, settings);
+  const vol0 = (l: number) => (u.volumeN(l)).toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: u.sys === 'metric' ? 0 : 1 });
   const fmt = (v: number, d = 0) => v.toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: d, minimumFractionDigits: d });
   const vol = (l: number) => fmt(u.volumeN(l), u.sys === 'metric' ? 0 : 1);
   const [_, setTick] = useState(0); void _; void setTick;
@@ -104,7 +122,7 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
           <label>{t.bottomGas}</label>
           <select value={s.bottomGasIdx} onChange={(e) => set({ bottomGasIdx: e.target.value === 'auto' ? 'auto' : +e.target.value })}>
             <option value="auto">{t.autoBottomGas(autoBottom?.gas.name ?? '—')}</option>
-            {std.bottomGases.map((g, i) => <option key={g.gas.name} value={i}>{g.gas.name}</option>)}
+            {bottomList.map((g, i) => <option key={g.gas.name} value={i}>{g.gas.name}</option>)}
           </select>
           <label>{t.decoGases}</label>
           <div className="chips">
@@ -158,8 +176,18 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
           <label>{t.penStageGas}</label>
           <select value={s.stageGasIdx} onChange={(e) => set({ stageGasIdx: e.target.value === 'bottom' ? 'bottom' : +e.target.value })}>
             <option value="bottom">{t.penStageGasBottom}</option>
-            {std.bottomGases.map((g, i) => <option key={g.gas.name} value={i}>{g.gas.name}</option>)}
+            {stageList.map((g, i) => <option key={gasName(g)} value={i}>{gasName(g)}</option>)}
           </select>
+          {decoStages.length > 0 && (
+            <>
+              <label>{t.penDecoStages}</label>
+              <table>
+                <thead><tr><th>{t.gas}</th><th>{t.cylinder}</th><th className="num">{t.penDecoNeed(u)}</th><th className="num">{t.minFill}</th></tr></thead>
+                <tbody>{decoStages.map((d) => <tr key={d.name}><td>{d.name}</td><td>{d.suggestedCylinder.name.split(' (')[0]}</td><td className="num">{vol0(d.litresWithReserve)}</td><td className={`num ${d.fits ? '' : 'bad'}`}>{u.pressure(Math.ceil(d.barNeeded / 10) * 10)}</td></tr>)}</tbody>
+              </table>
+              <div className="small">{t.penDecoStagesNote}</div>
+            </>
+          )}
           <div className="row">
             <div><label>{t.penStageRule}</label>
               <select value={s.stageRule} onChange={(e) => set({ stageRule: e.target.value as StageRule })}>

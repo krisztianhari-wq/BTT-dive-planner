@@ -1,4 +1,4 @@
-import { PenEvent, PenetrationInput, PenetrationPlan, RecEvent, RecInput, RecPlan, gasName, stopTable } from '../engine';
+import { DecoGasRequirement, PenEvent, PenetrationInput, PenetrationPlan, RecEvent, RecInput, RecPlan, gasName, stopTable } from '../engine';
 import { Dict } from './i18n';
 import { Units } from './units';
 import { PrintFrame } from './PrintSheet';
@@ -67,9 +67,9 @@ export function RecPrintSheet({ t, u, lang, input, plan, events, cylinderName }:
 }
 
 /* ---------------- Penetration ---------------- */
-export function PenPrintSheet({ t, u, lang, input, plan, events, agencyLabel, envLabel, flowLabel, evText }: {
+export function PenPrintSheet({ t, u, lang, input, plan, events, agencyLabel, envLabel, flowLabel, evText, decoStages }: {
   t: Dict; u: Units; lang: 'hu' | 'en'; input: PenetrationInput; plan: PenetrationPlan; events: PenEvent[];
-  agencyLabel: string; envLabel: string; flowLabel: string; evText: (e: PenEvent) => string;
+  agencyLabel: string; envLabel: string; flowLabel: string; evText: (e: PenEvent) => string; decoStages?: DecoGasRequirement[];
 }) {
   const fmt = fmtFor(lang);
   const vol = (l: number) => fmt(u.volumeN(l), u.sys === 'metric' ? 0 : 1);
@@ -136,6 +136,7 @@ export function PenPrintSheet({ t, u, lang, input, plan, events, agencyLabel, en
         <table className="kv"><tbody>
           <tr><td>{t.penTeamSize}</td><td>{input.team.length}</td></tr>
           <tr><td>{t.penStages}</td><td>{input.stages.length ? `${input.stages[0].count} × ${input.stages[0].cylinder.name.split(' (')[0]} · ${input.stageRule === 'halfPlus' ? t.penRuleHalfPlus : t.penRuleThirds}` : '—'}</td></tr>
+          {(decoStages ?? []).map((d) => <tr key={d.name}><td>{t.penDecoStages}: {d.name}</td><td>{d.suggestedCylinder.name.split(' (')[0]} · {u.pressure(Math.ceil(d.barNeeded / 10) * 10)}</td></tr>)}
           <tr><td>{t.decoTotal}</td><td>{fmt(plan.deco.decoTime)}</td></tr>
           <tr><td>{t.runtime}</td><td>{fmt(plan.deco.runtime)}</td></tr>
         </tbody></table>
