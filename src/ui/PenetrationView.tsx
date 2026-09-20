@@ -48,9 +48,9 @@ export function usePenetrationPlan(s: PenState, std: GasStandard, settings: Part
     const auto = std.bottomGasFor(s.maxDepth);
     const bottomGas: Gas = s.bottomGasIdx === 'auto' || s.bottomGasIdx >= std.bottomGases.length ? (auto?.gas ?? std.bottomGases[0].gas) : std.bottomGases[s.bottomGasIdx].gas;
     const decoGases: DecoGasSpec[] = std.decoGases.filter((d) => s.decoOn[d.gas.name!]).map((d) => ({ gas: d.gas, switchDepth: d.switchDepth }));
-    const stageGas: Gas = s.stageGasIdx === 'bottom' || s.stageGasIdx >= std.bottomGases.length ? bottomGas : std.bottomGases[s.stageGasIdx].gas;
+    const stageGas: Gas = typeof s.stageGasIdx === 'number' && std.bottomGases[s.stageGasIdx] ? std.bottomGases[s.stageGasIdx].gas : bottomGas;
     const stageBar = s.stageBar ?? (s.sameForAll ? s.shared.startBar : Math.min(...team.map((m) => m.startBar)));
-    const stageTemplate = { cylinder: CYLINDERS[s.stageCylIdx], gas: stageGas, startBar: stageBar };
+    const stageTemplate = { cylinder: CYLINDERS[s.stageCylIdx] ?? CYLINDERS[S80_IDX], gas: stageGas, startBar: stageBar };
     const stages = s.stageCount > 0 ? [{ ...stageTemplate, count: s.stageCount }] : [];
     const input = {
       agency: s.agency, environment: s.environment, flow: s.flow, team, bottomGas, stages, stageRule: s.stageRule, stageReserveBar: s.stageReserveBar,
