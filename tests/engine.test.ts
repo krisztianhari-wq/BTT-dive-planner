@@ -225,7 +225,10 @@ describe('itinerary', () => {
     expect(ev[ev.length - 1].kind).toBe('surface');
     expect(Math.abs(ev[ev.length - 1].runtime - p.runtime)).toBeLessThan(1e-6);
     for (let i = 1; i < ev.length; i++) expect(ev[i].runtime).toBeGreaterThanOrEqual(ev[i - 1].runtime - 1e-9);
-    expect(ev.filter((e) => e.kind === 'stop').length).toBe(stopTable(p).length);
+    // the stop table also lists timed gas-switch holds; every itinerary stop must appear in it
+    const tbl = stopTable(p);
+    for (const e of ev.filter((x) => x.kind === 'stop')) expect(tbl.some((r) => r.depth === e.depth)).toBe(true);
+    expect(tbl.length).toBeGreaterThanOrEqual(ev.filter((e) => e.kind === 'stop').length);
     const sw = ev.find((e) => e.kind === 'switch')!;
     expect(sw.depth).toBe(21);
     expect(sw.gas.name).toBe('EAN50');

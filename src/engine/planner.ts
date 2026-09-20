@@ -226,7 +226,8 @@ export function planDive(input: DiveInput): DivePlan {
     if (d.switchDepth > m + 0.5) warnings.push(msg('decoSwitchExceedsMod', { gas: gasName(d.gas), depth: d.switchDepth, mod: m.toFixed(1), limit: s.decoPpO2Max }));
   }
 
-  const actualStops = merged.filter((sg) => sg.kind === 'stop');
+  // a timed gas-switch hold below the surface counts as decompression too
+  const actualStops = merged.filter((sg) => sg.kind === 'stop' || (sg.kind === 'switch' && sg.duration > 0 && sg.startDepth > 0));
   const reportedFirstStop = actualStops.length ? actualStops[0].startDepth : null;
 
   return {
@@ -259,7 +260,13 @@ function mergeSegments(segs: Segment[]): Segment[] {
 /** Human-readable stop table: depth, minutes, runtime, gas. */
 export interface StopRow { depth: number; minutes: number; runtime: number; gas: string }
 export function stopTable(plan: DivePlan): StopRow[] {
-  return plan.segments
-    .filter((s) => s.kind === 'stop')
-    .map((s) => ({ depth: s.startDepth, minutes: Math.round(s.duration), runtime: Math.round(s.runtime), gas: gasName(s.gas) }));
+  // stops plus timed gas-switch holds, merged per depth (a hold followed by a stop at the same depth is one row)
+  const rows: StopRow[] = [];
+  for (const s of plan.segments) {
+    if (!(s.kind === 'stop' || (s.kind === 'switch' && s.duration > 0 && s.startDepth > 0))) continue;
+    const last = rows[rows.length - 1];
+    if (last && last.depth === s.startDepth) { last.minutes += s.duration; last.runtime = s.runtime; last.gas = gasName(s.gas); }
+    else rows.push({ depth: s.startDepth, minutes: s.duration, runtime: s.runtime, gas: gasName(s.gas) });
+  }
+  return rows.map((r) => ({ ...r, minutes: Math.round(r.minutes), runtime: Math.round(r.runtime) }));
 }
