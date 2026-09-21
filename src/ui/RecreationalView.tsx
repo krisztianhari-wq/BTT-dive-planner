@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { CYLINDERS, GENERIC_STANDARD, Gas, gasName, mod, planRecreational, ppO2, end, recreationalItinerary, RecInput } from '../engine';
+import { CYLINDERS, GENERIC_STANDARD, Gas, gasName, mod, planRecreational, ppO2, end, recreationalItinerary, recreationalProfile, RecInput, RecEvent } from '../engine';
+import { ProfileChart } from './ProfileChart';
 import { Dict } from './i18n';
 import { Units } from './units';
 import { NumInput } from './NumInput';
@@ -18,14 +19,15 @@ export function useRecreationalPlan(s: RecState, gfHigh: number) {
     const cyl = REC_CYLINDERS[s.cylIdx] ?? REC_CYLINDERS[0];
     const input: RecInput = { maxDepth: s.maxDepth, bottomTime: s.bottomTime, gas, cylinder: cyl, startBar: s.startBar, sacLpm: s.sac, gfHigh: gfHigh / 100 };
     const plan = planRecreational(input);
-    return { input, plan, events: recreationalItinerary(input, plan), gas, cyl, auto };
+    return { input, plan, events: recreationalItinerary(input, plan), profile: recreationalProfile(input, plan), gas, cyl, auto };
   }, [s, gfHigh]);
 }
 
 export function RecreationalView({ t, u, lang, gfHigh, side, state: s, setState }: { t: Dict; u: Units; lang: 'hu' | 'en'; gfHigh: number; side: 'left' | 'right'; state: RecState; setState: (s: RecState) => void }) {
   const set = (p: Partial<RecState>) => setState({ ...s, ...p });
   const fmt = (v: number, d = 0) => v.toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: d, minimumFractionDigits: d });
-  const { plan, gas, auto } = useRecreationalPlan(s, gfHigh);
+  const { input, plan, events, profile, gas, auto } = useRecreationalPlan(s, gfHigh);
+  const evText = (e: RecEvent): string => { switch (e.kind) { case 'start': return t.itStart(gasName(input.gas)); case 'arriveBottom': return t.itArrive; case 'leaveBottom': return t.recEvLeave; case 'safetyStop': return t.recEvSafety(Math.round(e.duration ?? 0), u.depth(e.depth)); case 'surface': return t.itSurface; } };
 
   if (side === 'left') {
     return (
@@ -69,8 +71,16 @@ export function RecreationalView({ t, u, lang, gfHigh, side, state: s, setState 
           <div className="kpi"><div className="v">{u.pressureN(plan.turnBar)}</div><div className="l">{t.recTurn} ({u.p})</div></div>
           <div className="kpi"><div className={`v ${plan.gasOk ? 'ok' : 'bad'}`}>{u.pressureN(plan.surfaceBar)}</div><div className="l">{t.recSurfaceKpi(u)}</div></div>
         </div>
-        <div className="small">{t.recSafetyStop(u.depth(5), 3)}</div>
+        <ProfileChart plan={profile} unitLabel={lang === 'hu' ? 'perc' : 'min'} depthLabel={u.d} depthScale={u.sys === 'metric' ? 1 : 3.28084} />
+        <div className="small" style={{ marginTop: 8 }}>{t.recSafetyStop(u.depth(5), 3)}</div>
         {msgs.filter((m) => !m.bad).length > 0 && <ul className="warnings">{msgs.filter((m) => !m.bad).map((w, i) => <li key={i}>{w.text}</li>)}</ul>}
+      </section>
+      <section className="panel rec">
+        <h2>{t.itinerary}</h2>
+        <table className="itinerary">
+          <thead><tr><th className="num">{t.itTime}</th><th className="num">{t.itDepth(u)}</th><th>{t.itAction}</th></tr></thead>
+          <tbody>{events.map((e, i) => <tr key={i} className={e.kind === 'safetyStop' ? 'ev-stop' : `ev-${e.kind}`}><td className="num">{Math.round(e.runtime)}</td><td className="num">{u.depthN(e.depth)}</td><td>{evText(e)}</td></tr>)}</tbody>
+        </table>
       </section>
       <section className="panel rec">
         <h2>{t.gasPlan}</h2>

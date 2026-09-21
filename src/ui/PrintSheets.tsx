@@ -1,4 +1,4 @@
-import { DecoGasRequirement, PenEvent, PenetrationInput, PenetrationPlan, RecEvent, RecInput, RecPlan, gasName, stopTable } from '../engine';
+import { DecoGasRequirement, PenEvent, PenetrationInput, PenetrationPlan, RecEvent, RecInput, RecPlan, gasName, stopTable, recreationalProfile } from '../engine';
 import { Dict } from './i18n';
 import { Units } from './units';
 import { PrintFrame } from './PrintSheet';
@@ -41,6 +41,7 @@ export function RecPrintSheet({ t, u, lang, input, plan, events, cylinderName }:
           <div><b>{fmt(plan.runtime)}</b><span>{t.runtime}</span></div>
           <div><b>{u.pressureN(plan.turnBar)}</b><span>{t.recTurn} ({u.p})</span></div>
         </div>
+        <div className="ps-chart"><ProfileChart plan={recreationalProfile(input, plan)} unitLabel={lang === 'hu' ? 'perc' : 'min'} depthLabel={u.d} depthScale={u.sys === 'metric' ? 1 : 3.28084} palette={PRINT_PALETTE} /></div>
         <p className="ps-note">{t.recMaxBottom(plan.maxBottomTime)} {t.recSafetyStop(u.depth(5), 3)}</p>
         {plan.warnings.length > 0 && <ul className="ps-warn">{plan.warnings.map((w, i) => <li key={i}>{t.msg(w, u)}</li>)}</ul>}
       </section>

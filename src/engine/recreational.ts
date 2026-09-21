@@ -6,6 +6,8 @@ import { ndl } from './buhlmann';
 import { Gas, depthToAmbient, end, gasName, ppO2 } from './gas';
 import { Cylinder, roundBar } from './gasPlan';
 import { Msg, msg } from './messages';
+import { DivePlan, Segment } from './planner';
+import { initialTissues } from './buhlmann';
 
 export interface RecInput {
   maxDepth: number;
@@ -118,4 +120,22 @@ export function recreationalItinerary(i: RecInput, p: RecPlan): RecEvent[] {
   ev.push({ kind: 'safetyStop', runtime: ssStart, depth: ssDepth, duration: ssMin, until: ssStart + ssMin });
   ev.push({ kind: 'surface', runtime: p.runtime, depth: 0 });
   return ev;
+}
+
+/** Profile of a recreational plan as a DivePlan-shaped object (for the chart): descent, bottom, ascent, safety stop, surface. */
+export function recreationalProfile(i: RecInput, p: RecPlan): DivePlan {
+  const descentRate = i.descentRateMpm ?? 20;
+  const ascentRate = i.ascentRateMpm ?? 9;
+  const ssDepth = i.safetyStopDepth ?? 5;
+  const ssMin = i.safetyStopMinutes ?? 3;
+  const descentMin = i.maxDepth / descentRate;
+  const segs: Segment[] = [];
+  let t = 0;
+  const push = (kind: Segment['kind'], from: number, to: number, dur: number) => { t += dur; segs.push({ kind, startDepth: from, endDepth: to, duration: dur, runtime: t, gas: i.gas }); };
+  push('descent', 0, i.maxDepth, descentMin);
+  push('bottom', i.maxDepth, i.maxDepth, Math.max(0, i.bottomTime - descentMin));
+  push('ascent', i.maxDepth, ssDepth, Math.max(0, (i.maxDepth - ssDepth) / ascentRate));
+  push('stop', ssDepth, ssDepth, ssMin);
+  push('ascent', ssDepth, 0, ssDepth / ascentRate);
+  return { segments: segs, runtime: p.runtime, decoTime: 0, bottomTime: i.bottomTime, maxDepth: i.maxDepth, firstStopDepth: null, tissuesAtSurface: initialTissues(), warnings: [] };
 }
