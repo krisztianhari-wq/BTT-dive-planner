@@ -28,6 +28,20 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Collect changes since the previous release
+        id: notes
+        shell: bash
+        run: |
+          prev=$(git describe --tags --abbrev=0 --exclude="${GITHUB_REF_NAME}" 2>/dev/null || true)
+          if [ -n "$prev" ]; then range="$prev..HEAD"; else range="HEAD"; fi
+          {
+            echo "body<<EOF"
+            echo "## What changed${prev:+ since $prev}"
+            git log --no-merges --pretty='- %s' $range | grep -viE '^- (Release [0-9]|Bump version|Fix .*test case$)' | awk '!seen[$0]++' | head -40
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -52,6 +66,9 @@ jobs:
           releaseDraft: false
           prerelease: false
           releaseBody: |
+            ${{ steps.notes.outputs.body }}
+
+            ## Installers
             BTT Dive Planner – installers. The application UI is available in **Hungarian and English**.
 
             - **Windows 11:** `*-setup.exe` (recommended) or `*.msi`
