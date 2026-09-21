@@ -25,6 +25,7 @@ Technical mode:
 - Standard plan with GUE standard gases (or common PADI/SSI/TDI gases), automatic bottom and deco gas suggestion
 - “My gases” mode: enter your cylinders and gases; the planner tells you whether the dive is feasible and exactly how much gas is missing
 - Deco schedule, gas plan (minimum gas, consumption per gas), packing list, minute-by-minute itinerary
+- Backmount or Sidemount configuration (two independent cylinders; lost-cylinder reserve checks), per diver in penetration teams
 - Standard (Subsurface / Shearwater convention) or Conservative calculation method
 - Light / dark theme, Hungarian / English, metric / imperial
 
@@ -64,6 +65,7 @@ An independent Bühlmann implementation (the [dive-deco](https://github.com/KG32
   - `itinerary.ts` – chronological event list
   - `penetration.ts` – overhead (cave / mine / wreck) gas rules, gas matching, stages, exit check, itinerary
   - `recreational.ts` – no-deco planning with NDL and rock-bottom reserve
+  - `sidemount.ts` – independent cylinder pair: switch ladder simulation, single-cylinder reserve
   - `messages.ts` – language-neutral message codes, translated by the UI
 - `src/ui/` – React UI
   - `App.tsx` – the whole UI and its switches (environment, mode, standard, units, language, theme, method)
