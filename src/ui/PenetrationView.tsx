@@ -303,6 +303,7 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
 
       <section className="panel pen">
         <h2>{t.penGasMatching}</h2>
+        <div className="tscroll">
         <table>
           <thead><tr><th>{t.penDiver}</th><th>{t.gas}</th><th className="num">{t.penStart(u)}</th><th className="num">{t.penTurn(u)}</th><th className="num">{t.penPenGas(u)}</th><th className="num">{t.penExitLeft(u)}</th><th className="num">{t.penSharedLeft(u)}</th><th>{t.cylinder}</th>{anySm && <th className="num">{t.smAtTurn(u)}</th>}{anySm && <th className="num">{t.smLost(u)}</th>}</tr></thead>
           <tbody>
@@ -322,6 +323,7 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
             ))}
           </tbody>
         </table>
+        </div>
         <div className="small" style={{ marginTop: 8 }}>{t.penMatchingNote} {t.penDecoGasNote(gasName(plan.decoGas), plan.members[0].member.cylinder.name.split(' (')[0])}</div>
       </section>
 
@@ -331,6 +333,7 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
           {plan.stages.length > 0 && (
             <>
               <div className="small" style={{ marginBottom: 4 }}>{t.penBottomStages}</div>
+              <div className="tscroll">
               <table>
                 <thead><tr><th>#</th><th>{t.cylinder}</th><th>{t.gas}</th><th className="num">{t.penDropAt(u)}</th><th className="num">{t.penUsableIn(u)}</th><th className="num">{t.minutes}</th><th className="num">{t.penDropDistance(u)}</th></tr></thead>
                 <tbody>
@@ -340,11 +343,13 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
                   })}
                 </tbody>
               </table>
+              </div>
             </>
           )}
           {(decoStages.length > 0 || unusedDecoGases.length > 0) && (
             <>
               <div className="small" style={{ margin: '10px 0 4px' }}>{t.penDecoStages}</div>
+              <div className="tscroll">
               <table>
                 <thead><tr><th>{t.gas}</th><th>{t.cylinder}</th><th className="num">{t.penDecoNeed(u)}</th><th className="num">{t.minFill}</th><th>{t.penDropWhere}</th></tr></thead>
                 <tbody>
@@ -352,6 +357,7 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
                   {unusedDecoGases.map((n) => <tr key={n} className="muted"><td>{n}</td><td colSpan={4} className="small">{t.penDecoNotNeeded}</td></tr>)}
                 </tbody>
               </table>
+              </div>
               <div className="small" style={{ marginTop: 6 }}>{t.penDecoStagesNote}</div>
             </>
           )}

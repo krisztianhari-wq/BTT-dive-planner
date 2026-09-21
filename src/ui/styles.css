@@ -220,3 +220,14 @@ table tr.muted td { color: var(--muted); }
 .cave-icon { vertical-align: -0.18em; margin-right: 2px; }
 
 table.itinerary tr.ev-reg td, table.itinerary tr.ev-regSwitch td { color: var(--muted); font-style: italic; }
+
+/* wide tables scroll inside their panel instead of stretching the page (mobile) */
+.tscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -6px; padding: 0 6px; }
+.tscroll table { min-width: 100%; }
+.panel { min-width: 0; overflow-x: hidden; }
+.grid > .stack { min-width: 0; }
+@media (max-width: 560px) {
+  .panel .row3 { grid-template-columns: 1fr 1fr; }
+  .panel .row3 > div:last-child:nth-child(3) { grid-column: 1 / -1; }
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+}
