@@ -7,6 +7,7 @@ export type ItineraryKind =
   | 'leaveBottom'  // begin ascent
   | 'switch'       // gas / cylinder change
   | 'stop'         // deco stop (duration, until)
+  | 'regSwitch'    // sidemount regulator switch (note = cylinder, params in note)
   | 'surface';
 
 export interface ItineraryEvent {
@@ -23,6 +24,8 @@ export interface ItineraryEvent {
   until?: number;
   /** previous gas (switch only) */
   fromGas?: Gas;
+  /** free text detail (regSwitch: pressure / cylinder) */
+  note?: string;
 }
 
 /** Chronological "what to do when" list derived from the plan segments. */

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   Agency, CYLINDERS, DecoGasSpec, Environment, Flow, Gas, GasStandard, PenEvent, PlanSettings, StageRule, TeamMember,
-  gasName, penetrationItinerary, planPenetration, stagesNeeded, stopTable, planConsumption, decoGasRequirements, DecoGasRequirement,
+  gasName, penetrationItinerary, planPenetration, stagesNeeded, stopTable, planConsumption, decoGasRequirements, DecoGasRequirement, Cylinder, defaultSwitchStep, simulateSidemount,
 } from '../engine';
 import { Dict } from './i18n';
 import { Units } from './units';
@@ -19,6 +19,7 @@ export interface PenState {
   agency: Agency; environment: Environment; flow: Flow;
   avgDepth: number; maxDepth: number; swimSpeed: number; descentMinutes: number; plannedMinutes: number; brave: boolean;
   teamSize: number; sameForAll: boolean;
+  config: 'backmount' | 'sidemount'; smCylIdx: number; smStep: number | null;
   shared: { cylIdx: number; startBar: number; sac: number };
   members: { name: string; gasIdx: number | 'team'; startBar: number; sac: number }[];
   bottomGasIdx: number | 'auto';
@@ -27,11 +28,13 @@ export interface PenState {
 }
 
 export const S80_IDX = CYLINDERS.findIndex((c) => c.name.startsWith('AL80'));
+export const SM_CYLINDERS = CYLINDERS.filter((c) => c.name.startsWith('Single') || c.name.startsWith('AL80'));
 
 export const defaultPenState = (): PenState => ({
   agency: 'gue', environment: 'cave', flow: 'outflow',
   avgDepth: 18, maxDepth: 24, swimSpeed: 15, descentMinutes: 1, plannedMinutes: 20, brave: false,
   teamSize: 2, sameForAll: true,
+  config: 'backmount', smCylIdx: CYLINDERS.findIndex((c) => c.name.startsWith('Single 12')), smStep: null,
   shared: { cylIdx: 0, startBar: 200, sac: 18 },
   members: [1, 2, 3, 4].map((i) => ({ name: `B${i}`, gasIdx: 'team' as const, startBar: 200, sac: 18 })),
   bottomGasIdx: 'auto',
@@ -56,7 +59,10 @@ export function usePenetrationPlan(s: PenState, std: GasStandard, settings: Part
     const auto = std.bottomGasFor(s.maxDepth);
     const bottomList = penBottomGases(std);
     const bottomGas: Gas = s.bottomGasIdx === 'auto' || !bottomList[s.bottomGasIdx] ? (auto?.gas ?? bottomList[0].gas) : bottomList[s.bottomGasIdx].gas;
-    const cylinder = CYLINDERS[s.shared.cylIdx] ?? CYLINDERS[0]; // one cylinder type for the whole team; divers differ by gas, pressure and SAC
+    const smSingle = SM_CYLINDERS[s.smCylIdx] ?? SM_CYLINDERS[0];
+    const cylinder: Cylinder = s.config === 'sidemount'
+      ? { name: `2× ${smSingle.name.split(' (')[0]}`, volumeL: smSingle.volumeL * 2, workingPressureBar: smSingle.workingPressureBar }
+      : (CYLINDERS[s.shared.cylIdx] ?? CYLINDERS[0]); // one cylinder type for the whole team; divers differ by gas, pressure and SAC
     const team: TeamMember[] = Array.from({ length: s.teamSize }, (_, i) => {
       if (s.sameForAll) return { id: String(i), name: `B${i + 1}`, cylinder, startBar: s.shared.startBar, sacLpm: s.shared.sac };
       const m = s.members[i];
@@ -72,9 +78,23 @@ export function usePenetrationPlan(s: PenState, std: GasStandard, settings: Part
     const input = {
       agency: s.agency, environment: s.environment, flow: s.flow, team, bottomGas, stages, stageRule: s.stageRule, stageReserveBar: s.stageReserveBar,
       avgDepth: s.avgDepth, maxDepth: s.maxDepth, swimSpeedMpm: s.swimSpeed, descentMinutes: s.descentMinutes, plannedPenetrationMinutes: s.plannedMinutes, overrideGasRule: s.brave, decoGases, settings,
+      sidemount: s.config === 'sidemount' ? { singleVolumeL: smSingle.volumeL, stepBar: s.smStep ?? undefined } : undefined,
     };
     const plan = team.length ? planPenetration(input) : null;
-    const events: PenEvent[] = plan ? penetrationItinerary(input, plan) : [];
+    let events: PenEvent[] = plan ? penetrationItinerary(input, plan) : [];
+    if (plan && s.config === 'sidemount') {
+      const lim = plan.members.find((m) => m.member.id === plan.limiting.id) ?? plan.members[0];
+      if (lim) {
+        const ata = 1.01325 + s.avgDepth * 0.1; const rate = lim.member.sacLpm * ata;
+        const stageMin = plan.stages.reduce((a, x) => a + x.minutes, 0);
+        const backIn = plan.penetrationMinutes - stageMin;
+        const tIn0 = s.descentMinutes + stageMin + plan.stages.length; // back-gas leg starts after stages + drops
+        const tOut0 = tIn0 + backIn; // exit leg on back gas starts right at the turn
+        const st = simulateSidemount(lim.member.startBar, smSingle.volumeL, 2 * backIn * rate, s.smStep ?? defaultSwitchStep(lim.member.startBar));
+        const extra: PenEvent[] = st.switches.map((sw) => { const minutes = sw.litres / rate; const rt = minutes <= backIn ? tIn0 + minutes : tOut0 + (minutes - backIn); return { kind: 'regSwitch', runtime: rt, depth: s.avgDepth, gas: input.bottomGas, note: `${sw.to}|${sw.atBar}` }; });
+        events = [...events, ...extra].sort((a, b) => a.runtime - b.runtime);
+      }
+    }
     const suggestedStages = plan && !plan.overridden && plan.blockers.some((b) => b.code === 'penTimeOverGas') ? stagesNeeded(input, stageTemplate) : null;
     // deco stages derived from the selected deco gases: volume per diver from the deco schedule, ×1.5 reserve
     const sac = s.sameForAll ? s.shared.sac : Math.max(...team.map((m) => m.sacLpm), 1);
@@ -163,8 +183,25 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
                 <button style={{ flex: 1 }} className={!s.sameForAll ? 'on' : ''} onClick={() => set({ sameForAll: false })}>{t.no}</button>
               </div></div>
           </div>
-          <label>{t.backCylinder}</label>
-          <select value={s.shared.cylIdx} onChange={(e) => set({ shared: { ...s.shared, cylIdx: +e.target.value } })}>{CYLINDERS.map((c, i) => <option key={c.name} value={i}>{c.name}</option>)}</select>
+          <label>{t.config}</label>
+          <div className="seg" style={{ display: 'flex' }}>
+            <button style={{ flex: 1 }} className={s.config === 'backmount' ? 'on' : ''} onClick={() => set({ config: 'backmount' })}>{t.configBackmount}</button>
+            <button style={{ flex: 1 }} className={s.config === 'sidemount' ? 'on' : ''} onClick={() => set({ config: 'sidemount' })}>{t.configSidemount}</button>
+          </div>
+          {s.config === 'backmount' ? (
+            <>
+              <label>{t.backCylinder}</label>
+              <select value={s.shared.cylIdx} onChange={(e) => set({ shared: { ...s.shared, cylIdx: +e.target.value } })}>{CYLINDERS.map((c, i) => <option key={c.name} value={i}>{c.name}</option>)}</select>
+            </>
+          ) : (
+            <>
+              <label>{t.smCylinder}</label>
+              <select value={s.smCylIdx} onChange={(e) => set({ smCylIdx: +e.target.value })}>{SM_CYLINDERS.map((c, i) => <option key={c.name} value={i}>2× {c.name}</option>)}</select>
+              <label>{t.smStep(u)}</label>
+              <NumInput min={u.pressureN(5)} value={u.pressureN(s.smStep ?? defaultSwitchStep(s.shared.startBar))} onChange={(v) => set({ smStep: u.toBar(v) })} />
+              <div className="small" style={{ marginTop: 6 }}>{t.smSwitchNote}</div>
+            </>
+          )}
           {s.sameForAll ? (
             <>
               <div className="row">
@@ -263,7 +300,7 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
       <section className="panel pen">
         <h2>{t.penGasMatching}</h2>
         <table>
-          <thead><tr><th>{t.penDiver}</th><th>{t.gas}</th><th className="num">{t.penStart(u)}</th><th className="num">{t.penTurn(u)}</th><th className="num">{t.penPenGas(u)}</th><th className="num">{t.penExitLeft(u)}</th><th className="num">{t.penSharedLeft(u)}</th></tr></thead>
+          <thead><tr><th>{t.penDiver}</th><th>{t.gas}</th><th className="num">{t.penStart(u)}</th><th className="num">{t.penTurn(u)}</th><th className="num">{t.penPenGas(u)}</th><th className="num">{t.penExitLeft(u)}</th><th className="num">{t.penSharedLeft(u)}</th>{s.config === 'sidemount' && <th className="num">{t.smAtTurn(u)}</th>}{s.config === 'sidemount' && <th className="num">{t.smLost(u)}</th>}</tr></thead>
           <tbody>
             {plan.members.map((m) => (
               <tr key={m.member.id}>
@@ -274,6 +311,8 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
                 <td className="num">{vol(m.penetrationLitres)}</td>
                 <td className="num">{vol(m.exitRemainingLitres)}</td>
                 <td className={`num ${m.sharedExitRemainingLitres < 0 ? 'bad' : 'ok'}`}>{vol(m.sharedExitRemainingLitres)}</td>
+                {s.config === 'sidemount' && <td className="num">{m.sidemount ? `${u.pressureN(m.sidemount.leftBar)} / ${u.pressureN(m.sidemount.rightBar)}` : '—'}</td>}
+                {s.config === 'sidemount' && <td className={`num ${m.sidemount && m.sidemount.lostCylinderShortLitres > 0 ? 'bad' : 'ok'}`}>{m.sidemount ? vol(m.sidemount.lostCylinderShortLitres) : '—'}</td>}
               </tr>
             ))}
           </tbody>
@@ -347,7 +386,7 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
           <thead><tr><th className="num">{t.itTime}</th><th className="num">{t.itDepth(u)}</th><th>{t.itAction}</th><th>{t.itGas}</th></tr></thead>
           <tbody>
             {events.map((e, i) => (
-              <tr key={i} className={`ev-${e.kind === 'switch' || e.kind === 'stageDrop' || e.kind === 'stagePickup' ? 'switch' : e.kind === 'turn' ? 'turn' : e.kind === 'decoStop' ? 'stop' : e.kind}`}>
+              <tr key={i} className={`ev-${e.kind === 'switch' || e.kind === 'stageDrop' || e.kind === 'stagePickup' ? 'switch' : e.kind === 'turn' ? 'turn' : e.kind === 'decoStop' ? 'stop' : e.kind === 'regSwitch' ? 'reg' : e.kind}`}>
                 <td className="num">{Math.round(e.runtime)}</td>
                 <td className="num">{e.kind === 'decoStop' || e.kind === 'switch' ? u.stopDepthN(e.depth) : u.depthN(e.depth)}</td>
                 <td>{evText(e)}</td>
@@ -373,6 +412,7 @@ export function penEventText(t: Dict, u: Units, turnBar: number) {
       case 'exit': return t.penEvExit;
       case 'switch': return t.itSwitch(e.fromGas ? gasName(e.fromGas) : '—', gasName(e.gas), u, e.depth, Math.round(e.duration ?? 0));
       case 'decoStop': return t.itStop(Math.round(e.duration ?? 0), Math.round(e.until ?? 0), u, e.depth);
+      case 'regSwitch': { const [to, bar] = (e.note ?? 'L|0').split('|'); return t.smEvSwitch(to, u.pressure(Math.round(Number(bar)))); }
       case 'surface': return t.itSurface;
     }
   };

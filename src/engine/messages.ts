@@ -26,6 +26,8 @@ export type MsgCode =
   | 'penTimeOverGas'
   | 'penOverrideActive'
   | 'penUnsupportedDepth'
+  | 'smLostCylinderMinGas'
+  | 'smLostCylinderExit'
   | 'recOverNdl'
   | 'recDepthLimit'
   | 'recGasShort';

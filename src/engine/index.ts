@@ -9,3 +9,4 @@ export * from './standards';
 export * from './itinerary';
 export * from './penetration';
 export * from './recreational';
+export * from './sidemount';

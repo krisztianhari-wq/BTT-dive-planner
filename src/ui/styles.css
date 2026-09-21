@@ -218,3 +218,5 @@ table.itinerary tr.ev-turn td { background: var(--accent-soft); font-weight: 600
 table tr.muted td { color: var(--muted); }
 
 .cave-icon { vertical-align: -0.18em; margin-right: 2px; }
+
+table.itinerary tr.ev-reg td, table.itinerary tr.ev-regSwitch td { color: var(--muted); font-style: italic; }

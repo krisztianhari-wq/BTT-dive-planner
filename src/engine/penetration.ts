@@ -8,6 +8,7 @@ import { Cylinder } from './gasPlan';
 import { Gas, depthToAmbient, end, gasName, ppO2 } from './gas';
 import { Msg, msg } from './messages';
 import { DecoGasSpec, DivePlan, PlanSettings, planDive } from './planner';
+import { defaultSwitchStep, simulateSidemount, worstSingleCylinderLitres } from './sidemount';
 
 export type Agency = 'gue' | 'tdi' | 'iantd';
 export type Environment = 'cave' | 'mine' | 'wreck';
@@ -54,6 +55,8 @@ export interface PenetrationInput {
   plannedPenetrationMinutes?: number;
   /** "I am brave": plan the full planned time even beyond the gas rule; results are flagged as outside the rules */
   overrideGasRule?: boolean;
+  /** sidemount: two independent cylinders of `singleVolumeL` each (member.cylinder is then the combined pair) */
+  sidemount?: { singleVolumeL: number; stepBar?: number };
   decoGases: DecoGasSpec[];
   settings?: Partial<PlanSettings>;
 }
@@ -98,6 +101,8 @@ export interface MemberPlan {
   exitRemainingLitres: number;
   /** back gas left after exiting while sharing with a team mate (both on this diver's gas), litres; negative = not enough */
   sharedExitRemainingLitres: number;
+  /** sidemount: cylinder pressures at the turn and the shortfall if one cylinder is lost there (0 = fine) */
+  sidemount?: { leftBar: number; rightBar: number; lostCylinderShortLitres: number; switches: number };
 }
 
 export interface StagePlan {
@@ -222,6 +227,20 @@ export function planPenetration(input: PenetrationInput): PenetrationPlan {
     x.sharedExitRemainingLitres = afterTurn - exitBackL - mateExitL;
   }
 
+  // sidemount: where do the two cylinders stand at the turn, and does either one alone cover the exit?
+  if (input.sidemount) {
+    const v = input.sidemount.singleVolumeL;
+    for (const x of members) {
+      const step = input.sidemount.stepBar ?? defaultSwitchStep(x.member.startBar);
+      const usedIn = backGasMinutes * x.member.sacLpm * pAvg;
+      const st = simulateSidemount(x.member.startBar, v, usedIn, step);
+      const exitL = backGasMinutes * x.member.sacLpm * pAvg;
+      const short = Math.max(0, exitL - worstSingleCylinderLitres(st, v));
+      x.sidemount = { leftBar: st.left, rightBar: st.right, lostCylinderShortLitres: short, switches: st.switches.length };
+      if (short > 0) warnings.push(msg('smLostCylinderExit', { diver: x.member.name, short: Math.round(short) }));
+    }
+  }
+
   const stageHandling = stagePlans.length * 2 * 1; // 1 min per drop and per pickup
   const overheadMinutes = 2 * penetrationMinutes + stageHandling;
   const bottomTime = input.descentMinutes + overheadMinutes;
@@ -264,7 +283,7 @@ export function planPenetration(input: PenetrationInput): PenetrationPlan {
   };
 }
 
-export type PenEventKind = 'start' | 'enter' | 'stageDrop' | 'turn' | 'stagePickup' | 'exit' | 'decoStop' | 'switch' | 'surface';
+export type PenEventKind = 'start' | 'enter' | 'stageDrop' | 'turn' | 'stagePickup' | 'exit' | 'decoStop' | 'switch' | 'regSwitch' | 'surface';
 export interface PenEvent { kind: PenEventKind; runtime: number; depth: number; gas: Gas; note?: string; duration?: number; until?: number; fromGas?: Gas }
 
 /** Chronological event list for a penetration plan, from t=0 to the surface. */

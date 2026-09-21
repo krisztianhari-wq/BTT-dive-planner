@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   CYLINDERS, Cylinder, DEFAULT_SETTINGS, DecoGasSpec, DivePlan, Gas, GasUsage, STANDARDS, StandardId,
   InventoryItem, Msg, backGasPlan, end, evaluateInventory, gasName, minimumGas, mod, packingList, planConsumption, planDive, ppO2,
-  roundBar, stopTable, itinerary, ItineraryEvent,
+  roundBar, stopTable, itinerary, ItineraryEvent, sidemountSwitchesOnProfile, worstSingleCylinderLitres, defaultSwitchStep, msg,
 } from '../engine';
 import { ProfileChart } from './ProfileChart';
 import { PrintSheet } from './PrintSheet';
@@ -77,6 +77,9 @@ export function App() {
   const [gfHigh, setGfHigh] = useState(85);
   const [lastStop, setLastStop] = useState<number | null>(null);
   const [cylIdx, setCylIdx] = useState(0);
+  const [config, setConfig] = useState<'backmount' | 'sidemount'>(() => stored('btt-config', ['backmount', 'sidemount'], 'backmount'));
+  const [smCylIdx, setSmCylIdx] = useState(() => CYLINDERS.findIndex((c) => c.name.startsWith('Single 12')));
+  const [smStep, setSmStep] = useState<number | null>(null);
   const [startBar, setStartBar] = useState(200);
   const [sacBottom, setSacBottom] = useState(20);
   const [sacDeco, setSacDeco] = useState(15);
@@ -107,6 +110,7 @@ export function App() {
   useEffect(() => { try { localStorage.setItem('btt-std', stdId); } catch { /* ignore */ } }, [stdId]);
   useEffect(() => { try { localStorage.setItem('btt-units', unitSys); } catch { /* ignore */ } }, [unitSys]);
   useEffect(() => { try { localStorage.setItem('btt-method', method); } catch { /* ignore */ } }, [method]);
+  useEffect(() => { try { localStorage.setItem('btt-config', config); } catch { /* ignore */ } }, [config]);
   useEffect(() => { document.documentElement.dataset.env = env; }, [env]);
 
   const settings = {
@@ -122,7 +126,12 @@ export function App() {
   const recommended = std.recommendedDecoGasesFor(maxDepth);
   const decoSelection: Record<string, boolean> = decoOn ?? Object.fromEntries(std.decoGases.map((d) => [d.gas.name!, recommended.includes(d)]));
   const stdDecoGases: DecoGasSpec[] = std.decoGases.filter((d) => decoSelection[d.gas.name!]).map((d) => ({ gas: d.gas, switchDepth: d.switchDepth }));
-  const cylinder = CYLINDERS[cylIdx];
+  const SM_CYLINDERS = CYLINDERS.filter((c) => c.name.startsWith('Single') || c.name.startsWith('AL80'));
+  const smSingle = SM_CYLINDERS[smCylIdx] ?? SM_CYLINDERS[0];
+  const cylinder: Cylinder = config === 'sidemount'
+    ? { name: `2× ${smSingle.name.split(' (')[0]} (${t.configSidemount})`, volumeL: smSingle.volumeL * 2, workingPressureBar: smSingle.workingPressureBar }
+    : CYLINDERS[cylIdx];
+  const smStepBar = smStep ?? defaultSwitchStep(startBar);
 
   const stdPlan = useMemo(() => planDive({ maxDepth, bottomTime, bottomGas: stdBottomGas, decoGases: stdDecoGases, settings }),
     [maxDepth, bottomTime, stdBottomGas, stdDecoGases, gfLow, gfHigh, lastStopDepth, stdId, method]);
@@ -137,7 +146,6 @@ export function App() {
   const decoGases = mode === 'standard' ? stdDecoGases : verdict.decoGasesUsed;
   const usage: GasUsage[] = plan ? (mode === 'standard' ? planConsumption(plan, sacBottom, sacDeco) : verdict.usage) : [];
   const stops = plan ? stopTable(plan) : [];
-  const events: ItineraryEvent[] = plan ? itinerary(plan) : [];
 
   const backCyl: Cylinder = mode === 'standard' ? cylinder : (backItem?.cylinder ?? cylinder);
   const backStart = mode === 'standard' ? startBar : (backItem?.pressureBar ?? startBar);
@@ -146,6 +154,20 @@ export function App() {
   const minGasBar = roundBar(minGas.bar);
   const bg = plan ? backGasPlan(plan, backCyl, backStart, sacBottom, sacDeco, minGasBar) : null;
   const pack = plan && mode === 'standard' ? packingList(plan, usage, cylinder, minGasBar, sacBottom, sacDeco, CYLINDERS) : [];
+  // sidemount: regulator switches on the profile and the lost-cylinder minimum-gas check
+  const sm = useMemo(() => {
+    if (config !== 'sidemount' || env !== 'open' || mode !== 'standard' || !plan) return null;
+    const isBack = (seg: { gas: Gas }) => seg.gas === bottomGas;
+    const all = sidemountSwitchesOnProfile(plan.segments, isBack, sacBottom, sacDeco, backStart, smSingle.volumeL, smStepBar);
+    const bottomSegs = plan.segments.filter((sg) => sg.kind === 'descent' || sg.kind === 'bottom');
+    const atBottomEnd = sidemountSwitchesOnProfile(bottomSegs, isBack, sacBottom, sacDeco, backStart, smSingle.volumeL, smStepBar).end;
+    const lostShort = Math.max(0, minGas.litres - worstSingleCylinderLitres(atBottomEnd, smSingle.volumeL));
+    return { switches: all.switches, end: all.end, atBottomEnd, lostShort };
+  }, [config, env, mode, plan, bottomGas, sacBottom, sacDeco, backStart, smSingle, smStepBar, minGas.litres]);
+  const baseEvents: ItineraryEvent[] = plan ? itinerary(plan) : [];
+  const events: ItineraryEvent[] = sm
+    ? [...baseEvents, ...sm.switches.map((sw): ItineraryEvent => ({ kind: 'regSwitch', runtime: sw.runtime ?? 0, depth: sw.depth ?? 0, gas: bottomGas, note: `${sw.to}|${sw.atBar}` }))].sort((a, b) => a.runtime - b.runtime)
+    : baseEvents;
 
   const bottomPpO2 = ppO2(bottomGas, maxDepth);
   const bottomEnd = end(bottomGas, maxDepth);
@@ -159,6 +181,7 @@ export function App() {
     else if (bottomEnd > L.warnEndM) warnings.push({ text: t.endOverLimitGeneric(bottomEnd, L.warnEndM, u), bad: false });
     if (bg && !bg.ok) warnings.push({ text: t.backGasNotEnough(bg.shortBar, bg.shortLitres, u), bad: true });
     if (bottomGasIdx !== 'auto' && autoBottom && autoBottom.gas !== stdBottomGas) warnings.push({ text: isGue ? t.standardGasHint(maxDepth, autoBottom.gas.name!, u) : t.standardGasHintGeneric(maxDepth, autoBottom.gas.name!, u), bad: false });
+    if (sm && sm.lostShort > 0) warnings.push({ text: t.msg(msg('smLostCylinderMinGas', { short: Math.round(sm.lostShort) }), u), bad: true });
   }
 
   const recData = useRecreationalPlan(rec, gfHigh);
@@ -194,6 +217,7 @@ export function App() {
       case 'leaveBottom': return t.itLeave(gasName(e.gas));
       case 'switch': return t.itSwitch(e.fromGas ? gasName(e.fromGas) : '—', gasName(e.gas), u, e.depth, Math.round(e.duration ?? 0));
       case 'stop': return t.itStop(Math.round(e.duration ?? 0), Math.round(e.until ?? 0), u, e.depth);
+      case 'regSwitch': { const [to, bar] = (e.note ?? 'L|0').split('|'); return t.smEvSwitch(to, u.pressure(Math.round(Number(bar)))); }
       case 'surface': return t.itSurface;
     }
   };
@@ -318,10 +342,29 @@ export function App() {
           {mode === 'standard' ? (
             <section className="panel">
               <h2>{t.backGasAndSac}</h2>
-              <label>{t.backCylinder}</label>
-              <select value={cylIdx} onChange={(e) => setCylIdx(+e.target.value)}>
-                {CYLINDERS.map((c, i) => <option key={c.name} value={i}>{c.name}</option>)}
-              </select>
+              <label>{t.config}</label>
+              <div className="seg" style={{ display: 'flex' }}>
+                <button style={{ flex: 1 }} className={config === 'backmount' ? 'on' : ''} onClick={() => setConfig('backmount')}>{t.configBackmount}</button>
+                <button style={{ flex: 1 }} className={config === 'sidemount' ? 'on' : ''} onClick={() => setConfig('sidemount')}>{t.configSidemount}</button>
+              </div>
+              {config === 'backmount' ? (
+                <>
+                  <label>{t.backCylinder}</label>
+                  <select value={cylIdx} onChange={(e) => setCylIdx(+e.target.value)}>
+                    {CYLINDERS.map((c, i) => <option key={c.name} value={i}>{c.name}</option>)}
+                  </select>
+                </>
+              ) : (
+                <>
+                  <label>{t.smCylinder}</label>
+                  <select value={smCylIdx} onChange={(e) => setSmCylIdx(+e.target.value)}>
+                    {SM_CYLINDERS.map((c, i) => <option key={c.name} value={i}>2× {c.name}</option>)}
+                  </select>
+                  <label>{t.smStep(u)}</label>
+                  <NumInput min={u.pressureN(5)} value={u.pressureN(smStepBar)} onChange={(v) => setSmStep(u.toBar(v))} />
+                  <div className="small" style={{ marginTop: 6 }}>{t.smSwitchNote} {t.smMinGasNote}</div>
+                </>
+              )}
               <div className="row3">
                 <div><label>{t.startPressure(u)}</label><NumInput min={u.pressureN(50)} max={u.pressureN(300)} value={u.pressureN(startBar)} onChange={(v) => setStartBar(u.toBar(v))} /></div>
                 <div><label>{t.sacBottom(u)}</label><NumInput step={u.sacStep} min={0} value={u.sacN(sacBottom)} decimals={u.sys === 'metric' ? 0 : 2} onChange={(v) => setSacBottom(u.toLpm(v))} /></div>
@@ -484,6 +527,16 @@ export function App() {
                   <tr><td>{t.backGasEnough}</td><td className={`num ${bg.ok ? 'ok' : 'bad'}`}><b>{bg.ok ? t.yes : t.no}</b></td></tr>
                 </tbody>
               </table>
+              {sm && (
+                <>
+                  <h2 style={{ marginTop: 18 }}>{t.smSwitches}</h2>
+                  <table>
+                    <thead><tr><th className="num">{t.itTime}</th><th className="num">{t.itDepth(u)}</th><th>{t.itAction}</th></tr></thead>
+                    <tbody>{sm.switches.map((sw, i) => <tr key={i}><td className="num">{Math.round(sw.runtime ?? 0)}</td><td className="num">{u.depthN(sw.depth ?? 0)}</td><td>{t.smEvSwitch(sw.to, u.pressure(Math.round(sw.atBar)))}</td></tr>)}</tbody>
+                  </table>
+                  <div className="small" style={{ marginTop: 6 }}>{t.smAtTurn(u)}: L {u.pressureN(sm.atBottomEnd.left)} / R {u.pressureN(sm.atBottomEnd.right)} · {t.smLost(u)}: <b className={sm.lostShort > 0 ? 'bad' : 'ok'}>{u.volumeN(sm.lostShort)}</b></div>
+                </>
+              )}
               <h2 style={{ marginTop: 18 }}>{t.usagePerGas}</h2>
               <table>
                 <thead><tr><th>{t.gas}</th><th className="num">{t.litres(u)}</th><th className="num">{t.barInCylinder(u)}</th></tr></thead>

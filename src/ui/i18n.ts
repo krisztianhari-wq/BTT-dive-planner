@@ -110,6 +110,17 @@ const hu = {
   penEvTurn: (bar: string) => `FORDULÓ a fordulónyomásnál (${bar}), kifelé indulás`,
   penEvPickup: (g: string) => `Stage felvétele (${g}), váltás rá, 1 perc`,
   penEvExit: 'Kijárat elérve, felszállás indul',
+  config: 'Konfiguráció',
+  configBackmount: 'Backmount',
+  configSidemount: 'Sidemount',
+  smCylinder: 'Sidemount palack (2 db, függetlenek)',
+  smStep: (u: Units) => `Regulátorváltás lépcsője (${u.p})`,
+  smSwitches: 'Regulátorváltások',
+  smSwitchNote: 'Első váltás a kezdőnyomás hatodánál, utána harmadonként: a két palack egy lépcsőn belül marad, és bármelyik egyedül is elég a kijövetelhez.',
+  smEvSwitch: (to: string, bar: string) => `Regulátorváltás a ${to === 'L' ? 'bal' : 'jobb'} palackra, a másik ${bar}-nál`,
+  smAtTurn: (u: Units) => `Palackok a fordulónál (${u.p})`,
+  smLost: (u: Units) => `Egy palack elvesztése: hiány (${u.v})`,
+  smMinGasNote: 'Sidemountnál a minimum gáznak egy palackban is meg kell lennie a fenékidő végén.',
   modeStandard: 'Standard terv',
   modeInventory: 'Saját gázaim',
   stdGue: 'GUE',
@@ -256,6 +267,8 @@ const hu = {
       case 'penOverrideActive': return `SZABÁLYON KÍVÜLI TERV: a ${p.rule} szabály legfeljebb ${p.max} percet engedne, a terv ${p.planned} perccel számol. A tartalék nem fedez gázosztásos kijövetelt.`;
       case 'recOverNdl': return `Ezt nem tudod dekó nélkül merülni: a nulla-dekó limit ${p.ndl} perc, a tervezett ${p.bottom} perc ${p.over} perccel túllépi.`;
       case 'recDepthLimit': return `A ${u.depth(n('depth'))} mélység meghaladja a rekreációs ${u.depth(n('limit'))} limitet.`;
+      case 'smLostCylinderMinGas': return `Sidemount: egy palack elvesztésekor a másikban nincs meg a minimum gáz a fenékidő végén, ${u.volume(n('short'))} hiányzik.`;
+      case 'smLostCylinderExit': return `Sidemount, ${p.diver}: ha a fordulónál egy palack elveszik, a másik egyedül ${u.volume(n('short'))}-rel kevesebbet ad a kijövetelhez.`;
       case 'recGasShort': return `Nem elég a gáz: ${u.pressure(n('reserve'))}-ral kell felszínre érni, ehhez ${u.pressure(n('short'))} (${u.volume(n('shortL'))}) hiányzik.`;
     }
   },
@@ -371,6 +384,17 @@ const en: Dict = {
   penEvTurn: (bar) => `TURN at turn pressure (${bar}), head out`,
   penEvPickup: (g) => `Pick up stage (${g}), switch to it, 1 min`,
   penEvExit: 'Exit reached, ascent starts',
+  config: 'Configuration',
+  configBackmount: 'Backmount',
+  configSidemount: 'Sidemount',
+  smCylinder: 'Sidemount cylinder (2×, independent)',
+  smStep: (u) => `Regulator switch step (${u.p})`,
+  smSwitches: 'Regulator switches',
+  smSwitchNote: 'First switch after one sixth of the start pressure, then every third: the cylinders stay within one step and either one alone still covers the exit.',
+  smEvSwitch: (to, bar) => `Switch regulators to the ${to === 'L' ? 'left' : 'right'} cylinder, the other at ${bar}`,
+  smAtTurn: (u) => `Cylinders at the turn (${u.p})`,
+  smLost: (u) => `Lost cylinder: shortfall (${u.v})`,
+  smMinGasNote: 'In sidemount, minimum gas must be present in a single cylinder at the end of bottom time.',
   modeStandard: 'Standard plan',
   modeInventory: 'My gases',
   stdGue: 'GUE',
@@ -517,6 +541,8 @@ const en: Dict = {
       case 'penOverrideActive': return `PLAN OUTSIDE THE RULES: the ${p.rule} rule allows at most ${p.max} min, this plan uses ${p.planned} min. The reserve does not cover a gas-sharing exit.`;
       case 'recOverNdl': return `You cannot dive this without deco: the no-deco limit is ${p.ndl} min, the planned ${p.bottom} min exceeds it by ${p.over} min.`;
       case 'recDepthLimit': return `Depth ${u.depth(n('depth'))} exceeds the recreational ${u.depth(n('limit'))} limit.`;
+      case 'smLostCylinderMinGas': return `Sidemount: if one cylinder is lost, the other does not hold minimum gas at the end of bottom time, ${u.volume(n('short'))} short.`;
+      case 'smLostCylinderExit': return `Sidemount, ${p.diver}: if a cylinder is lost at the turn, the other alone is ${u.volume(n('short'))} short for the exit.`;
       case 'recGasShort': return `Not enough gas: you must surface with ${u.pressure(n('reserve'))}, which is ${u.pressure(n('short'))} (${u.volume(n('shortL'))}) short.`;
     }
   },

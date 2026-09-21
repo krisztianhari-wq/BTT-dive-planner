@@ -491,3 +491,26 @@ describe('penetration per-diver gases', () => {
     expect(hot.blockers.some((b) => b.code === 'ppo2AboveMax' && b.params.gas === 'EAN32')).toBe(true); // 0.32 × 4.6 = 1.47
   });
 });
+
+describe('sidemount', () => {
+  it('switches first after 1/6 then keeps the cylinders within one step', async () => {
+    const { simulateSidemount, defaultSwitchStep } = await import('../src/engine');
+    expect(defaultSwitchStep(200)).toBe(30);
+    const st = simulateSidemount(200, 12, 1800); // 150 bar total from 2×12 L
+    expect(st.switches[0].atBar).toBeCloseTo(170, 5); // first switch after 1/6
+    expect(Math.abs(st.left - st.right)).toBeLessThanOrEqual(30 + 1e-9);
+    expect(st.left + st.right).toBeCloseTo(400 - 150, 5);
+    // every switch leaves the two cylinders within one step
+    let l = 200, r = 200; let cur: 'L' | 'R' = 'L';
+    for (const sw of st.switches) { if (cur === 'L') l = sw.atBar; else r = sw.atBar; expect(Math.abs(l - r)).toBeLessThanOrEqual(30 + 1e-9); cur = sw.to; }
+  });
+  it('places switches on a dive profile and tracks the worst single-cylinder reserve', async () => {
+    const { sidemountSwitchesOnProfile, worstSingleCylinderLitres } = await import('../src/engine');
+    const p = planDive({ maxDepth: 30, bottomTime: 30, bottomGas: EAN32, decoGases: [] });
+    const { switches, end } = sidemountSwitchesOnProfile(p.segments, () => true, 20, 15, 200, 12);
+    expect(switches.length).toBeGreaterThan(0);
+    for (let i = 1; i < switches.length; i++) expect(switches[i].runtime!).toBeGreaterThan(switches[i - 1].runtime!);
+    expect(worstSingleCylinderLitres(end, 12)).toBeGreaterThan(0);
+    expect(worstSingleCylinderLitres(end, 12)).toBeLessThanOrEqual(Math.max(end.left, end.right) * 12);
+  });
+});
