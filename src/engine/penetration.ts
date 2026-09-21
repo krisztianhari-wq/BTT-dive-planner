@@ -23,6 +23,8 @@ export interface TeamMember {
   sacLpm: number;
   /** this diver's bottom gas; defaults to the team bottom gas */
   gas?: Gas;
+  /** this diver dives sidemount: two independent cylinders of `singleVolumeL` (cylinder is then the combined pair) */
+  sidemount?: { singleVolumeL: number; stepBar?: number };
 }
 
 export interface StageSpec {
@@ -228,10 +230,11 @@ export function planPenetration(input: PenetrationInput): PenetrationPlan {
   }
 
   // sidemount: where do the two cylinders stand at the turn, and does either one alone cover the exit?
-  if (input.sidemount) {
-    const v = input.sidemount.singleVolumeL;
-    for (const x of members) {
-      const step = input.sidemount.stepBar ?? defaultSwitchStep(x.member.startBar);
+  for (const x of members) {
+    const smCfg = x.member.sidemount ?? input.sidemount;
+    if (smCfg) {
+      const v = smCfg.singleVolumeL;
+      const step = smCfg.stepBar ?? defaultSwitchStep(x.member.startBar);
       const usedIn = backGasMinutes * x.member.sacLpm * pAvg;
       const st = simulateSidemount(x.member.startBar, v, usedIn, step);
       const exitL = backGasMinutes * x.member.sacLpm * pAvg;

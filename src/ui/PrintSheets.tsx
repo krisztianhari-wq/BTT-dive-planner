@@ -105,8 +105,8 @@ export function PenPrintSheet({ t, u, lang, input, plan, events, agencyLabel, en
       <section className="ps-span">
         <h3>{t.penGasMatching}</h3>
         <table>
-          <thead><tr><th>{t.penDiver}</th><th>{t.gas}</th><th className="num">{t.penStart(u)}</th><th className="num">{t.penTurn(u)}</th><th className="num">{t.penPenGas(u)}</th><th className="num">{t.penExitLeft(u)}</th><th className="num">{t.penSharedLeft(u)}</th></tr></thead>
-          <tbody>{plan.members.map((m) => <tr key={m.member.id}><td>{m.member.name}{m.member.id === plan.limiting.id ? ` (${t.penLimiting})` : ''}</td><td>{gasName(m.member.gas ?? input.bottomGas)}</td><td className="num">{u.pressureN(m.member.startBar)}</td><td className="num"><b>{u.pressureN(m.turnBar)}</b></td><td className="num">{vol(m.penetrationLitres)}</td><td className="num">{vol(m.exitRemainingLitres)}</td><td className={`num ${m.sharedExitRemainingLitres < 0 ? 'bad' : ''}`}>{vol(m.sharedExitRemainingLitres)}</td></tr>)}</tbody>
+          <thead><tr><th>{t.penDiver}</th><th>{t.gas}</th><th>{t.cylinder}</th><th className="num">{t.penStart(u)}</th><th className="num">{t.penTurn(u)}</th><th className="num">{t.penPenGas(u)}</th><th className="num">{t.penExitLeft(u)}</th><th className="num">{t.penSharedLeft(u)}</th></tr></thead>
+          <tbody>{plan.members.map((m) => <tr key={m.member.id}><td>{m.member.name}{m.member.id === plan.limiting.id ? ` (${t.penLimiting})` : ''}</td><td>{gasName(m.member.gas ?? input.bottomGas)}</td><td>{m.member.cylinder.name.split(' (')[0]}{m.sidemount ? ` · ${u.pressureN(m.sidemount.leftBar)}/${u.pressureN(m.sidemount.rightBar)}` : ''}</td><td className="num">{u.pressureN(m.member.startBar)}</td><td className="num"><b>{u.pressureN(m.turnBar)}</b></td><td className="num">{vol(m.penetrationLitres)}</td><td className="num">{vol(m.exitRemainingLitres)}</td><td className={`num ${m.sharedExitRemainingLitres < 0 ? 'bad' : ''}`}>{vol(m.sharedExitRemainingLitres)}</td></tr>)}</tbody>
         </table>
       </section>
       {plan.stages.length > 0 && (

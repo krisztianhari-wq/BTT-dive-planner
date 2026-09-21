@@ -164,10 +164,7 @@ export function App() {
     const lostShort = Math.max(0, minGas.litres - worstSingleCylinderLitres(atBottomEnd, smSingle.volumeL));
     return { switches: all.switches, end: all.end, atBottomEnd, lostShort };
   }, [config, env, mode, plan, bottomGas, sacBottom, sacDeco, backStart, smSingle, smStepBar, minGas.litres]);
-  const baseEvents: ItineraryEvent[] = plan ? itinerary(plan) : [];
-  const events: ItineraryEvent[] = sm
-    ? [...baseEvents, ...sm.switches.map((sw): ItineraryEvent => ({ kind: 'regSwitch', runtime: sw.runtime ?? 0, depth: sw.depth ?? 0, gas: bottomGas, note: `${sw.to}|${sw.atBar}` }))].sort((a, b) => a.runtime - b.runtime)
-    : baseEvents;
+  const events: ItineraryEvent[] = plan ? itinerary(plan) : [];
 
   const bottomPpO2 = ppO2(bottomGas, maxDepth);
   const bottomEnd = end(bottomGas, maxDepth);
@@ -528,14 +525,7 @@ export function App() {
                 </tbody>
               </table>
               {sm && (
-                <>
-                  <h2 style={{ marginTop: 18 }}>{t.smSwitches}</h2>
-                  <table>
-                    <thead><tr><th className="num">{t.itTime}</th><th className="num">{t.itDepth(u)}</th><th>{t.itAction}</th></tr></thead>
-                    <tbody>{sm.switches.map((sw, i) => <tr key={i}><td className="num">{Math.round(sw.runtime ?? 0)}</td><td className="num">{u.depthN(sw.depth ?? 0)}</td><td>{t.smEvSwitch(sw.to, u.pressure(Math.round(sw.atBar)))}</td></tr>)}</tbody>
-                  </table>
-                  <div className="small" style={{ marginTop: 6 }}>{t.smAtTurn(u)}: L {u.pressureN(sm.atBottomEnd.left)} / R {u.pressureN(sm.atBottomEnd.right)} · {t.smLost(u)}: <b className={sm.lostShort > 0 ? 'bad' : 'ok'}>{u.volumeN(sm.lostShort)}</b></div>
-                </>
+                <div className="small" style={{ marginTop: 10 }}>{t.configSidemount}: {t.smAtBottomEnd(u)}: {u.pressureN(sm.atBottomEnd.left)} / {u.pressureN(sm.atBottomEnd.right)} · {t.smLost(u)}: <b className={sm.lostShort > 0 ? 'bad' : 'ok'}>{u.volumeN(sm.lostShort)}</b></div>
               )}
               <h2 style={{ marginTop: 18 }}>{t.usagePerGas}</h2>
               <table>
