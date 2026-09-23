@@ -116,6 +116,8 @@ jobs:
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
         run: npx tauri android init
+      - name: Generate app icons (Android uses the smaller drawing)
+        run: bash scripts/gen-icons.sh
       - name: Build release APK (arm64)
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
