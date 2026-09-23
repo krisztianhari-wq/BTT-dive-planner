@@ -48,7 +48,7 @@ body { padding-bottom: env(safe-area-inset-bottom, 0px); }
 .seg button.on { background: var(--panel); box-shadow: 0 2px 6px rgba(0,0,0,.12); }
 :root[data-theme="dark"] .seg button.on { background: #636366; }
 
-.disclaimer { background: var(--warn-soft); color: var(--warn); padding: 10px 14px; border-radius: 14px; font-size: .8rem; margin-bottom: 20px; line-height: 1.45; }
+.disclaimer { background: var(--panel); color: var(--bad); box-shadow: var(--shadow); padding: 12px 18px; border-radius: 18px; font-size: .84rem; font-weight: 500; margin-bottom: 20px; line-height: 1.45; transition: background .25s; }
 
 .grid { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 20px; align-items: start; }
 @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
