@@ -6,7 +6,8 @@ Decompression and gas planner for technical diving. Bühlmann ZH-L16C with gradi
 
 ## Use it
 - **Web / PWA:** https://krisztianhari-wq.github.io/BTT-dive-planner/ – installable (Chrome/Edge: “Install” icon in the address bar; iPhone: Share → Add to Home Screen), works offline.
-- **macOS, Windows 11:** installers on the [Releases](https://github.com/krisztianhari-wq/BTT-dive-planner/releases) page.
+- **macOS, Windows 11, Android:** installers and the signed `.apk` on the [Releases](https://github.com/krisztianhari-wq/BTT-dive-planner/releases) page.
+- **Privacy:** the app collects no data – see the [privacy policy](https://krisztianhari-wq.github.io/BTT-dive-planner/privacy.html).
   - **macOS:** the app is not signed with an Apple developer certificate, so a downloaded copy is reported as “damaged”. Drag it to Applications, then run once in Terminal:
     ```bash
     xattr -cr "/Applications/BTT Dive Planner.app"

@@ -195,7 +195,7 @@ Tip: the Support URL should lead to a page with contact information. The reposit
 
 Resulting App Store privacy label: **Data Not Collected**.
 
-A Privacy Policy URL is still required by App Store Connect. A short page stating "BTT Dive Planner collects no data, makes no network requests and stores plans only on the device" is enough; it can be hosted on GitHub Pages next to the web app.
+Privacy Policy URL (required by App Store Connect): https://krisztianhari-wq.github.io/BTT-dive-planner/privacy.html (Hungarian and English, source: `public/privacy.html`).
 
 ## 4. Review notes for Apple (English, 1817/4000)
 
