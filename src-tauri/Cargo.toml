@@ -1,6 +1,6 @@
 [package]
 name = "btt-dive-planner"
-version = "0.6.1"
+version = "0.7.0"
 description = "BTT Dive Planner – decompression and gas planner"
 authors = ["sadrobot", "BTT Explorers Hungary"]
 edition = "2021"
@@ -24,3 +24,10 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+# tao 0.35.3 + the one-line fix from tauri-apps/tao#1245 (use-after-free in
+# configurationForConnectingSceneSession). iOS 27 requires UIApplicationSceneManifest,
+# and with the manifest release builds of unpatched tao 0.35 crash on launch.
+# Remove once tauri-runtime-wry depends on tao >= 0.36.
+[patch.crates-io]
+tao = { path = "vendor/tao" }

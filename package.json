@@ -2,7 +2,7 @@
   "name": "gue-dive-planner",
   "private": true,
   "author": "sadrobot",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -21,7 +21,7 @@
     "@tauri-apps/plugin-dialog": "^2.7.3",
     "@tauri-apps/plugin-fs": "^2.5.2",
     "html-to-image": "^1.11.13",
-    "jspdf": "^3.0.4",
+    "jspdf": "^4.2.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -32,9 +32,9 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.6.3",
-    "vite": "^5.4.11",
+    "vite": "^8.3.0",
     "vite-plugin-pwa": "^0.21.2",
     "vite-plugin-singlefile": "^2.3.3",
-    "vitest": "^2.1.8"
+    "vitest": "^5.0.1"
   }
 }

@@ -10,7 +10,7 @@ import { NumInput } from './NumInput';
 import { PenetrationView, PenState, defaultPenState, usePenetrationPlan, penEventText } from './PenetrationView';
 import { RecreationalView, RecState, defaultRecState, useRecreationalPlan } from './RecreationalView';
 import { RecPrintSheet, PenPrintSheet } from './PrintSheets';
-import { exportPdf } from './pdf';
+import { exportPdf, isMobileTauri } from './pdf';
 import { Lang, dict, initialLang } from './i18n';
 import { UnitSystem, makeUnits } from './units';
 import logoUrl from '../assets/btt-logo.png';
@@ -186,6 +186,7 @@ export function App() {
   const canPrint = env === 'rec' ? true : env === 'pen' ? !!penData.plan : !!(plan && bg);
   const [busy, setBusy] = useState(false);
   const isTauri = '__TAURI_INTERNALS__' in window;
+  const mobile = isMobileTauri();
   const doPrint = async () => {
     if (isTauri) {
       try { const { invoke } = await import('@tauri-apps/api/core'); await invoke('print_page'); return; } catch { /* fall back */ }
@@ -259,7 +260,7 @@ export function App() {
               <button className={theme === 'dark' ? 'on' : ''} onClick={() => setTheme('dark')} title={t.themeDark}>☾</button>
             </div>
             <div className="seg lang actions" role="group" aria-label={t.print}>
-              <button onClick={doPrint} disabled={!canPrint} title={t.print}>🖨 {t.print}</button>
+              {!mobile && <button onClick={doPrint} disabled={!canPrint} title={t.print}>🖨 {t.print}</button>}
               <button onClick={doPdf} disabled={!canPrint || busy} title={t.savePdf}>{busy ? '…' : '⤓ PDF'}</button>
             </div>
           </div>

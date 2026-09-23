@@ -43,6 +43,19 @@ npm run build:single   # dist-single/index.html – single portable file
 npm run tauri build    # native app, requires a Rust toolchain (rustup.rs)
 ```
 
+### Mobile (iOS / Android)
+The same Tauri project also targets phones. The generated native projects live in
+`src-tauri/gen/` (ignored by git) and are recreated with `tauri ios init` / `tauri android init`.
+```bash
+rustup target add aarch64-apple-ios aarch64-apple-ios-sim aarch64-linux-android
+npm run tauri ios build --debug --target aarch64-sim     # Xcode + CocoaPods; runs in the iOS Simulator
+npm run tauri android build --apk --target aarch64       # Android SDK/NDK + JDK 17 (ANDROID_HOME, NDK_HOME, JAVA_HOME)
+```
+On phones there is no print dialog; the PDF button hands the plan to the system share sheet instead.
+Shipping to the App Store needs an Apple Developer account and a signing team
+(`npm run tauri ios build --export-method app-store-connect`); the Android APK can be sideloaded or
+uploaded to Google Play as an `.aab`.
+
 ## Release
 - Push to `main` → GitHub Pages updates automatically.
 - Push a tag separately → installers are attached to a published GitHub Release:
@@ -74,7 +87,7 @@ An independent Bühlmann implementation (the [dive-deco](https://github.com/KG32
   - `i18n.ts` – Hungarian / English dictionary and message translation
   - `units.ts` – metric / imperial conversion
   - `styles.css` – light / dark theme
-- `src-tauri/` – desktop packaging (Tauri v2), icons, configuration
+- `src-tauri/` – desktop and mobile packaging (Tauri v2), icons, configuration
 - `tools/oracle/` – independent reference implementation harness (Rust)
 - `scripts/` – single-file build post-processing, golden fixture generation, schedule printers
 - `.github/workflows/` – `pages.yml` (web deployment), `desktop.yml` (installers)
