@@ -6,14 +6,13 @@ import {
 } from '../engine';
 import { Dict } from './i18n';
 import { Units } from './units';
-import { NumInput } from './NumInput';
-import { ProfileChart } from './ProfileChart';
+import { Card, Chevron, Chip, KV, Label, Note, NumRow, Primary, ProfileCard, Secondary, Seg, SelectRow, Stat, Stats, Stepper, StopRows, Timeline, Toggle, Verdict, Warnings } from './kit';
 
 interface Props {
   t: Dict; u: Units; lang: 'hu' | 'en'; std: GasStandard; settings: Partial<PlanSettings>;
-  /** rendered inside the left column */
-  side: 'left' | 'right';
+  tab: 'setup' | 'team' | 'kit' | 'deco';
   state: PenState; setState: (s: PenState) => void;
+  onMatch: () => void; onExport: () => void;
 }
 
 export interface PenState {
@@ -106,308 +105,268 @@ export function usePenetrationPlan(s: PenState, std: GasStandard, settings: Part
   }, [s, std, settings]);
 }
 
-export function PenetrationView({ t, u, lang, std, settings, side, state: s, setState }: Props) {
+export function PenetrationView({ t, u, lang, std, settings, tab, state: s, setState, onMatch, onExport }: Props) {
   const set = (patch: Partial<PenState>) => setState({ ...s, ...patch });
   const { input, plan, events, autoBottom, stageBar, suggestedStages, decoStages, unusedDecoGases, bottomList, stageList, packing, teamSize, cylinder } = usePenetrationPlan(s, std, settings);
   const vol0 = (l: number) => (u.volumeN(l)).toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: u.sys === 'metric' ? 0 : 1 });
   const fmt = (v: number, d = 0) => v.toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: d, minimumFractionDigits: d });
   const vol = (l: number) => fmt(u.volumeN(l), u.sys === 'metric' ? 0 : 1);
-  const [_, setTick] = useState(0); void _; void setTick;
+  const [openDiver, setOpenDiver] = useState<number | null>(null);
+  const cylShort = (n: string) => n.split(' (')[0];
+  const setMember = (i: number, patch: Partial<PenState['members'][number]>) => { const ms = [...s.members]; ms[i] = { ...ms[i], ...patch }; set({ members: ms }); };
 
-  if (side === 'left') {
+  if (tab === 'setup') {
+    const team = input.team;
     return (
       <>
-        <section className="panel pen">
-          <h2>{t.penEnvironment}</h2>
-          <div className="row3">
-            <div><label>{t.penType}</label>
-              <select value={s.environment} onChange={(e) => set({ environment: e.target.value as Environment, flow: e.target.value === 'cave' ? 'outflow' : 'none' })}>
-                <option value="cave">{t.penCave}</option><option value="mine">{t.penMine}</option><option value="wreck">{t.penWreck}</option>
-              </select></div>
-            <div><label>{t.penAgency}</label>
-              <select value={s.agency} onChange={(e) => { const a = e.target.value as Agency; set({ agency: a, stageRule: a === 'gue' ? 'halfPlus' : 'thirds' }); }}>
-                <option value="gue">GUE</option><option value="tdi">TDI</option><option value="iantd">IANTD</option>
-              </select></div>
-            <div><label>{t.penFlow}</label>
-              <select value={s.flow} onChange={(e) => set({ flow: e.target.value as Flow })}>
-                <option value="outflow">{t.penFlowOut}</option><option value="none">{t.penFlowNone}</option><option value="siphon">{t.penFlowSiphon}</option>
-              </select></div>
+        <Label>{t.penEnvironment}</Label>
+        <Card className="list">
+          <SelectRow label={t.penType} value={s.environment} onChange={(v) => set({ environment: v, flow: v === 'cave' ? 'outflow' : 'none' })}
+            options={[{ v: 'cave' as Environment, l: t.penCave }, { v: 'mine' as Environment, l: t.penMine }, { v: 'wreck' as Environment, l: t.penWreck }]} />
+          <SelectRow label={t.penAgency} value={s.agency} onChange={(a) => set({ agency: a, stageRule: a === 'gue' ? 'halfPlus' : 'thirds' })}
+            options={[{ v: 'gue' as Agency, l: 'GUE' }, { v: 'tdi' as Agency, l: 'TDI' }, { v: 'iantd' as Agency, l: 'IANTD' }]} />
+          <SelectRow label={t.penFlow} value={s.flow} onChange={(v) => set({ flow: v })}
+            options={[{ v: 'outflow' as Flow, l: t.penFlowOut }, { v: 'none' as Flow, l: t.penFlowNone }, { v: 'siphon' as Flow, l: t.penFlowSiphon }]} />
+        </Card>
+        <Stepper label={t.penMaxDepth(u)} min={u.depthN(3)} max={u.depthN(60)} value={u.depthN(s.maxDepth)} onChange={(v) => set({ maxDepth: u.toM(v) })} />
+        <Stepper label={t.penPlannedTime} min={0} max={300} step={5} value={s.plannedMinutes} onChange={(v) => set({ plannedMinutes: v })} />
+        <Card className="list">
+          <NumRow label={t.penAvgDepth(u)} min={u.depthN(3)} max={u.depthN(60)} value={u.depthN(s.avgDepth)} onChange={(v) => set({ avgDepth: u.toM(v) })} />
+          <NumRow label={t.penDescent} min={0} max={30} value={s.descentMinutes} onChange={(v) => set({ descentMinutes: v })} />
+          <NumRow label={t.penSwimSpeed(u)} min={1} value={u.depthN(s.swimSpeed)} onChange={(v) => set({ swimSpeed: u.toM(v) })} />
+          <SelectRow label={t.bottomGas} value={s.bottomGasIdx} onChange={(v) => set({ bottomGasIdx: v })}
+            options={[{ v: 'auto' as const, l: t.autoBottomGas(autoBottom?.gas.name ?? '—') }, ...bottomList.map((g, i) => ({ v: i, l: g.gas.name ?? '' }))]} />
+          <div className="row stack">
+            <span className="row-l">{t.decoGases}</span>
+            <div className="tchips">
+              {std.decoGases.map((d) => {
+                const on = !!s.decoOn[d.gas.name!];
+                return <Toggle key={d.gas.name} on={on} onClick={() => set({ decoOn: { ...s.decoOn, [d.gas.name!]: !on } })}>{d.gas.name} · {u.stopDepth(d.switchDepth)}</Toggle>;
+              })}
+            </div>
           </div>
-          <div className="row">
-            <div><label>{t.penAvgDepth(u)}</label><NumInput min={u.depthN(3)} max={u.depthN(60)} value={u.depthN(s.avgDepth)} onChange={(v) => set({ avgDepth: u.toM(v) })} /></div>
-            <div><label>{t.penMaxDepth(u)}</label><NumInput min={u.depthN(3)} max={u.depthN(60)} value={u.depthN(s.maxDepth)} onChange={(v) => set({ maxDepth: u.toM(v) })} /></div>
-          </div>
-          <div className="row">
-            <div><label>{t.penPlannedTime}</label><NumInput min={0} max={300} value={s.plannedMinutes} onChange={(v) => set({ plannedMinutes: v })} /></div>
-            <div><label>{t.penDescent}</label><NumInput min={0} max={30} value={s.descentMinutes} onChange={(v) => set({ descentMinutes: v })} /></div>
-          </div>
-          <div className="row">
-            <div><label>{t.penSwimSpeed(u)}</label><NumInput min={1} value={u.depthN(s.swimSpeed)} onChange={(v) => set({ swimSpeed: u.toM(v) })} /></div>
-            <div />
-          </div>
-          <label>{t.bottomGas}</label>
-          <select value={s.bottomGasIdx} onChange={(e) => set({ bottomGasIdx: e.target.value === 'auto' ? 'auto' : +e.target.value })}>
-            <option value="auto">{t.autoBottomGas(autoBottom?.gas.name ?? '—')}</option>
-            {bottomList.map((g, i) => <option key={g.gas.name} value={i}>{g.gas.name}</option>)}
-          </select>
-          <label>{t.decoGases}</label>
-          <div className="chips">
-            {std.decoGases.map((d) => {
-              const on = !!s.decoOn[d.gas.name!];
-              return <span key={d.gas.name} className={`chip ${on ? 'on' : ''}`} onClick={() => set({ decoOn: { ...s.decoOn, [d.gas.name!]: !on } })}><span className="dot" /> {d.gas.name} · {u.stopDepth(d.switchDepth)}</span>;
-            })}
-          </div>
-        </section>
+        </Card>
 
-        <section className="panel pen">
-          <h2>{t.penTeam}</h2>
-          <label>{t.penSoloOrTeam}</label>
-          <div className="seg" style={{ display: 'flex', marginBottom: 4 }}>
-            <button style={{ flex: 1 }} className={s.teamSize > 1 ? 'on' : ''} onClick={() => set({ teamSize: Math.max(2, s.teamSize) })}>{t.penTeam}</button>
-            <button style={{ flex: 1 }} className={s.teamSize === 1 ? 'on' : ''} onClick={() => set({ teamSize: 1 })}>{t.penSolo}</button>
+        <Label>{t.teamSizeLabel(s.teamSize)}</Label>
+        <Card className="list">
+          <div className="row stack">
+            <span className="row-l">{t.penSoloOrTeam}</span>
+            <Seg value={s.teamSize > 1} onChange={(team) => set({ teamSize: team ? Math.max(2, s.teamSize) : 1 })} options={[{ v: true, l: t.penTeam }, { v: false, l: t.penSolo }]} />
           </div>
-          <div className="row">
-            <div><label>{t.penTeamSize}</label>
-              <select value={s.teamSize} disabled={s.teamSize === 1} onChange={(e) => set({ teamSize: +e.target.value })}>{[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}</select></div>
-            <div><label>{t.penSameForAll}</label>
-              <div className="seg" style={{ display: 'flex' }}>
-                <button style={{ flex: 1 }} className={s.sameForAll ? 'on' : ''} onClick={() => set({ sameForAll: true })}>{t.yes}</button>
-                <button style={{ flex: 1 }} className={!s.sameForAll ? 'on' : ''} onClick={() => set({ sameForAll: false })}>{t.no}</button>
-              </div></div>
+          {s.teamSize > 1 && <SelectRow label={t.penTeamSize} value={s.teamSize} onChange={(v) => set({ teamSize: v })} options={[2, 3, 4].map((n) => ({ v: n, l: String(n) }))} />}
+          <div className="row stack">
+            <span className="row-l">{t.penSameForAll}</span>
+            <Seg value={s.sameForAll} onChange={(v) => set({ sameForAll: v })} options={[{ v: true, l: t.yes }, { v: false, l: t.no }]} />
           </div>
-          <label>{t.config}</label>
-          <div className="seg" style={{ display: 'flex' }}>
-            <button style={{ flex: 1 }} className={s.config === 'backmount' ? 'on' : ''} onClick={() => set({ config: 'backmount' })}>{t.configBackmount}</button>
-            <button style={{ flex: 1 }} className={s.config === 'sidemount' ? 'on' : ''} onClick={() => set({ config: 'sidemount' })}>{t.configSidemount}</button>
+          <div className="row stack">
+            <span className="row-l">{t.config}</span>
+            <Seg value={s.config} onChange={(v) => set({ config: v })} options={[{ v: 'backmount' as const, l: t.configBackmount }, { v: 'sidemount' as const, l: t.configSidemount }]} />
           </div>
           {s.config === 'backmount' ? (
-            <>
-              <label>{t.backCylinder}</label>
-              <select value={s.shared.cylIdx} onChange={(e) => set({ shared: { ...s.shared, cylIdx: +e.target.value } })}>{CYLINDERS.map((c, i) => <option key={c.name} value={i}>{c.name}</option>)}</select>
-            </>
+            <SelectRow label={t.backCylinder} value={s.shared.cylIdx} onChange={(v) => set({ shared: { ...s.shared, cylIdx: v } })} options={CYLINDERS.map((c, i) => ({ v: i, l: c.name }))} />
           ) : (
             <>
-              <label>{t.smCylinder}</label>
-              <select value={s.smCylIdx} onChange={(e) => set({ smCylIdx: +e.target.value })}>{SM_CYLINDERS.map((c, i) => <option key={c.name} value={i}>2× {c.name}</option>)}</select>
-              <label>{t.smStep(u)}</label>
-              <NumInput min={u.pressureN(5)} value={u.pressureN(s.smStep ?? defaultSwitchStep(s.shared.startBar))} onChange={(v) => set({ smStep: u.toBar(v) })} />
-              <div className="small" style={{ marginTop: 6 }}>{t.smSwitchNote}</div>
+              <SelectRow label={t.smCylinder} value={s.smCylIdx} onChange={(v) => set({ smCylIdx: v })} options={SM_CYLINDERS.map((c, i) => ({ v: i, l: `2× ${c.name}` }))} />
+              <NumRow label={t.smStep(u)} min={u.pressureN(5)} value={u.pressureN(s.smStep ?? defaultSwitchStep(s.shared.startBar))} onChange={(v) => set({ smStep: u.toBar(v) })} />
+              <div className="row info">{t.smSwitchNote}</div>
             </>
           )}
-          {s.sameForAll ? (
+          {s.sameForAll && (
             <>
-              <div className="row">
-                <div><label>{t.startPressure(u)}</label><NumInput min={0} value={u.pressureN(s.shared.startBar)} onChange={(v) => set({ shared: { ...s.shared, startBar: u.toBar(v) } })} /></div>
-                <div><label>{t.penSac(u)}</label><NumInput min={0} step={u.sacStep} decimals={u.sys === 'metric' ? 0 : 2} value={u.sacN(s.shared.sac)} onChange={(v) => set({ shared: { ...s.shared, sac: u.toLpm(v) } })} /></div>
-              </div>
+              <NumRow label={t.startPressure(u)} min={0} value={u.pressureN(s.shared.startBar)} onChange={(v) => set({ shared: { ...s.shared, startBar: u.toBar(v) } })} />
+              <NumRow label={t.penSac(u)} min={0} step={u.sacStep} decimals={u.sys === 'metric' ? 0 : 2} value={u.sacN(s.shared.sac)} onChange={(v) => set({ shared: { ...s.shared, sac: u.toLpm(v) } })} />
             </>
-          ) : (
-            Array.from({ length: s.teamSize }, (_, i) => s.members[i]).map((m, i) => (
-              <div className="inv-row pen" key={i}>
-                <div className="full"><label>{t.penDiver} {i + 1}</label><input value={m.name} onChange={(e) => { const ms = [...s.members]; ms[i] = { ...m, name: e.target.value }; set({ members: ms }); }} /></div>
-                <div className="full"><label>{t.bottomGas}</label>
-                  <select value={m.gasIdx} onChange={(e) => { const ms = [...s.members]; ms[i] = { ...m, gasIdx: e.target.value === 'team' ? 'team' : +e.target.value }; set({ members: ms }); }}>
-                    <option value="team">{t.penGasTeam}</option>
-                    {bottomList.map((g, j) => <option key={g.gas.name} value={j}>{g.gas.name}</option>)}
-                  </select></div>
-                <div><label>{t.config}</label>
-                  <select value={m.config} onChange={(e) => { const ms = [...s.members]; ms[i] = { ...m, config: e.target.value as 'team' | 'backmount' | 'sidemount' }; set({ members: ms }); }}>
-                    <option value="team">{t.penConfigTeam}</option><option value="backmount">{t.configBackmount}</option><option value="sidemount">{t.configSidemount}</option>
-                  </select></div>
-                <div><label>{t.cylinder}</label>
+          )}
+        </Card>
+        {team.map((tm, i) => {
+          const m = s.members[i];
+          const editable = !s.sameForAll;
+          const open = editable && openDiver === i;
+          return (
+            <Card className="list diver" key={i}>
+              <button className="row diver-head" disabled={!editable} aria-expanded={open} onClick={() => setOpenDiver(open ? null : i)}>
+                <span className="badge">{tm.name.slice(0, 3) || `B${i + 1}`}</span>
+                <span className="diver-txt"><span className="diver-cyl">{cylShort(tm.cylinder.name)}</span><span className="diver-sub">{t.diverSummary(gasName(tm.gas ?? input.bottomGas), u.pressure(tm.startBar))}</span></span>
+                {editable && <Chevron open={open} />}
+              </button>
+              {open && (
+                <>
+                  <label className="row num"><span className="row-l">{t.penDiver} {i + 1}</span><span className="row-field wide"><input value={m.name} onChange={(e) => setMember(i, { name: e.target.value })} /></span></label>
+                  <SelectRow label={t.bottomGas} value={m.gasIdx} onChange={(v) => setMember(i, { gasIdx: v })}
+                    options={[{ v: 'team' as const, l: t.penGasTeam }, ...bottomList.map((g, j) => ({ v: j, l: g.gas.name ?? '' }))]} />
+                  <SelectRow label={t.config} value={m.config} onChange={(v) => setMember(i, { config: v })}
+                    options={[{ v: 'team' as const, l: t.penConfigTeam }, { v: 'backmount' as const, l: t.configBackmount }, { v: 'sidemount' as const, l: t.configSidemount }]} />
                   {m.config === 'sidemount' ? (
-                    <select value={m.smCylIdx} onChange={(e) => { const ms = [...s.members]; ms[i] = { ...m, smCylIdx: +e.target.value }; set({ members: ms }); }}>{SM_CYLINDERS.map((c, j) => <option key={c.name} value={j}>2× {c.name.split(' (')[0]}</option>)}</select>
+                    <SelectRow label={t.cylinder} value={m.smCylIdx} onChange={(v) => setMember(i, { smCylIdx: v })} options={SM_CYLINDERS.map((c, j) => ({ v: j, l: `2× ${cylShort(c.name)}` }))} />
                   ) : m.config === 'backmount' ? (
-                    <select value={m.cylIdx} onChange={(e) => { const ms = [...s.members]; ms[i] = { ...m, cylIdx: +e.target.value }; set({ members: ms }); }}>{CYLINDERS.map((c, j) => <option key={c.name} value={j}>{c.name.split(' (')[0]}</option>)}</select>
+                    <SelectRow label={t.cylinder} value={m.cylIdx} onChange={(v) => setMember(i, { cylIdx: v })} options={CYLINDERS.map((c, j) => ({ v: j, l: cylShort(c.name) }))} />
                   ) : (
-                    <select disabled value="team"><option value="team">{cylinder.name.split(' (')[0]}</option></select>
-                  )}</div>
-                <div><label>{t.startPressure(u)}</label><NumInput min={0} value={u.pressureN(m.startBar)} onChange={(v) => { const ms = [...s.members]; ms[i] = { ...m, startBar: u.toBar(v) }; set({ members: ms }); }} /></div>
-                <div><label>{t.penSac(u)}</label><NumInput min={0} step={u.sacStep} decimals={u.sys === 'metric' ? 0 : 2} value={u.sacN(m.sac)} onChange={(v) => { const ms = [...s.members]; ms[i] = { ...m, sac: u.toLpm(v) }; set({ members: ms }); }} /></div>
-              </div>
-            ))
-          )}
-        </section>
+                    <SelectRow label={t.cylinder} value="team" disabled onChange={() => undefined} options={[{ v: 'team', l: cylShort(cylinder.name) }]} />
+                  )}
+                  <NumRow label={t.startPressure(u)} min={0} value={u.pressureN(m.startBar)} onChange={(v) => setMember(i, { startBar: u.toBar(v) })} />
+                  <NumRow label={t.penSac(u)} min={0} step={u.sacStep} decimals={u.sys === 'metric' ? 0 : 2} value={u.sacN(m.sac)} onChange={(v) => setMember(i, { sac: u.toLpm(v) })} />
+                </>
+              )}
+            </Card>
+          );
+        })}
 
-        <section className="panel pen">
-          <h2>{t.penStages}</h2>
-          <div className="row3">
-            <div><label>{t.penStagesPerDiver}</label><select value={s.stageCount} onChange={(e) => set({ stageCount: +e.target.value })}>{[0, 1, 2, 3].map((n) => <option key={n} value={n}>{n}</option>)}</select></div>
-            <div><label>{t.cylinder}</label><select value={s.stageCylIdx} onChange={(e) => set({ stageCylIdx: +e.target.value })}>{CYLINDERS.map((c, i) => <option key={c.name} value={i}>{c.name.split(' (')[0]}</option>)}</select></div>
-            <div><label>{t.startPressure(u)}</label><NumInput min={0} value={u.pressureN(stageBar)} onChange={(v) => set({ stageBar: u.toBar(v) })} /></div>
-          </div>
-          <label>{t.penStageGas}</label>
-          <select value={s.stageGasIdx} onChange={(e) => set({ stageGasIdx: e.target.value === 'bottom' ? 'bottom' : +e.target.value })}>
-            <option value="bottom">{t.penStageGasBottom}</option>
-            {stageList.map((g, i) => <option key={gasName(g)} value={i}>{gasName(g)}</option>)}
-          </select>
-          <label>{t.penStagesCarried}</label>
-          {(s.stageCount === 0 && decoStages.length === 0) ? <div className="small">{t.penNoStages}</div> : (
-            <table>
-              <thead><tr><th className="num">#</th><th>{t.cylinder}</th><th>{t.gas}</th><th className="num">{t.minFill}</th><th>{t.role}</th></tr></thead>
-              <tbody>
-                {s.stageCount > 0 && <tr><td className="num">{s.stageCount}×</td><td>{(CYLINDERS[s.stageCylIdx] ?? CYLINDERS[S80_IDX]).name.split(' (')[0]}</td><td>{gasName(input.stages[0]?.gas ?? input.bottomGas)}</td><td className="num">{u.pressure(stageBar)}</td><td>{t.penStageShort}</td></tr>}
-                {decoStages.map((d) => <tr key={d.name}><td className="num">1×</td><td>{d.suggestedCylinder.name.split(' (')[0]}</td><td>{d.name}</td><td className="num">{u.pressure(Math.ceil(d.barNeeded / 10) * 10)}</td><td>{t.roleDecoShort}</td></tr>)}
-                {unusedDecoGases.map((n) => <tr key={n} className="muted"><td className="num">–</td><td colSpan={4} className="small">{n}: {t.penDecoNotNeeded}</td></tr>)}
-              </tbody>
-            </table>
-          )}
-          <div className="small" style={{ marginTop: 8 }}>{t.penStageNote}</div>
-        </section>
+        <Label>{t.penStages}</Label>
+        <Card className="list">
+          <SelectRow label={t.penStagesPerDiver} value={s.stageCount} onChange={(v) => set({ stageCount: v })} options={[0, 1, 2, 3].map((n) => ({ v: n, l: String(n) }))} />
+          <SelectRow label={t.cylinder} value={s.stageCylIdx} onChange={(v) => set({ stageCylIdx: v })} options={CYLINDERS.map((c, i) => ({ v: i, l: cylShort(c.name) }))} />
+          <NumRow label={t.startPressure(u)} min={0} value={u.pressureN(stageBar)} onChange={(v) => set({ stageBar: u.toBar(v) })} />
+          <SelectRow label={t.penStageGas} value={s.stageGasIdx} onChange={(v) => set({ stageGasIdx: v })}
+            options={[{ v: 'bottom' as const, l: t.penStageGasBottom }, ...stageList.map((g, i) => ({ v: i, l: gasName(g) }))]} />
+        </Card>
+        <Note>{t.penStageNote}</Note>
+        <Primary onClick={onMatch}>{t.matchTeamGas}</Primary>
       </>
     );
   }
 
-  // ---------- right column ----------
-  if (!plan) return <section className="panel pen"><h2>{t.penPlan}</h2><div className="small">{t.msg({ code: 'penNoTeam', params: {} }, u)}</div></section>;
+  if (!plan) return <Verdict tone="bad" title={t.msg({ code: 'penNoTeam', params: {} }, u)} />;
   const stops = stopTable(plan.deco);
   const limitingPlan = plan.members.find((m) => m.member.id === plan.limiting.id) ?? plan.members[0];
   const evText = penEventText(t, u, limitingPlan.turnBar);
   const anySm = plan.members.some((m) => !!m.sidemount);
   const allMsgs = [...plan.blockers.map((m) => ({ text: t.msg(m, u), bad: true })), ...plan.warnings.map((m) => ({ text: t.msg(m, u), bad: false }))];
+  const depthScale = u.sys === 'metric' ? 1 : 3.28084;
 
-  return (
-    <>
-      <section className="panel pen">
-        <h2>{t.penPlan}</h2>
-        <div className={`verdict ${plan.overridden ? 'bad brave' : !plan.feasible ? 'bad' : plan.unsupported ? 'unsupported' : 'ok'}`} style={{ marginBottom: 12 }}>
-          <div className="icon">{plan.overridden ? '⚠' : !plan.feasible ? '✕' : plan.unsupported ? '⚠' : '✓'}</div>
-          <div style={{ flex: 1 }}><div className="title">{plan.blockers.some((b) => b.code === 'penSharedExitShort') ? t.penTeamDies : plan.overridden ? t.penBraveActive : !plan.feasible ? t.feasibleNo : plan.unsupported ? t.penUnsupported(s.agency.toUpperCase()) : t.penFeasible}</div>
-            {plan.overridden && plan.blockers.some((b) => b.code === 'penSharedExitShort') && <div className="small" style={{ color: 'inherit', fontWeight: 600 }}>{t.penBraveActive}</div>}
-            <div className="small" style={{ color: 'inherit' }}>{t.penRuleSummary(plan.rules.fractionLabel, s.agency.toUpperCase(), u.depth(plan.rules.maxDepthM))}{s.teamSize === 1 ? ` ${t.penSoloNote}` : ''}</div>
-            {plan.blockers.some((b) => b.code === 'penTimeOverGas') && suggestedStages !== null && suggestedStages > s.stageCount && (
-              <button className="btn" style={{ marginTop: 8, background: '#fff', color: '#7f1d1d', fontWeight: 600 }} onClick={() => set({ stageCount: suggestedStages })}>
-                {t.penFillStages(suggestedStages, CYLINDERS[s.stageCylIdx].name.split(' (')[0], gasName(input.stages[0]?.gas ?? input.bottomGas))}
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="brave-row">
-          <span className="small">{t.penBraveLabel}</span>
-          <div className="seg" role="radiogroup">
-            <button className={!s.brave ? 'on' : ''} onClick={() => set({ brave: false })}>{t.penBraveOff}</button>
-            <button className={s.brave ? 'on brave' : ''} onClick={async () => { if (s.brave) return; if (await askConfirm(t.penBraveConfirm)) set({ brave: true }); }}>{t.penBrave}</button>
-          </div>
-        </div>
-        <div className="kpis">
-          <div className="kpi"><div className="v">{u.pressureN(limitingPlan.turnBar)}</div><div className="l">{t.penKpiTurn(u)}</div></div>
-          <div className="kpi"><div className="v">{fmt(plan.penetrationMinutes)}</div><div className="l">{t.penKpiPenMin}</div></div>
-          <div className="kpi"><div className="v">{fmt(plan.maxPenetrationMinutes)}</div><div className="l">{t.penKpiMaxPen}</div></div>
-          <div className="kpi"><div className="v">{u.depthN(plan.penetrationDistanceM)}</div><div className="l">{t.penKpiDistance(u)}</div></div>
-          <div className="kpi"><div className="v">{fmt(plan.bottomTime)}</div><div className="l">{t.penKpiBottom}</div></div>
-          <div className="kpi"><div className="v">{fmt(plan.deco.decoTime)}</div><div className="l">{t.decoTotal}</div></div>
-          <div className="kpi"><div className="v">{fmt(plan.deco.runtime)}</div><div className="l">{t.runtime}</div></div>
-        </div>
-        <ProfileChart plan={plan.deco} unitLabel={lang === 'hu' ? 'perc' : 'min'} depthLabel={u.d} depthScale={u.sys === 'metric' ? 1 : 3.28084} />
-        {allMsgs.length > 0 && <ul className="warnings">{allMsgs.map((w, i) => <li key={i} className={w.bad ? 'bad' : ''}>{w.text}</li>)}</ul>}
-      </section>
-
-      <section className="panel pen">
-        <h2>{t.penGasMatching}</h2>
-        <div className="tscroll">
-        <table>
-          <thead><tr><th>{t.penDiver}</th><th>{t.gas}</th><th className="num">{t.penStart(u)}</th><th className="num">{t.penTurn(u)}</th><th className="num">{t.penPenGas(u)}</th><th className="num">{t.penExitLeft(u)}</th><th className="num">{t.penSharedLeft(u)}</th><th>{t.cylinder}</th>{anySm && <th className="num">{t.smAtTurn(u)}</th>}{anySm && <th className="num">{t.smLost(u)}</th>}</tr></thead>
-          <tbody>
-            {plan.members.map((m) => (
-              <tr key={m.member.id}>
-                <td>{m.member.name}{m.member.id === plan.limiting.id ? <span className="tag pen" style={{ marginLeft: 6 }}>{t.penLimiting}</span> : null}</td>
-                <td>{gasName(m.member.gas ?? input.bottomGas)}</td>
-                <td className="num">{u.pressureN(m.member.startBar)}</td>
-                <td className="num"><b>{u.pressureN(m.turnBar)}</b></td>
-                <td className="num">{vol(m.penetrationLitres)}</td>
-                <td className="num">{vol(m.exitRemainingLitres)}</td>
-                <td className={`num ${m.sharedExitRemainingLitres < 0 ? 'bad' : 'ok'}`}>{vol(m.sharedExitRemainingLitres)}</td>
-                <td>{m.member.cylinder.name.split(' (')[0]}</td>
-                {anySm && <td className="num">{m.sidemount ? `${u.pressureN(m.sidemount.leftBar)} / ${u.pressureN(m.sidemount.rightBar)}` : '—'}</td>}
-                {anySm && <td className={`num ${m.sidemount && m.sidemount.lostCylinderShortLitres > 0 ? 'bad' : 'ok'}`}>{m.sidemount ? vol(m.sidemount.lostCylinderShortLitres) : '—'}</td>}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-        <div className="small" style={{ marginTop: 8 }}>{t.penMatchingNote} {t.penDecoGasNote(gasName(plan.decoGas), plan.members[0].member.cylinder.name.split(' (')[0])}</div>
-      </section>
-
-      {(plan.stages.length > 0 || decoStages.length > 0 || unusedDecoGases.length > 0) && (
-        <section className="panel pen">
-          <h2>{t.penStagePlan}</h2>
-          {plan.stages.length > 0 && (
-            <>
-              <div className="small" style={{ marginBottom: 4 }}>{t.penBottomStages}</div>
-              <div className="tscroll">
-              <table>
-                <thead><tr><th>#</th><th>{t.cylinder}</th><th>{t.gas}</th><th className="num">{t.penDropAt(u)}</th><th className="num">{t.penUsableIn(u)}</th><th className="num">{t.minutes}</th><th className="num">{t.penDropDistance(u)}</th></tr></thead>
-                <tbody>
-                  {plan.stages.map((st, i) => {
-                    const cum = plan.stages.slice(0, i + 1).reduce((a, x) => a + x.minutes, 0);
-                    return <tr key={i}><td>{i + 1}</td><td>{st.stage.cylinder.name.split(' (')[0]}</td><td>{gasName(st.stage.gas)}</td><td className="num"><b>{u.pressureN(st.dropBar)}</b></td><td className="num">{vol(st.usableInLitres)}</td><td className="num">{fmt(st.minutes)}</td><td className="num">{u.depthN(cum * s.swimSpeed)}</td></tr>;
-                  })}
-                </tbody>
-              </table>
-              </div>
-            </>
+  if (tab === 'team') {
+    const teamDies = plan.blockers.some((b) => b.code === 'penSharedExitShort');
+    return (
+      <>
+        <Verdict tone={plan.overridden ? 'brave' : !plan.feasible ? 'bad' : plan.unsupported ? 'warn' : 'ok'} icon={plan.overridden || plan.unsupported ? '!' : undefined}
+          title={teamDies ? t.penTeamDies : plan.overridden ? t.penBraveActive : !plan.feasible ? t.feasibleNo : plan.unsupported ? t.penUnsupported(s.agency.toUpperCase()) : t.penFeasible}>
+          {plan.overridden && teamDies && <div><b>{t.penBraveActive}</b></div>}
+          <div>{t.penRuleSummary(plan.rules.fractionLabel, s.agency.toUpperCase(), u.depth(plan.rules.maxDepthM))}{s.teamSize === 1 ? ` ${t.penSoloNote}` : ''}</div>
+          {plan.blockers.some((b) => b.code === 'penTimeOverGas') && suggestedStages !== null && suggestedStages > s.stageCount && (
+            <button className="v-action" onClick={() => set({ stageCount: suggestedStages })}>
+              {t.penFillStages(suggestedStages, cylShort(CYLINDERS[s.stageCylIdx].name), gasName(input.stages[0]?.gas ?? input.bottomGas))}
+            </button>
           )}
-          {(decoStages.length > 0 || unusedDecoGases.length > 0) && (
-            <>
-              <div className="small" style={{ margin: '10px 0 4px' }}>{t.penDecoStages}</div>
-              <div className="tscroll">
-              <table>
-                <thead><tr><th>{t.gas}</th><th>{t.cylinder}</th><th className="num">{t.penDecoNeed(u)}</th><th className="num">{t.minFill}</th><th>{t.penDropWhere}</th></tr></thead>
-                <tbody>
-                  {decoStages.map((d) => <tr key={d.name}><td>{d.name}</td><td>{d.suggestedCylinder.name.split(' (')[0]}</td><td className="num">{vol0(d.litresWithReserve)}</td><td className={`num ${d.fits ? '' : 'bad'}`}><b>{u.pressure(Math.ceil(d.barNeeded / 10) * 10)}</b></td><td>{t.penDropEntrance}</td></tr>)}
-                  {unusedDecoGases.map((n) => <tr key={n} className="muted"><td>{n}</td><td colSpan={4} className="small">{t.penDecoNotNeeded}</td></tr>)}
-                </tbody>
-              </table>
-              </div>
-              <div className="small" style={{ marginTop: 6 }}>{t.penDecoStagesNote}</div>
-            </>
-          )}
-        </section>
-      )}
+        </Verdict>
+        <div className="hero">
+          <div>
+            <div className="hero-l">{t.teamTurnsAt}</div>
+            <div className="hero-v">{u.pressureN(limitingPlan.turnBar)}<span> {u.p}</span></div>
+          </div>
+          <div className="hero-r">{t.limitedBy(limitingPlan.member.name)}</div>
+        </div>
+        <Card className="list">
+          <div className="row stack">
+            <span className="row-l">{t.penBraveLabel}</span>
+            <Seg value={s.brave} onChange={async (v) => { if (!v) { set({ brave: false }); return; } if (s.brave) return; if (await askConfirm(t.penBraveConfirm)) set({ brave: true }); }}
+              options={[{ v: false, l: t.penBraveOff }, { v: true, l: t.penBrave, cls: 'brave' }]} />
+          </div>
+        </Card>
+        <Stats>
+          <Stat v={fmt(plan.penetrationMinutes)} l={t.penKpiPenMin} />
+          <Stat v={fmt(plan.maxPenetrationMinutes)} l={t.penKpiMaxPen} />
+          <Stat v={u.depthN(plan.penetrationDistanceM)} l={t.penKpiDistance(u)} />
+          <Stat v={fmt(plan.bottomTime)} l={t.penKpiBottom} />
+          <Stat v={fmt(plan.deco.decoTime)} l={t.decoTotal} />
+          <Stat v={fmt(plan.deco.runtime)} l={t.runtime} tone="mode" />
+        </Stats>
+        <Warnings items={allMsgs} />
+        <Label>{t.penGasMatching}</Label>
+        {plan.members.map((m) => (
+          <Card className="diver-gas" key={m.member.id}>
+            <div className="dg-head">
+              <span className="dg-name">{m.member.name}</span>
+              <span className="dg-gas">{gasName(m.member.gas ?? input.bottomGas)} · {cylShort(m.member.cylinder.name)}</span>
+              {m.member.id === plan.limiting.id && <Chip kind="mode">{t.penLimiting}</Chip>}
+            </div>
+            <div className="cols3">
+              <div><div className="c-l">{t.penStart(u)}</div><div className="c-v">{u.pressureN(m.member.startBar)}</div></div>
+              <div><div className="c-l">{t.penTurn(u)}</div><div className="c-v mode">{u.pressureN(m.turnBar)}</div></div>
+              <div><div className="c-l">{t.penPenGas(u)}</div><div className="c-v">{vol(m.penetrationLitres)}</div></div>
+            </div>
+            <div className="dg-more">
+              <KV l={t.penExitLeft(u)} v={vol(m.exitRemainingLitres)} />
+              <KV l={t.penSharedLeft(u)} v={vol(m.sharedExitRemainingLitres)} tone={m.sharedExitRemainingLitres < 0 ? 'bad' : 'ok'} />
+              {anySm && m.sidemount && <KV l={t.smAtTurn(u)} v={`${u.pressureN(m.sidemount.leftBar)} / ${u.pressureN(m.sidemount.rightBar)}`} />}
+              {anySm && m.sidemount && <KV l={t.smLost(u)} v={vol(m.sidemount.lostCylinderShortLitres)} tone={m.sidemount.lostCylinderShortLitres > 0 ? 'bad' : 'ok'} />}
+            </div>
+          </Card>
+        ))}
+        <Note>{t.penMatchingNote} {t.penDecoGasNote(gasName(plan.decoGas), cylShort(plan.members[0].member.cylinder.name))}</Note>
+      </>
+    );
+  }
 
-      <section className="panel pen">
-        <h2>{t.packing} · {t.penTeamSize.toLowerCase()} {teamSize}</h2>
-        <div className="pack">
+  if (tab === 'kit') {
+    return (
+      <>
+        <Label>{t.packing} · {t.penTeamSize.toLowerCase()} {teamSize}</Label>
+        <Card className="list">
           {packing.map((p, i) => (
-            <div className="pack-item" key={i}>
-              <div className={`count ${p.role === 'back' ? '' : 'deco'}`}>{p.count}×</div>
-              <div>
-                <div className="t">{p.cylinder}</div>
-                <div className="s">{p.gas} · {p.role === 'back' ? t.roleBackShort : p.role === 'stage' ? t.penStageShort : t.roleDecoShort}{p.divers ? ` · ${p.divers}` : ''}{p.role === 'back' ? '' : ` · ${t.penPerTeam(teamSize)}`}</div>
-              </div>
-              <div className="fill">{u.pressure(p.fillBar)}<small>{p.role === 'back' ? t.startPressure(u) : t.minFill}</small></div>
+            <div className="pack-row" key={i}>
+              <span className={`badge qty ${p.role === 'back' ? '' : 'deco'}`}>{p.count}×</span>
+              <span className="pack-txt"><span className="pack-name">{p.cylinder}</span>
+                <span className="pack-sub">{p.gas} · {p.role === 'back' ? t.roleBackShort : p.role === 'stage' ? t.penStageShort : t.roleDecoShort}{p.divers ? ` · ${p.divers}` : ''}{p.role === 'back' ? '' : ` · ${t.penPerTeam(teamSize)}`}</span></span>
+              <span className="pack-fill">{u.pressure(p.fillBar)}<small>{p.role === 'back' ? t.startPressure(u) : t.minFill}</small></span>
             </div>
           ))}
-        </div>
-      </section>
-
-      <section className="panel pen">
-        <h2>{t.stops}</h2>
-        {stops.length === 0 ? <div className="small">{t.noStops(std.id === 'gue', u)}</div> : (
-          <table>
-            <thead><tr><th className="num">{t.depth(u)}</th><th className="num">{t.minutes}</th><th className="num">{t.runtimeCol}</th><th>{t.gas}</th></tr></thead>
-            <tbody>{stops.map((st, i) => <tr key={i}><td className="num">{u.stopDepthN(st.depth)}</td><td className="num">{st.minutes}</td><td className="num">{Math.round(st.runtime + (plan.bottomTime - plan.deco.bottomTime))}</td><td>{st.gas}</td></tr>)}</tbody>
-          </table>
+        </Card>
+        {plan.stages.length > 0 && (
+          <>
+            <Label>{t.penStagePlan}</Label>
+            <Note>{t.penBottomStages}</Note>
+            <Card className="list">
+              {plan.stages.map((st, i) => {
+                const cum = plan.stages.slice(0, i + 1).reduce((a, x) => a + x.minutes, 0);
+                return (
+                  <div className="pack-row" key={i}>
+                    <span className="badge qty">{i + 1}</span>
+                    <span className="pack-txt"><span className="pack-name">{cylShort(st.stage.cylinder.name)} · {gasName(st.stage.gas)}</span>
+                      <span className="pack-sub">{t.penUsableIn(u)}: {vol(st.usableInLitres)} · {fmt(st.minutes)} {t.minUnit} · {t.penDropDistance(u)}: {u.depthN(cum * s.swimSpeed)}</span></span>
+                    <span className="pack-fill">{u.pressure(st.dropBar)}<small>{t.penDropAt(u)}</small></span>
+                  </div>
+                );
+              })}
+            </Card>
+          </>
         )}
-        <div className="small" style={{ marginTop: 8 }}>{t.penDecoNote(u.depth(input.maxDepth))}</div>
-      </section>
+        {(decoStages.length > 0 || unusedDecoGases.length > 0) && (
+          <>
+            <Label>{t.penDecoStages}</Label>
+            <Card className="list">
+              {decoStages.map((d) => (
+                <div className="pack-row" key={d.name}>
+                  <span className="badge qty deco">1×</span>
+                  <span className="pack-txt"><span className="pack-name">{d.name} · {cylShort(d.suggestedCylinder.name)}</span>
+                    <span className="pack-sub">{t.penDecoNeed(u)}: {vol0(d.litresWithReserve)} · {t.penDropWhere}: {t.penDropEntrance}</span></span>
+                  <span className={`pack-fill ${d.fits ? '' : 'bad'}`}>{u.pressure(Math.ceil(d.barNeeded / 10) * 10)}<small>{t.minFill}</small></span>
+                </div>
+              ))}
+              {unusedDecoGases.map((n) => <div className="row info" key={n}>{n}: {t.penDecoNotNeeded}</div>)}
+            </Card>
+            <Note>{t.penDecoStagesNote}</Note>
+          </>
+        )}
+        <Secondary onClick={onExport}>{t.exportChecklist}</Secondary>
+      </>
+    );
+  }
 
-      <section className="panel pen">
-        <h2>{t.itinerary}</h2>
-        <table className="itinerary">
-          <thead><tr><th className="num">{t.itTime}</th><th className="num">{t.itDepth(u)}</th><th>{t.itAction}</th><th>{t.itGas}</th></tr></thead>
-          <tbody>
-            {events.map((e, i) => (
-              <tr key={i} className={`ev-${e.kind === 'switch' || e.kind === 'stageDrop' || e.kind === 'stagePickup' ? 'switch' : e.kind === 'turn' ? 'turn' : e.kind === 'decoStop' ? 'stop' : e.kind === 'regSwitch' ? 'reg' : e.kind}`}>
-                <td className="num">{Math.round(e.runtime)}</td>
-                <td className="num">{e.kind === 'decoStop' || e.kind === 'switch' ? u.stopDepthN(e.depth) : u.depthN(e.depth)}</td>
-                <td>{evText(e)}</td>
-                <td>{gasName(e.gas)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+  // deco tab
+  return (
+    <>
+      <ProfileCard plan={plan.deco} title={t.profile} axes={t.profileAxes(u)} depthScale={depthScale} />
+      <Label>{t.stops}</Label>
+      {stops.length === 0 ? <Card><Note>{t.noStops(std.id === 'gue', u)}</Note></Card> : (
+        <StopRows chip="mode" unit={u.d} minLabel={t.minUnit} leaveAt={t.leaveAt}
+          stops={stops.map((st) => ({ depth: u.stopDepthN(st.depth), minutes: st.minutes, runtime: Math.round(st.runtime + (plan.bottomTime - plan.deco.bottomTime)), gas: st.gas }))} />
+      )}
+      <Note>{t.penDecoNote(u.depth(input.maxDepth))}</Note>
+      <Label>{t.itinerary}</Label>
+      <Timeline minLabel={t.minUnit} rows={events.map((e) => ({
+        min: Math.round(e.runtime), action: evText(e),
+        sub: `${e.kind === 'decoStop' || e.kind === 'switch' ? u.stopDepth(e.depth) : u.depth(e.depth)} · ${gasName(e.gas)}`,
+        kind: e.kind === 'turn' || e.kind === 'decoStop' ? 'hl' : e.kind === 'switch' || e.kind === 'stageDrop' || e.kind === 'stagePickup' ? 'switch' : e.kind === 'regSwitch' ? 'muted' : undefined,
+      }))} />
     </>
   );
 }

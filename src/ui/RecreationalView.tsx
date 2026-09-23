@@ -1,9 +1,8 @@
 import { useMemo } from 'react';
 import { CYLINDERS, GENERIC_STANDARD, Gas, gasName, mod, planRecreational, ppO2, end, recreationalItinerary, recreationalProfile, RecInput, RecEvent } from '../engine';
-import { ProfileChart } from './ProfileChart';
 import { Dict } from './i18n';
 import { Units } from './units';
-import { NumInput } from './NumInput';
+import { Card, KV, Label, Note, NumRow, Primary, ProfileCard, SelectRow, Stat, Stats, Stepper, Timeline, Verdict, Warnings } from './kit';
 
 export interface RecState { maxDepth: number; bottomTime: number; gasIdx: number | 'auto'; cylIdx: number; startBar: number; sac: number }
 /** Recreational mode: single 12 L or 15 L back cylinder only */
@@ -23,78 +22,66 @@ export function useRecreationalPlan(s: RecState, gfHigh: number) {
   }, [s, gfHigh]);
 }
 
-export function RecreationalView({ t, u, lang, gfHigh, side, state: s, setState }: { t: Dict; u: Units; lang: 'hu' | 'en'; gfHigh: number; side: 'left' | 'right'; state: RecState; setState: (s: RecState) => void }) {
+export function RecreationalView({ t, u, lang, gfHigh, tab, state: s, setState, onShowPlan }: { t: Dict; u: Units; lang: 'hu' | 'en'; gfHigh: number; tab: 'setup' | 'plan' | 'time'; state: RecState; setState: (s: RecState) => void; onShowPlan: () => void }) {
   const set = (p: Partial<RecState>) => setState({ ...s, ...p });
   const fmt = (v: number, d = 0) => v.toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: d, minimumFractionDigits: d });
   const { input, plan, events, profile, gas, auto } = useRecreationalPlan(s, gfHigh);
   const evText = (e: RecEvent): string => { switch (e.kind) { case 'start': return t.itStart(gasName(input.gas)); case 'arriveBottom': return t.itArrive; case 'leaveBottom': return t.recEvLeave; case 'safetyStop': return t.recEvSafety(Math.round(e.duration ?? 0), u.depth(e.depth)); case 'surface': return t.itSurface; } };
 
-  if (side === 'left') {
+  if (tab === 'setup') {
+    const po2 = ppO2(gas, s.maxDepth);
     return (
-      <section className="panel rec">
-        <h2>{t.dive}</h2>
-        <div className="row">
-          <div><label>{t.maxDepth(u)}</label><NumInput min={u.depthN(3)} max={u.depthN(60)} value={u.depthN(s.maxDepth)} onChange={(v) => set({ maxDepth: u.toM(v) })} /></div>
-          <div><label>{t.bottomTime}</label><NumInput min={1} max={300} value={s.bottomTime} onChange={(v) => set({ bottomTime: v })} /></div>
-        </div>
-        <label>{t.bottomGas}</label>
-        <select value={s.gasIdx} onChange={(e) => set({ gasIdx: e.target.value === 'auto' ? 'auto' : +e.target.value })}>
-          <option value="auto">{t.autoBottomGasGeneric(auto?.gas.name ?? '—')}</option>
-          {REC_GASES.map((g, i) => <option key={g.gas.name} value={i}>{g.gas.name} (MOD {u.depth(mod(g.gas, 1.4))})</option>)}
-        </select>
-        <div className="small" style={{ marginTop: 8 }}>{gasName(gas)}: pO2 <b className={ppO2(gas, s.maxDepth) > 1.4 ? 'bad' : 'ok'}>{ppO2(gas, s.maxDepth).toFixed(2)}</b> bar · END {u.depth(end(gas, s.maxDepth))}</div>
-        <label>{t.backCylinder}</label>
-        <select value={s.cylIdx} onChange={(e) => set({ cylIdx: +e.target.value })}>{REC_CYLINDERS.map((c, i) => <option key={c.name} value={i}>{c.name}</option>)}</select>
-        <div className="row">
-          <div><label>{t.startPressure(u)}</label><NumInput min={0} value={u.pressureN(s.startBar)} onChange={(v) => set({ startBar: u.toBar(v) })} /></div>
-          <div><label>{t.penSac(u)}</label><NumInput min={0} step={u.sacStep} decimals={u.sys === 'metric' ? 0 : 2} value={u.sacN(s.sac)} onChange={(v) => set({ sac: u.toLpm(v) })} /></div>
-        </div>
-        <div className="small" style={{ marginTop: 10 }}>{t.recNote}</div>
-      </section>
+      <>
+        <Label>{t.dive}</Label>
+        <Stepper label={t.maxDepth(u)} min={u.depthN(3)} max={u.depthN(60)} value={u.depthN(s.maxDepth)} onChange={(v) => set({ maxDepth: u.toM(v) })} />
+        <Stepper label={t.bottomTime} min={1} max={300} step={5} value={s.bottomTime} onChange={(v) => set({ bottomTime: v })} />
+        <Card className="list">
+          <SelectRow label={t.bottomGas} value={s.gasIdx} onChange={(v) => set({ gasIdx: v })}
+            options={[{ v: 'auto' as const, l: t.autoBottomGasGeneric(auto?.gas.name ?? '—') }, ...REC_GASES.map((g, i) => ({ v: i, l: `${g.gas.name} (MOD ${u.depth(mod(g.gas, 1.4))})` }))]} />
+          <div className="row info">{gasName(gas)}: pO2 <b className={po2 > 1.4 ? 'bad' : 'ok'}>{po2.toFixed(2)}</b> bar · END {u.depth(end(gas, s.maxDepth))}</div>
+          <SelectRow label={t.backCylinder} value={s.cylIdx} onChange={(v) => set({ cylIdx: v })} options={REC_CYLINDERS.map((c, i) => ({ v: i, l: c.name }))} />
+          <NumRow label={t.startPressure(u)} min={0} value={u.pressureN(s.startBar)} onChange={(v) => set({ startBar: u.toBar(v) })} />
+          <NumRow label={t.penSac(u)} min={0} step={u.sacStep} decimals={u.sys === 'metric' ? 0 : 2} value={u.sacN(s.sac)} onChange={(v) => set({ sac: u.toLpm(v) })} />
+        </Card>
+        <Note>{t.recNote}</Note>
+        <Primary onClick={onShowPlan}>{t.showPlan}</Primary>
+      </>
     );
   }
-  const msgs = [...plan.blockers.map((m) => ({ text: t.msg(m, u), bad: true })), ...plan.warnings.map((m) => ({ text: t.msg(m, u), bad: false }))];
+  if (tab === 'time') {
+    return (
+      <>
+        <Label>{t.itinerary}</Label>
+        <Timeline minLabel={t.minUnit} rows={events.map((e) => ({ min: Math.round(e.runtime), action: evText(e), sub: u.depth(e.depth), kind: e.kind === 'safetyStop' ? 'hl' : undefined }))} />
+      </>
+    );
+  }
+  const warns = plan.warnings.map((m) => ({ text: t.msg(m, u), bad: false }));
   return (
     <>
-      <section className="panel rec">
-        <h2>{t.recPlan}</h2>
-        <div className={`verdict ${plan.feasible ? 'ok' : 'bad'}`} style={{ marginBottom: 12 }}>
-          <div className="icon">{plan.feasible ? '✓' : '✕'}</div>
-          <div><div className="title">{plan.feasible ? t.recFeasible : t.feasibleNo}</div>
-            {!plan.feasible && <ul style={{ margin: '6px 0 0', paddingLeft: 16, fontSize: '.84rem' }}>{plan.blockers.map((b, i) => <li key={i}>{t.msg(b, u)}</li>)}</ul>}
-            <div className="small" style={{ color: 'inherit', marginTop: 6 }}>{t.recMaxBottom(plan.maxBottomTime)}</div></div>
-        </div>
-        <div className="kpis">
-          <div className="kpi"><div className="v">{plan.ndlMinutes >= 999 ? '∞' : plan.ndlMinutes}</div><div className="l">{t.recNdl}</div></div>
-          <div className="kpi"><div className="v">{fmt(s.bottomTime)}</div><div className="l">{t.bottomTime}</div></div>
-          <div className="kpi"><div className="v">{fmt(plan.runtime)}</div><div className="l">{t.runtime}</div></div>
-          <div className="kpi"><div className="v">{u.pressureN(plan.turnBar)}</div><div className="l">{t.recTurn} ({u.p})</div></div>
-          <div className="kpi"><div className={`v ${plan.gasOk ? 'ok' : 'bad'}`}>{u.pressureN(plan.surfaceBar)}</div><div className="l">{t.recSurfaceKpi(u)}</div></div>
-        </div>
-        <ProfileChart plan={profile} unitLabel={lang === 'hu' ? 'perc' : 'min'} depthLabel={u.d} depthScale={u.sys === 'metric' ? 1 : 3.28084} />
-        <div className="small" style={{ marginTop: 8 }}>{t.recSafetyStop(u.depth(5), 3)}</div>
-        {msgs.filter((m) => !m.bad).length > 0 && <ul className="warnings">{msgs.filter((m) => !m.bad).map((w, i) => <li key={i}>{w.text}</li>)}</ul>}
-      </section>
-      <section className="panel rec">
-        <h2>{t.itinerary}</h2>
-        <table className="itinerary">
-          <thead><tr><th className="num">{t.itTime}</th><th className="num">{t.itDepth(u)}</th><th>{t.itAction}</th></tr></thead>
-          <tbody>{events.map((e, i) => <tr key={i} className={e.kind === 'safetyStop' ? 'ev-stop' : `ev-${e.kind}`}><td className="num">{Math.round(e.runtime)}</td><td className="num">{u.depthN(e.depth)}</td><td>{evText(e)}</td></tr>)}</tbody>
-        </table>
-      </section>
-      <section className="panel rec">
-        <h2>{t.gasPlan}</h2>
-        <table>
-          <tbody>
-            <tr><td>{t.recSurfaceWith(u.pressure(plan.surfaceReserveBar))}</td><td className="num"><b>{u.pressure(plan.surfaceReserveBar)}</b></td></tr>
-            <tr><td>{t.recGasUsed}</td><td className="num">{u.pressure(plan.gasUsedBar)} · {u.volume(plan.gasUsedLitres)}</td></tr>
-            <tr><td>{t.recSurfaceBar}</td><td className={`num ${plan.gasOk ? 'ok' : 'bad'}`}><b>{u.pressure(plan.surfaceBar)}</b></td></tr>
-            <tr><td>{t.recTurn}</td><td className="num"><b>{u.pressure(plan.turnBar)}</b></td></tr>
-            <tr><td>{t.recRockBottom}<div className="small">{t.recRockBottomDesc}</div></td><td className="num">{u.pressure(plan.rockBottomBar)} · {u.volume(plan.rockBottomLitres)}</td></tr>
-            <tr><td>{t.recGasOk}</td><td className={`num ${plan.gasOk ? 'ok' : 'bad'}`}><b>{plan.gasOk ? t.yes : t.no}</b></td></tr>
-          </tbody>
-        </table>
-      </section>
+      <Verdict tone={plan.feasible ? 'ok' : 'bad'} title={plan.feasible ? t.recFeasible : t.feasibleNo}>
+        {!plan.feasible && <ul>{plan.blockers.map((b, i) => <li key={i}>{t.msg(b, u)}</li>)}</ul>}
+        <div>{t.recMaxBottom(plan.maxBottomTime)}</div>
+      </Verdict>
+      <Stats>
+        <Stat v={plan.ndlMinutes >= 999 ? '∞' : plan.ndlMinutes} l={t.recNdl} />
+        <Stat v={fmt(s.bottomTime)} l={t.bottomTime} />
+        <Stat v={fmt(plan.runtime)} l={t.runtime} />
+        <Stat v={u.pressureN(plan.turnBar)} l={`${t.recTurn} (${u.p})`} />
+        <Stat v={u.pressureN(plan.surfaceBar)} l={t.recSurfaceKpi(u)} tone={plan.gasOk ? 'mode' : 'bad'} />
+      </Stats>
+      <ProfileCard plan={profile} title={t.profile} axes={t.profileAxes(u)} depthScale={u.sys === 'metric' ? 1 : 3.28084} />
+      <Note>{t.recSafetyStop(u.depth(5), 3)}</Note>
+      <Warnings items={warns} />
+      <Label>{t.gasPlan}</Label>
+      <Card className="list">
+        <KV l={t.recSurfaceWith(u.pressure(plan.surfaceReserveBar))} v={u.pressure(plan.surfaceReserveBar)} />
+        <KV l={t.recGasUsed} v={`${u.pressure(plan.gasUsedBar)} · ${u.volume(plan.gasUsedLitres)}`} />
+        <KV l={t.recSurfaceBar} v={u.pressure(plan.surfaceBar)} tone={plan.gasOk ? 'ok' : 'bad'} />
+        <KV l={t.recTurn} v={u.pressure(plan.turnBar)} />
+        <KV l={t.recRockBottom} sub={t.recRockBottomDesc} v={`${u.pressure(plan.rockBottomBar)} · ${u.volume(plan.rockBottomLitres)}`} />
+        <KV l={t.recGasOk} v={plan.gasOk ? t.yes : t.no} tone={plan.gasOk ? 'ok' : 'bad'} />
+      </Card>
     </>
   );
 }

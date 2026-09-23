@@ -1,16 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CYLINDERS, Cylinder, DEFAULT_SETTINGS, DecoGasSpec, DivePlan, Gas, GasUsage, STANDARDS, StandardId,
   InventoryItem, Msg, backGasPlan, end, evaluateInventory, gasName, minimumGas, mod, packingList, planConsumption, planDive, ppO2,
   roundBar, stopTable, itinerary, ItineraryEvent, sidemountSwitchesOnProfile, worstSingleCylinderLitres, defaultSwitchStep, msg,
 } from '../engine';
-import { ProfileChart } from './ProfileChart';
 import { PrintSheet } from './PrintSheet';
-import { NumInput } from './NumInput';
+import { Card, Chevron, Chip, Disclaimer, IconShare, IconSliders, KV, Label, Note, NumRow, Primary, ProfileCard, Seg, SelectRow, Sheet, Stat, Stats, Stepper, StopRows, Timeline, Toast, Toggle, Verdict, Warnings } from './kit';
 import { PenetrationView, PenState, defaultPenState, usePenetrationPlan, penEventText } from './PenetrationView';
 import { RecreationalView, RecState, defaultRecState, useRecreationalPlan } from './RecreationalView';
 import { RecPrintSheet, PenPrintSheet } from './PrintSheets';
-import { exportPdf, isMobileTauri, askConfirm } from './pdf';
+import { renderPdf, savePdf, sharePdf, canShareFiles, isMobileTauri, askConfirm } from './pdf';
 import { Lang, dict, initialLang } from './i18n';
 import { UnitSystem, makeUnits } from './units';
 import logoUrl from '../assets/btt-logo.png';
@@ -30,17 +29,10 @@ function stored<T extends string>(key: string, allowed: T[], fallback: T): T {
   return fallback;
 }
 
-/** Small cave-entrance glyph (there is no cave emoji); sized like an emoji. */
-function CaveIcon() {
-  return (
-    <svg className="cave-icon" viewBox="0 0 24 24" width="1.05em" height="1.05em" aria-hidden="true">
-      <path d="M2 21V13.5C2 8 6.5 3.5 12 3.5S22 8 22 13.5V21H2Z" fill="#8a5a2b" />
-      <path d="M6 21v-5.5C6 12 8.7 9.5 12 9.5s6 2.5 6 6V21H6Z" fill="#2b1a0e" />
-      <path d="M9.2 9.8l.9 2.6.9-2.6M12.6 9.6l.7 3.4.7-3.4" stroke="#8a5a2b" strokeWidth="1.1" fill="none" strokeLinecap="round" />
-      <path d="M2 21h20" stroke="#5b3a1a" strokeWidth="1.4" />
-    </svg>
-  );
-}
+type Env = 'rec' | 'open' | 'pen';
+type Tab = 'setup' | 'plan' | 'time' | 'gas' | 'team' | 'kit' | 'deco';
+/** Tabs per dive mode; switching mode opens the second (result) tab. */
+const TABS: Record<Env, Tab[]> = { rec: ['setup', 'plan', 'time'], open: ['setup', 'plan', 'gas'], pen: ['setup', 'team', 'kit', 'deco'] };
 
 let nextId = 1;
 const newItem = (over: Partial<InventoryItem> = {}): InventoryItem => ({
@@ -54,9 +46,17 @@ export function App() {
   const [unitSys, setUnitSys] = useState<UnitSystem>(() => stored('btt-units', ['metric', 'imperial'], 'metric'));
   const [mode, setMode] = useState<Mode>('standard');
   // Recreational is the base mode on every start; technical / penetration need an explicit confirmation per session
-  const [env, setEnvRaw] = useState<'rec' | 'open' | 'pen'>('rec');
-  const setEnv = async (target: 'rec' | 'open' | 'pen') => {
-    if (target === 'rec') { setEnvRaw('rec'); return; }
+  const [env, setEnvRaw] = useState<Env>('rec');
+  const [tab, setTabRaw] = useState<Tab>('setup');
+  const setTab = (next: Tab) => { setTabRaw(next); window.scrollTo({ top: 0 }); };
+  const [sheet, setSheet] = useState<null | 'settings' | 'export'>(null);
+  const [algoOpen, setAlgoOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(null), 1800); return () => clearTimeout(id); }, [toast]);
+  const closeSheet = useCallback(() => setSheet(null), []);
+  const setEnv = async (target: Env) => {
+    if (target === env) return;
+    if (target === 'rec') { setEnvRaw('rec'); setTab(TABS.rec[1]); return; }
     let acked = false;
     try { acked = sessionStorage.getItem(`btt-ack-${target}`) === '1'; } catch { /* ignore */ }
     if (!acked) {
@@ -64,6 +64,7 @@ export function App() {
       try { sessionStorage.setItem(`btt-ack-${target}`, '1'); } catch { /* ignore */ }
     }
     setEnvRaw(target);
+    setTab(TABS[target][1]);
   };
   // header collapses while the page is scrolled (hysteresis so it does not flicker)
   const [compact, setCompact] = useState(false);
@@ -94,6 +95,7 @@ export function App() {
   const [startBar, setStartBar] = useState(200);
   const [sacBottom, setSacBottom] = useState(20);
   const [sacDeco, setSacDeco] = useState(15);
+  const [openItem, setOpenItem] = useState<string | null>(null);
   const [items, setItems] = useState<InventoryItem[]>([
     newItem({ role: 'back' }),
     newItem({ role: 'deco', cylinder: S80, gas: { o2: 0.5, he: 0 } }),
@@ -204,15 +206,22 @@ export function App() {
     }
     window.print();
   };
-  const doPdf = async () => {
+  const pdfName = () => {
+    const d = env === 'rec' ? rec.maxDepth : env === 'pen' ? pen.maxDepth : maxDepth;
+    const bt = env === 'rec' ? rec.bottomTime : env === 'pen' ? Math.round(penData.plan?.bottomTime ?? 0) : bottomTime;
+    return `BTT-${env}-plan_${u.depthN(d)}${u.d}_${bt}min_${new Date().toISOString().slice(0, 10)}.pdf`;
+  };
+  const shareable = useMemo(canShareFiles, []);
+  /** Renders the print sheet to a PDF and hands it to `deliver` (share sheet or save dialog). */
+  const doPdf = async (deliver: 'share' | 'save') => {
     const el = document.querySelector<HTMLElement>('.print-sheet');
     if (!el) return;
     setBusy(true);
     try {
-      const d = env === 'rec' ? rec.maxDepth : env === 'pen' ? pen.maxDepth : maxDepth;
-      const bt = env === 'rec' ? rec.bottomTime : env === 'pen' ? Math.round(penData.plan?.bottomTime ?? 0) : bottomTime;
-      const name = `BTT-${env}-plan_${u.depthN(d)}${u.d}_${bt}min_${new Date().toISOString().slice(0, 10)}.pdf`;
-      await exportPdf(el, name);
+      const blob = await renderPdf(el);
+      const name = pdfName();
+      const ok = deliver === 'share' ? await sharePdf(blob, name) : await savePdf(blob, name);
+      if (ok) { setSheet(null); setToast(deliver === 'share' ? t.toastShared : t.toastSaved); }
     } catch (err) { console.error(err); alert(t.pdfError); }
     finally { setBusy(false); }
   };
@@ -231,334 +240,314 @@ export function App() {
     }
   };
 
-  return (
-    <div className="app">
-      <div className={compact ? 'topbar compact' : 'topbar'}>
-        <div className="topbar-inner">
-          <div className="brand">
-            <img src={logoUrl} alt="BTT Explorers Hungary" />
-            <div>
-              <h1>{t.appTitle}</h1>
-              <div className="sub">{t.subtitle(isGue, u)}</div>
+  const tabLabel: Record<Tab, string> = { setup: t.tabSetup, plan: t.tabPlan, time: t.tabTimeline, gas: t.tabGasCheck, team: t.tabTeamGas, kit: t.tabKit, deco: t.tabDeco };
+  const depthScale = u.sys === 'metric' ? 1 : 3.28084;
+  const vol = (l: number) => fmt(u.volumeN(l), u.sys === 'metric' ? 0 : 1);
+
+  /* ---------- technical mode tabs ---------- */
+  const techSetup = (
+    <>
+      <Seg value={stdId} onChange={changeStandard} label={t.stdTitle} options={[{ v: 'gue' as StandardId, l: t.stdGue }, { v: 'generic' as StandardId, l: t.stdGeneric }]} />
+      <Seg value={mode} onChange={setMode} options={[{ v: 'standard' as Mode, l: t.modeStandard }, { v: 'inventory' as Mode, l: t.modeInventory }]} />
+      <Label>{t.dive}</Label>
+      <Stepper label={t.maxDepth(u)} min={u.depthN(3)} max={u.depthN(120)} value={u.depthN(maxDepth)} onChange={(v) => { setMaxDepth(u.toM(v)); setDecoOn(null); }} />
+      <Stepper label={t.bottomTime} min={1} max={300} step={5} value={bottomTime} onChange={setBottomTime} />
+      {mode === 'standard' && (
+        <Card className="list">
+          <SelectRow label={t.bottomGas} value={bottomGasIdx} onChange={setBottomGasIdx}
+            options={[{ v: 'auto' as const, l: isGue ? t.autoBottomGas(autoBottom?.gas.name ?? '—') : t.autoBottomGasGeneric(autoBottom?.gas.name ?? '—') },
+              ...std.bottomGases.map((g, i) => ({ v: i, l: `${g.gas.name} (${isGue ? `${u.depthN(g.minDepth)}–${u.depth(g.maxDepth)}` : `MOD ${u.depth(mod(g.gas, 1.4))}`})` }))]} />
+          <div className="row stack">
+            <span className="row-l">{t.decoGases}</span>
+            <div className="tchips">
+              {std.decoGases.map((d) => {
+                const on = !!decoSelection[d.gas.name!];
+                return <Toggle key={d.gas.name} on={on} onClick={() => setDecoOn({ ...decoSelection, [d.gas.name!]: !on })}>{d.gas.name} · {u.stopDepth(d.switchDepth)}</Toggle>;
+              })}
             </div>
+            <span className="row-sub">{t.recommended}: {recommended.length ? recommended.map((r) => r.gas.name).join(', ') : t.noneMinDeco}</span>
           </div>
-          <div className="controls">
-            <div className="seg env" role="tablist">
-              <button className={env === 'rec' ? 'on rec' : ''} onClick={() => setEnv('rec')} title={t.envRec}><span className="ico">🐰</span> <span className="lbl">{t.envRec}</span></button>
-              <button className={env === 'open' ? 'on' : ''} onClick={() => setEnv('open')} title={t.envOpen}><span className="ico">🌊</span> <span className="lbl">{t.envOpen}</span></button>
-              <button className={env === 'pen' ? 'on pen' : ''} onClick={() => setEnv('pen')} title={t.envPen}><span className="ico"><CaveIcon /></span> <span className="lbl">{t.envPen}</span></button>
-            </div>
-            {env === 'open' && (
-            <div className="seg" role="tablist">
-              <button className={mode === 'standard' ? 'on' : ''} onClick={() => setMode('standard')}>{t.modeStandard}</button>
-              <button className={mode === 'inventory' ? 'on' : ''} onClick={() => setMode('inventory')}>{t.modeInventory}</button>
-            </div>)}
-            {env === 'open' && (
-            <div className="seg lang" role="radiogroup" aria-label={t.stdTitle} title={t.stdTitle}>
-              <button className={isGue ? 'on' : ''} onClick={() => changeStandard('gue')}>{t.stdGue}</button>
-              <button className={!isGue ? 'on' : ''} onClick={() => changeStandard('generic')}>{t.stdGeneric}</button>
-            </div>)}
-            <div className="seg lang" role="radiogroup" aria-label={t.unitsTitle} title={t.unitsTitle}>
-              <button className={unitSys === 'metric' ? 'on' : ''} onClick={() => setUnitSys('metric')}>m · bar</button>
-              <button className={unitSys === 'imperial' ? 'on' : ''} onClick={() => setUnitSys('imperial')}>ft · psi</button>
-            </div>
-            <div className="seg lang" role="radiogroup" aria-label="Language">
-              <button className={lang === 'hu' ? 'on' : ''} onClick={() => setLang('hu')}>HU</button>
-              <button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>EN</button>
-            </div>
-            <div className="seg lang" role="radiogroup" aria-label={t.themeTitle}>
-              <button className={theme === 'light' ? 'on' : ''} onClick={() => setTheme('light')} title={t.themeLight}>☀︎</button>
-              <button className={theme === 'dark' ? 'on' : ''} onClick={() => setTheme('dark')} title={t.themeDark}>☾</button>
-            </div>
-            <div className="seg lang actions" role="group" aria-label={t.print}>
-              {!mobile && <button onClick={doPrint} disabled={!canPrint} title={t.print}><span className="ico">🖨</span> <span className="lbl">{t.print}</span></button>}
-              <button onClick={doPdf} disabled={!canPrint || busy} title={t.savePdf}>{busy ? '…' : <><span className="ico">⤓</span> <span className="lbl">PDF</span></>}</button>
-            </div>
+          <div className="row info">
+            {gasName(bottomGas)}: pO2 <b className={ppo2Class}>{bottomPpO2.toFixed(2)}</b> bar · END <b className={endClass}>{u.depth(bottomEnd)}</b> · MOD({L.bottomPpO2Working.toFixed(1)}) {u.depth(mod(bottomGas, L.bottomPpO2Working))}
           </div>
-        </div>
-      </div>
-      <div className="disclaimer">{t.disclaimer}</div>
-
-      {env === 'rec' && (
-      <div className="grid">
-        <div className="stack">
-          <RecreationalView t={t} u={u} lang={lang} gfHigh={gfHigh} side="left" state={rec} setState={setRec} />
-          <section className="panel rec">
-            <h2>{t.algorithm}</h2>
-            <div><label>{t.gfHigh}</label><NumInput min={5} max={100} value={gfHigh} onChange={(v) => setGfHigh(v)} /></div>
-          </section>
-        </div>
-        <div className="stack">
-          <RecreationalView t={t} u={u} lang={lang} gfHigh={gfHigh} side="right" state={rec} setState={setRec} />
-        </div>
-      </div>)}
-
-      {env === 'pen' && (
-      <div className="grid pen-grid">
-        <div className="stack">
-          <PenetrationView t={t} u={u} lang={lang} std={std} settings={settings} side="left" state={pen} setState={setPen} />
-          <section className="panel pen">
-            <h2>{t.algorithm}</h2>
-            <div className="row3">
-              <div><label>{t.gfLow}</label><NumInput min={5} max={100} value={gfLow} onChange={(v) => setGfLow(v)} /></div>
-              <div><label>{t.gfHigh}</label><NumInput min={5} max={100} value={gfHigh} onChange={(v) => setGfHigh(v)} /></div>
-              <div><label>{t.lastStop(u)}</label><select value={lastStopDepth} onChange={(e) => setLastStop(+e.target.value)}><option value={6}>{u.stopDepthN(6)}</option><option value={3}>{u.stopDepthN(3)}</option></select></div>
+        </Card>
+      )}
+      {mode === 'standard' ? (
+        <>
+          <Label>{t.backGasAndSac}</Label>
+          <Card className="list">
+            <div className="row stack">
+              <span className="row-l">{t.config}</span>
+              <Seg value={config} onChange={setConfig} options={[{ v: 'backmount' as const, l: t.configBackmount }, { v: 'sidemount' as const, l: t.configSidemount }]} />
             </div>
-          </section>
-        </div>
-        <div className="stack">
-          <PenetrationView t={t} u={u} lang={lang} std={std} settings={settings} side="right" state={pen} setState={setPen} />
-        </div>
-      </div>)}
-
-      {env === 'open' && (
-      <div className="grid">
-        {/* ---------- LEFT ---------- */}
-        <div className="stack">
-          <section className="panel">
-            <h2>{t.dive}</h2>
-            <div className="row">
-              <div><label>{t.maxDepth(u)}</label><NumInput min={u.depthN(3)} max={u.depthN(120)} value={u.depthN(maxDepth)} onChange={(v) => { setMaxDepth(u.toM(v)); setDecoOn(null); }} /></div>
-              <div><label>{t.bottomTime}</label><NumInput min={1} max={300} value={bottomTime} onChange={(v) => setBottomTime(v)} /></div>
-            </div>
-
-            {mode === 'standard' && (
+            {config === 'backmount' ? (
+              <SelectRow label={t.backCylinder} value={cylIdx} onChange={setCylIdx} options={CYLINDERS.map((c, i) => ({ v: i, l: c.name }))} />
+            ) : (
               <>
-                <label>{t.bottomGas}</label>
-                <select value={bottomGasIdx} onChange={(e) => setBottomGasIdx(e.target.value === 'auto' ? 'auto' : +e.target.value)}>
-                  <option value="auto">{isGue ? t.autoBottomGas(autoBottom?.gas.name ?? '—') : t.autoBottomGasGeneric(autoBottom?.gas.name ?? '—')}</option>
-                  {std.bottomGases.map((g, i) => <option key={g.gas.name} value={i}>{g.gas.name} ({isGue ? `${u.depthN(g.minDepth)}–${u.depth(g.maxDepth)}` : `MOD ${u.depth(mod(g.gas, 1.4))}`})</option>)}
-                </select>
-                <label>{t.decoGases}</label>
-                <div className="chips">
-                  {std.decoGases.map((d) => {
-                    const on = !!decoSelection[d.gas.name!];
-                    return (
-                      <span key={d.gas.name} className={`chip ${on ? 'on' : ''}`} onClick={() => setDecoOn({ ...decoSelection, [d.gas.name!]: !on })}>
-                        <span className="dot" /> {d.gas.name} · {u.stopDepth(d.switchDepth)}
-                      </span>
-                    );
-                  })}
-                </div>
-                <div className="small" style={{ marginTop: 8 }}>{t.recommended}: {recommended.length ? recommended.map((r) => r.gas.name).join(', ') : t.noneMinDeco}</div>
+                <SelectRow label={t.smCylinder} value={smCylIdx} onChange={setSmCylIdx} options={SM_CYLINDERS.map((c, i) => ({ v: i, l: `2× ${c.name}` }))} />
+                <NumRow label={t.smStep(u)} min={u.pressureN(5)} value={u.pressureN(smStepBar)} onChange={(v) => setSmStep(u.toBar(v))} />
+                <div className="row info">{t.smSwitchNote} {t.smMinGasNote}</div>
               </>
             )}
-            <div className="small" style={{ marginTop: 10 }}>
+            <NumRow label={t.startPressure(u)} min={u.pressureN(50)} max={u.pressureN(300)} value={u.pressureN(startBar)} onChange={(v) => setStartBar(u.toBar(v))} />
+            <NumRow label={t.sacBottom(u)} step={u.sacStep} min={0} value={u.sacN(sacBottom)} decimals={u.sys === 'metric' ? 0 : 2} onChange={(v) => setSacBottom(u.toLpm(v))} />
+            <NumRow label={t.sacDeco(u)} step={u.sacStep} min={0} value={u.sacN(sacDeco)} decimals={u.sys === 'metric' ? 0 : 2} onChange={(v) => setSacDeco(u.toLpm(v))} />
+          </Card>
+        </>
+      ) : (
+        <>
+          <Label>{t.myGases}</Label>
+          <Note>{t.myGasesHint}</Note>
+          <Card className="list">
+            <div className="row info">
               {gasName(bottomGas)}: pO2 <b className={ppo2Class}>{bottomPpO2.toFixed(2)}</b> bar · END <b className={endClass}>{u.depth(bottomEnd)}</b> · MOD({L.bottomPpO2Working.toFixed(1)}) {u.depth(mod(bottomGas, L.bottomPpO2Working))}
             </div>
-          </section>
+          </Card>
+          {items.map((it) => {
+            const open = openItem === it.id;
+            return (
+              <Card className="list diver" key={it.id}>
+                <button className="row gas-head" aria-expanded={open} onClick={() => setOpenItem(open ? null : it.id)}>
+                  <span className="gas-name">{gasName(it.gas)}</span>
+                  <Chip kind={it.role === 'deco' ? 'deco' : 'back'}>{roleLabel(it.role)}</Chip>
+                  <span className="gas-have">{it.count > 1 ? `${it.count}× ` : ''}{u.volume(it.cylinder.volumeL * it.pressureBar * it.count)}</span>
+                  <Chevron open={open} />
+                </button>
+                {open && (
+                  <>
+                    <SelectRow label={t.cylinder} value={CYLINDERS.indexOf(it.cylinder)} onChange={(v) => updateItem(it.id, { cylinder: CYLINDERS[v] })} options={CYLINDERS.map((c, i) => ({ v: i, l: c.name }))} />
+                    <SelectRow label={t.role} value={it.role} onChange={(v) => updateItem(it.id, { role: v })} options={[{ v: 'back' as const, l: t.roleBackShort }, { v: 'deco' as const, l: t.roleDeco.toLowerCase() }]} />
+                    <NumRow label={t.count} min={1} max={6} value={it.count} onChange={(v) => updateItem(it.id, { count: Math.max(1, Math.round(v)) })} />
+                    <NumRow label="O2 %" min={5} max={100} value={Math.round(it.gas.o2 * 100)} onChange={(v) => updateItem(it.id, { gas: { o2: Math.min(100, v) / 100, he: Math.min(it.gas.he, 1 - v / 100) } })} />
+                    <NumRow label="He %" min={0} max={95} value={Math.round(it.gas.he * 100)} onChange={(v) => updateItem(it.id, { gas: { o2: it.gas.o2, he: Math.min(v / 100, 1 - it.gas.o2) } })} />
+                    <NumRow label={t.pressure(u)} min={0} value={u.pressureN(it.pressureBar)} onChange={(v) => updateItem(it.id, { pressureBar: u.toBar(v) })} />
+                    <div className="row"><button className="link-bad" onClick={() => setItems((xs) => xs.filter((x) => x.id !== it.id))}>{t.remove}</button></div>
+                  </>
+                )}
+              </Card>
+            );
+          })}
+          <div className="btn-row">
+            <button className="btn-field" onClick={() => { const n = newItem({ role: 'deco', cylinder: S80, gas: { o2: 1, he: 0 } }); setItems((xs) => [...xs, n]); setOpenItem(n.id); }}>{t.addDeco}</button>
+            <button className="btn-field" onClick={() => { const n = newItem({ role: 'back' }); setItems((xs) => [...xs, n]); setOpenItem(n.id); }}>{t.addBack}</button>
+          </div>
+          <Card className="list">
+            <NumRow label={t.sacBottom(u)} step={u.sacStep} min={0} value={u.sacN(sacBottom)} decimals={u.sys === 'metric' ? 0 : 2} onChange={(v) => setSacBottom(u.toLpm(v))} />
+            <NumRow label={t.sacDeco(u)} step={u.sacStep} min={0} value={u.sacN(sacDeco)} decimals={u.sys === 'metric' ? 0 : 2} onChange={(v) => setSacDeco(u.toLpm(v))} />
+          </Card>
+        </>
+      )}
+      <Primary onClick={() => setTab('plan')}>{t.showPlan}</Primary>
+    </>
+  );
 
-          {mode === 'standard' ? (
-            <section className="panel">
-              <h2>{t.backGasAndSac}</h2>
-              <label>{t.config}</label>
-              <div className="seg" style={{ display: 'flex' }}>
-                <button style={{ flex: 1 }} className={config === 'backmount' ? 'on' : ''} onClick={() => setConfig('backmount')}>{t.configBackmount}</button>
-                <button style={{ flex: 1 }} className={config === 'sidemount' ? 'on' : ''} onClick={() => setConfig('sidemount')}>{t.configSidemount}</button>
-              </div>
-              {config === 'backmount' ? (
-                <>
-                  <label>{t.backCylinder}</label>
-                  <select value={cylIdx} onChange={(e) => setCylIdx(+e.target.value)}>
-                    {CYLINDERS.map((c, i) => <option key={c.name} value={i}>{c.name}</option>)}
-                  </select>
-                </>
-              ) : (
-                <>
-                  <label>{t.smCylinder}</label>
-                  <select value={smCylIdx} onChange={(e) => setSmCylIdx(+e.target.value)}>
-                    {SM_CYLINDERS.map((c, i) => <option key={c.name} value={i}>2× {c.name}</option>)}
-                  </select>
-                  <label>{t.smStep(u)}</label>
-                  <NumInput min={u.pressureN(5)} value={u.pressureN(smStepBar)} onChange={(v) => setSmStep(u.toBar(v))} />
-                  <div className="small" style={{ marginTop: 6 }}>{t.smSwitchNote} {t.smMinGasNote}</div>
-                </>
-              )}
-              <div className="row3">
-                <div><label>{t.startPressure(u)}</label><NumInput min={u.pressureN(50)} max={u.pressureN(300)} value={u.pressureN(startBar)} onChange={(v) => setStartBar(u.toBar(v))} /></div>
-                <div><label>{t.sacBottom(u)}</label><NumInput step={u.sacStep} min={0} value={u.sacN(sacBottom)} decimals={u.sys === 'metric' ? 0 : 2} onChange={(v) => setSacBottom(u.toLpm(v))} /></div>
-                <div><label>{t.sacDeco(u)}</label><NumInput step={u.sacStep} min={0} value={u.sacN(sacDeco)} decimals={u.sys === 'metric' ? 0 : 2} onChange={(v) => setSacDeco(u.toLpm(v))} /></div>
-              </div>
-            </section>
+  // verdict under the selected gas standard: blocking engine messages (and, with my gases, the inventory blockers)
+  const stdLabel = isGue ? t.stdGue : t.stdGeneric;
+  const blockers = [...new Set([...(mode === 'inventory' ? verdict.blockers.map((b) => t.msg(b, u)) : []), ...warnings.filter((w) => w.bad).map((w) => w.text)])];
+  const techOk = blockers.length === 0 && (mode === 'standard' || verdict.feasible);
+  const techPlan = !plan ? <Verdict tone="bad" title={t.needBackGas} /> : (
+    <>
+      <Verdict tone={techOk ? 'ok' : 'bad'} title={techOk ? t.techFeasible(stdLabel) : t.techNotFeasible(stdLabel)}>
+        {techOk ? <div>{t.feasibleDetail(maxDepth, bottomTime, minGasBar, u)}</div> : blockers.map((b, i) => <div key={i}>{b}</div>)}
+        {!techOk && mode === 'inventory' && verdict.maxBottomTime !== null && <div><b>{t.maxBottomTime(verdict.maxBottomTime, maxDepth, u)}</b></div>}
+      </Verdict>
+      <Stats>
+        <Stat v={fmt(plan.runtime)} l={t.runtime} />
+        <Stat v={fmt(plan.decoTime)} l={t.decoTotal} />
+        <Stat v={plan.firstStopDepth === null ? '—' : u.stopDepthN(plan.firstStopDepth)} l={t.firstStop(u)} />
+        <Stat v={stops.length} l={t.stopCount} />
+      </Stats>
+      <ProfileCard plan={plan} title={t.profile} axes={t.profileAxes(u)} depthScale={depthScale} />
+      <Warnings items={warnings.filter((w) => !w.bad)} />
+      <Label>{t.stops}</Label>
+      {stops.length === 0 ? <Card><Note>{t.noStops(isGue, u)}</Note></Card> : (
+        <StopRows unit={u.d} minLabel={t.minUnit} leaveAt={t.leaveAt} stops={stops.map((s) => ({ depth: u.stopDepthN(s.depth), minutes: s.minutes, runtime: s.runtime, gas: s.gas }))} />
+      )}
+      <Note>{t.ratesNote(std.ascentRateShallowMpm, u)}</Note>
+      {events.length > 0 && (
+        <>
+          <Label>{t.itinerary}</Label>
+          <Timeline minLabel={t.minUnit} rows={events.map((e) => ({
+            min: Math.round(e.runtime), action: eventText(e),
+            sub: `${e.kind === 'stop' || e.kind === 'switch' ? u.stopDepth(e.depth) : u.depth(e.depth)} · ${gasName(e.gas)}`,
+            kind: e.kind === 'stop' ? 'hl' : e.kind === 'switch' ? 'switch' : e.kind === 'regSwitch' ? 'muted' : undefined,
+          }))} />
+        </>
+      )}
+    </>
+  );
+
+  const techGas = (
+    <>
+      {mode === 'inventory' && (
+        <>
+          <Label>{t.feasibleTitle}</Label>
+          {verdict.feasible ? (
+            <Verdict tone="ok" title={t.feasibleYes}>{t.feasibleDetail(maxDepth, bottomTime, minGasBar, u)}</Verdict>
           ) : (
-            <section className="panel">
-              <h2>{t.myGases}</h2>
-              <div className="small">{t.myGasesHint}</div>
-              {items.map((it) => (
-                <div className="inv-row" key={it.id}>
-                  <div className="full" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className={`tag ${it.role === 'deco' ? 'deco' : ''}`}>{it.role === 'back' ? t.roleBack : t.roleDeco} · {gasName(it.gas)}</span>
-                    <button className="btn ghost" onClick={() => setItems((xs) => xs.filter((x) => x.id !== it.id))}>{t.remove}</button>
-                  </div>
-                  <div className="full"><label>{t.cylinder}</label>
-                    <select value={CYLINDERS.indexOf(it.cylinder)} onChange={(e) => updateItem(it.id, { cylinder: CYLINDERS[+e.target.value] })}>
-                      {CYLINDERS.map((c, i) => <option key={c.name} value={i}>{c.name}</option>)}
-                    </select>
-                  </div>
-                  <div><label>{t.role}</label>
-                    <select value={it.role} onChange={(e) => updateItem(it.id, { role: e.target.value as 'back' | 'deco' })}>
-                      <option value="back">{t.roleBackShort}</option><option value="deco">{t.roleDeco.toLowerCase()}</option>
-                    </select>
-                  </div>
-                  <div><label>{t.count}</label><NumInput min={1} max={6} value={it.count} onChange={(v) => updateItem(it.id, { count: Math.max(1, Math.round(v)) })} /></div>
-                  <div><label>O2 %</label><NumInput min={5} max={100} value={Math.round(it.gas.o2 * 100)} onChange={(v) => updateItem(it.id, { gas: { o2: Math.min(100, v) / 100, he: Math.min(it.gas.he, 1 - v / 100) } })} /></div>
-                  <div><label>He %</label><NumInput min={0} max={95} value={Math.round(it.gas.he * 100)} onChange={(v) => updateItem(it.id, { gas: { o2: it.gas.o2, he: Math.min(v / 100, 1 - it.gas.o2) } })} /></div>
-                  <div className="full"><label>{t.pressure(u)}</label><NumInput min={0} value={u.pressureN(it.pressureBar)} onChange={(v) => updateItem(it.id, { pressureBar: u.toBar(v) })} /></div>
-                </div>
-              ))}
-              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                <button className="btn" onClick={() => setItems((xs) => [...xs, newItem({ role: 'deco', cylinder: S80, gas: { o2: 1, he: 0 } })])}>{t.addDeco}</button>
-                <button className="btn" onClick={() => setItems((xs) => [...xs, newItem({ role: 'back' })])}>{t.addBack}</button>
-              </div>
-              <div className="row" style={{ marginTop: 6 }}>
-                <div><label>{t.sacBottom(u)}</label><NumInput step={u.sacStep} min={0} value={u.sacN(sacBottom)} decimals={u.sys === 'metric' ? 0 : 2} onChange={(v) => setSacBottom(u.toLpm(v))} /></div>
-                <div><label>{t.sacDeco(u)}</label><NumInput step={u.sacStep} min={0} value={u.sacN(sacDeco)} decimals={u.sys === 'metric' ? 0 : 2} onChange={(v) => setSacDeco(u.toLpm(v))} /></div>
-              </div>
-            </section>
+            <Verdict tone="bad" title={t.feasibleNo}>
+              {verdict.blockers.map((b, i) => <div key={i}>{t.msg(b, u)}</div>)}
+              {verdict.maxBottomTime !== null && <div><b>{t.maxBottomTime(verdict.maxBottomTime, maxDepth, u)}</b></div>}
+            </Verdict>
           )}
-
-          <section className="panel">
-            <h2>{t.algorithm}</h2>
-            <div className="row3">
-              <div><label>{t.gfLow}</label><NumInput min={5} max={100} value={gfLow} onChange={(v) => setGfLow(v)} /></div>
-              <div><label>{t.gfHigh}</label><NumInput min={5} max={100} value={gfHigh} onChange={(v) => setGfHigh(v)} /></div>
-              <div><label>{t.lastStop(u)}</label><select value={lastStopDepth} onChange={(e) => setLastStop(+e.target.value)}><option value={6}>{u.stopDepthN(6)}</option><option value={3}>{u.stopDepthN(3)}</option></select></div>
-            </div>
-            <label>{t.methodLabel}</label>
-            <div className="seg" role="radiogroup" aria-label={t.methodLabel} style={{ display: 'flex' }}>
-              <button style={{ flex: 1 }} className={method === 'next' ? 'on' : ''} onClick={() => setMethod('next')}>{t.methodStandard}</button>
-              <button style={{ flex: 1 }} className={method === 'current' ? 'on' : ''} onClick={() => setMethod('current')}>{t.methodConservative}</button>
-            </div>
-            <div className="small" style={{ marginTop: 8 }}>{t.methodNote(method === 'current')}</div>
-            <div className="small" style={{ marginTop: 6 }}>{t.ratesNote(std.ascentRateShallowMpm, u)}</div>
-          </section>
-
-          {mode === 'standard' ? (
-            <section className="panel">
-              <h2>{t.packing}</h2>
-              <div className="pack">
-                {pack.map((p, i) => (
-                  <div className="pack-item" key={i}>
-                    <div className={`count ${p.role === 'deco' ? 'deco' : ''}`}>{p.count}×</div>
-                    <div>
-                      <div className="t">{p.cylinder.name}</div>
-                      <div className="s">{p.gasLabel} · {roleLabel(p.role)} · {p.note.kind === 'includesMinGas' ? t.includesMinGas(p.note.minGasBar, u) : t.withReserve(p.note.factor)}</div>
-                    </div>
-                    <div className={`fill ${p.overfill ? 'bad' : ''}`}>{u.pressure(p.fillBar)}<small>{p.overfill ? `${t.overfill}, ${t.overfillBy(Math.ceil(p.shortBar), u)}` : t.minFill}</small></div>
-                  </div>
-                ))}
+          {verdict.balance.map((b) => {
+            const total = Math.max(b.availableL, b.neededL + b.reserveL, 1);
+            return (
+              <Card className="gas-card" key={b.item.id}>
+                <div className="gc-head">
+                  <span className="gc-name">{gasName(b.item.gas)}</span>
+                  <Chip kind={b.item.role === 'deco' ? 'deco' : 'back'}>{roleLabel(b.item.role)}</Chip>
+                  <span className={`gc-status ${b.ok ? 'ok' : 'bad'}`}>{b.ok ? t.enough : t.shortBy(u.volume(b.neededL + b.reserveL - b.availableL))}</span>
+                </div>
+                <div className="gc-bar"><span className="need" style={{ width: `${(b.neededL / total) * 100}%` }} /><span className="res" style={{ width: `${(b.reserveL / total) * 100}%` }} /></div>
+                <div className="cols3">
+                  <div><div className="c-l">{t.haveL(u)}</div><div className={`c-v ${b.ok ? 'ok' : 'bad'}`}>{vol(b.availableL)}</div></div>
+                  <div><div className="c-l">{t.needL(u)}</div><div className="c-v">{vol(b.neededL)}</div></div>
+                  <div><div className="c-l">{t.reserveL(u)}</div><div className="c-v">{vol(b.reserveL)}</div></div>
+                </div>
+              </Card>
+            );
+          })}
+        </>
+      )}
+      {bg && (
+        <>
+          <Label>{t.gasPlan}</Label>
+          <Card className="list">
+            <KV l={t.minGas} sub={t.minGasDesc(minGas.divers, minGas.sacLpm, minGas.problemMinutes, minGas.fromDepth, minGas.toDepth, u)} v={<><b>{u.pressure(minGasBar)}</b> · {u.volume(minGas.litres)}</>} />
+            <KV l={t.usableBackGas(backCyl.name, backStart, u)} v={u.pressure(bg.usableBar)} />
+            <KV l={t.bottomPhaseNeed} v={u.pressure(bg.bottomPhaseBar)} />
+            <KV l={t.ascentOnBackGas} v={u.pressure(bg.ascentOnBackGasBar)} />
+            <KV l={t.turnPressure} v={u.pressure(bg.turnPressureBar)} />
+            <KV l={t.backGasEnough} v={bg.ok ? t.yes : t.no} tone={bg.ok ? 'ok' : 'bad'} />
+            {sm && <KV l={`${t.configSidemount}: ${t.smAtBottomEnd(u)}`} v={`${u.pressureN(sm.atBottomEnd.left)} / ${u.pressureN(sm.atBottomEnd.right)}`} />}
+            {sm && <KV l={t.smLost(u)} v={u.volumeN(sm.lostShort)} tone={sm.lostShort > 0 ? 'bad' : 'ok'} />}
+          </Card>
+          <Label>{t.usagePerGas}</Label>
+          <Card className="list">
+            {usage.map((x) => {
+              const cyl = x.gas === bottomGas ? backCyl : (mode === 'inventory' ? items.find((i) => i.role === 'deco' && gasName(i.gas) === x.name)?.cylinder : pack.find((p) => p.gasLabel === x.name)?.cylinder);
+              return (
+                <div className="row usage" key={x.name}>
+                  <span className="gas-name">{x.name}</span>
+                  <Chip kind={x.gas === bottomGas ? 'back' : 'deco'}>{x.gas === bottomGas ? t.roleBackShort : t.roleDecoShort}</Chip>
+                  <span className="usage-v"><b>{u.volume(x.litres)}</b><small>{cyl ? `${u.pressure(x.litres / cyl.volumeL)} · ${cylShort(cyl)}` : '—'}</small></span>
+                </div>
+              );
+            })}
+          </Card>
+        </>
+      )}
+      {mode === 'standard' && pack.length > 0 && (
+        <>
+          <Label>{t.packing}</Label>
+          <Card className="list">
+            {pack.map((p, i) => (
+              <div className="pack-row" key={i}>
+                <span className={`badge qty ${p.role === 'deco' ? 'deco' : ''}`}>{p.count}×</span>
+                <span className="pack-txt"><span className="pack-name">{p.cylinder.name}</span>
+                  <span className="pack-sub">{p.gasLabel} · {roleLabel(p.role)} · {p.note.kind === 'includesMinGas' ? t.includesMinGas(p.note.minGasBar, u) : t.withReserve(p.note.factor)}</span></span>
+                <span className={`pack-fill ${p.overfill ? 'bad' : ''}`}>{u.pressure(p.fillBar)}<small>{p.overfill ? `${t.overfill}, ${t.overfillBy(Math.ceil(p.shortBar), u)}` : t.minFill}</small></span>
               </div>
-            </section>
-          ) : (
-            <section className="panel">
-              <h2>{t.feasibleTitle}</h2>
-              {verdict.feasible ? (
-                <div className="verdict ok"><div className="icon">✓</div><div><div className="title">{t.feasibleYes}</div>
-                  <div className="small" style={{ color: 'inherit' }}>{t.feasibleDetail(maxDepth, bottomTime, minGasBar, u)}</div></div></div>
-              ) : (
-                <div className="verdict bad"><div className="icon">✕</div><div><div className="title">{t.feasibleNo}</div>
-                  <ul>{verdict.blockers.map((b, i) => <li key={i}>{t.msg(b, u)}</li>)}</ul>
-                  {verdict.maxBottomTime !== null && <div style={{ marginTop: 8, fontWeight: 500 }}>{t.maxBottomTime(verdict.maxBottomTime, maxDepth, u)}</div>}
-                </div></div>
+            ))}
+          </Card>
+        </>
+      )}
+    </>
+  );
+
+  const content = env === 'rec'
+    ? <RecreationalView t={t} u={u} lang={lang} gfHigh={gfHigh} tab={tab as 'setup' | 'plan' | 'time'} state={rec} setState={setRec} onShowPlan={() => setTab('plan')} />
+    : env === 'pen'
+      ? <PenetrationView t={t} u={u} lang={lang} std={std} settings={settings} tab={tab as 'setup' | 'team' | 'kit' | 'deco'} state={pen} setState={setPen} onMatch={() => setTab('team')} onExport={() => setSheet('export')} />
+      : tab === 'setup' ? techSetup : tab === 'plan' ? techPlan : techGas;
+
+  return (
+    <div className="app">
+      <header className={compact ? 'hdr compact' : 'hdr'}>
+        <div className="hdr-inner">
+          <div className="hdr-row">
+            <img className="logo" src={logoUrl} alt="BTT Explorers Hungary" />
+            <div className="hdr-title">
+              <h1>{t.appTitle}</h1>
+              <div className="hdr-sub">{t.subtitle(isGue, u)}</div>
+            </div>
+            <button className="icon-btn" onClick={() => setSheet('export')} disabled={!canPrint} aria-label={t.exportTitle} title={canPrint ? t.exportTitle : t.exportNeedsPlan}><IconShare /></button>
+            <button className="icon-btn" onClick={() => setSheet('settings')} aria-label={t.settingsTitle} title={t.settingsTitle}><IconSliders /></button>
+          </div>
+          <div className="modes" role="tablist">
+            {(['rec', 'open', 'pen'] as Env[]).map((m) => (
+              <button key={m} role="tab" aria-selected={env === m} className={`m-${m} ${env === m ? 'on' : ''}`} onClick={() => setEnv(m)}>{m === 'rec' ? t.envRec : m === 'open' ? t.envOpen : t.envPen}</button>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      <main className="content" key={`${env}-${tab}`}>
+        {tab === 'setup' && <Disclaimer text={t.disclaimer} />}
+        {content}
+        <footer className="footer2">
+          <img src={logoUrl} alt="" aria-hidden="true" />
+          <span className="motto">Mindig van lejjebb!!!</span>
+          <span>BTT Explorers Hungary · 2018 · made by sadrobot · v{__APP_VERSION__}</span>
+        </footer>
+      </main>
+
+      <nav className="tabbar" role="tablist">
+        <div className="tabbar-inner">
+          {TABS[env].map((id) => (
+            <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{tabLabel[id]}</button>
+          ))}
+        </div>
+      </nav>
+
+      <Sheet open={sheet === 'settings'} onClose={closeSheet} label={t.settingsTitle}>
+        <div className="sheet-head"><h2>{t.settingsTitle}</h2><button className="pill" onClick={closeSheet}>{t.done}</button></div>
+        <div className="sheet-field"><span>{t.unitsTitle}</span>
+          <Seg variant="sheet" value={unitSys} onChange={setUnitSys} options={[{ v: 'metric' as UnitSystem, l: 'm · bar' }, { v: 'imperial' as UnitSystem, l: 'ft · psi' }]} /></div>
+        <div className="sheet-field"><span>{t.langTitle}</span>
+          <Seg variant="sheet" value={lang} onChange={setLang} options={[{ v: 'hu' as Lang, l: 'HU' }, { v: 'en' as Lang, l: 'EN' }]} /></div>
+        <div className="sheet-field"><span>{t.appearance}</span>
+          <Seg variant="sheet" value={theme} onChange={setTheme} options={[{ v: 'light' as Theme, l: t.themeLight }, { v: 'dark' as Theme, l: t.themeDark }]} /></div>
+        <div className="algo">
+          <button className="algo-row" aria-expanded={algoOpen} onClick={() => setAlgoOpen(!algoOpen)}>
+            <span>{t.algorithmRow}</span>
+            <span className="algo-v">{env === 'rec' ? `GF ${gfHigh}` : `GF ${gfLow}/${gfHigh}`}</span>
+            <Chevron open={algoOpen} />
+          </button>
+          {algoOpen && (
+            <div className="algo-body">
+              {env !== 'rec' && <NumRow label={t.gfLow} min={5} max={100} value={gfLow} onChange={setGfLow} />}
+              <NumRow label={t.gfHigh} min={5} max={100} value={gfHigh} onChange={setGfHigh} />
+              {env !== 'rec' && <SelectRow label={t.lastStop(u)} value={lastStopDepth} onChange={(v) => setLastStop(v)} options={[{ v: 6, l: u.stopDepth(6) }, { v: 3, l: u.stopDepth(3) }]} />}
+              {env === 'open' && (
+                <>
+                  <div className="row stack">
+                    <span className="row-l">{t.methodLabel}</span>
+                    <Seg value={method} onChange={setMethod} options={[{ v: 'next' as const, l: t.methodStandard }, { v: 'current' as const, l: t.methodConservative }]} />
+                    <span className="row-sub">{t.methodNote(method === 'current')}</span>
+                  </div>
+                </>
               )}
-              {verdict.balance.length > 0 && (
-                <table style={{ marginTop: 12 }}>
-                  <thead><tr><th>{t.gas}</th><th className="num">{t.haveL(u)}</th><th className="num">{t.needL(u)}</th><th className="num">{t.reserveL(u)}</th></tr></thead>
-                  <tbody>
-                    {verdict.balance.map((b) => (
-                      <tr key={b.item.id}><td>{gasName(b.item.gas)} <span className={`tag ${b.item.role === 'deco' ? 'deco' : ''}`}>{roleLabel(b.item.role)}</span></td>
-                        <td className={`num ${b.ok ? 'ok' : 'bad'}`}>{fmt(u.volumeN(b.availableL), u.sys === 'metric' ? 0 : 1)}</td><td className="num">{fmt(u.volumeN(b.neededL), u.sys === 'metric' ? 0 : 1)}</td><td className="num">{fmt(u.volumeN(b.reserveL), u.sys === 'metric' ? 0 : 1)}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </section>
+            </div>
           )}
         </div>
+      </Sheet>
 
-        {/* ---------- RIGHT ---------- */}
-        <div className="stack">
-          <section className="panel">
-            <h2>{t.plan}</h2>
-            {plan ? (
-              <>
-                <div className="kpis">
-                  <div className="kpi"><div className="v">{fmt(plan.runtime)}</div><div className="l">{t.runtime}</div></div>
-                  <div className="kpi"><div className="v">{fmt(plan.decoTime)}</div><div className="l">{t.decoTotal}</div></div>
-                  <div className="kpi"><div className="v">{plan.firstStopDepth === null ? '—' : u.stopDepthN(plan.firstStopDepth)}</div><div className="l">{t.firstStop(u)}</div></div>
-                  <div className="kpi"><div className="v">{stops.length}</div><div className="l">{t.stopCount}</div></div>
-                </div>
-                <ProfileChart plan={plan} unitLabel={lang === 'hu' ? 'perc' : 'min'} depthLabel={u.d} depthScale={u.sys === 'metric' ? 1 : 3.28084} />
-              </>
-            ) : <div className="small">{t.needBackGas}</div>}
-            {warnings.length > 0 && <ul className="warnings">{warnings.map((w, i) => <li key={i} className={w.bad ? 'bad' : ''}>{w.text}</li>)}</ul>}
-          </section>
-
-          <section className="panel">
-            <h2>{t.stops}</h2>
-            {stops.length === 0 ? <div className="small">{t.noStops(isGue, u)}</div> : (
-              <table>
-                <thead><tr><th className="num">{t.depth(u)}</th><th className="num">{t.minutes}</th><th className="num">{t.runtimeCol}</th><th>{t.gas}</th></tr></thead>
-                <tbody>{stops.map((s, i) => <tr key={i}><td className="num">{u.stopDepthN(s.depth)}</td><td className="num">{s.minutes}</td><td className="num">{s.runtime}</td><td>{s.gas}</td></tr>)}</tbody>
-              </table>
-            )}
-          </section>
-
-          {events.length > 0 && (
-            <section className="panel">
-              <h2>{t.itinerary}</h2>
-              <table className="itinerary">
-                <thead><tr><th className="num">{t.itTime}</th><th className="num">{t.itDepth(u)}</th><th>{t.itAction}</th><th>{t.itGas}</th></tr></thead>
-                <tbody>
-                  {events.map((e, i) => (
-                    <tr key={i} className={`ev-${e.kind}`}>
-                      <td className="num">{Math.round(e.runtime)}</td>
-                      <td className="num">{e.kind === 'stop' || e.kind === 'switch' ? u.stopDepthN(e.depth) : u.depthN(e.depth)}</td>
-                      <td>{eventText(e)}</td>
-                      <td>{gasName(e.gas)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
-          )}
-
-          {bg && (
-            <section className="panel">
-              <h2>{t.gasPlan}</h2>
-              <table>
-                <tbody>
-                  <tr><td>{t.minGas}<div className="small">{t.minGasDesc(minGas.divers, minGas.sacLpm, minGas.problemMinutes, minGas.fromDepth, minGas.toDepth, u)}</div></td><td className="num"><b>{u.pressure(minGasBar)}</b> · {u.volume(minGas.litres)}</td></tr>
-                  <tr><td>{t.usableBackGas(backCyl.name, backStart, u)}</td><td className="num">{u.pressure(bg.usableBar)}</td></tr>
-                  <tr><td>{t.bottomPhaseNeed}</td><td className="num">{u.pressure(bg.bottomPhaseBar)}</td></tr>
-                  <tr><td>{t.ascentOnBackGas}</td><td className="num">{u.pressure(bg.ascentOnBackGasBar)}</td></tr>
-                  <tr><td>{t.turnPressure}</td><td className="num">{u.pressure(bg.turnPressureBar)}</td></tr>
-                  <tr><td>{t.backGasEnough}</td><td className={`num ${bg.ok ? 'ok' : 'bad'}`}><b>{bg.ok ? t.yes : t.no}</b></td></tr>
-                </tbody>
-              </table>
-              {sm && (
-                <div className="small" style={{ marginTop: 10 }}>{t.configSidemount}: {t.smAtBottomEnd(u)}: {u.pressureN(sm.atBottomEnd.left)} / {u.pressureN(sm.atBottomEnd.right)} · {t.smLost(u)}: <b className={sm.lostShort > 0 ? 'bad' : 'ok'}>{u.volumeN(sm.lostShort)}</b></div>
-              )}
-              <h2 style={{ marginTop: 18 }}>{t.usagePerGas}</h2>
-              <table>
-                <thead><tr><th>{t.gas}</th><th className="num">{t.litres(u)}</th><th className="num">{t.barInCylinder(u)}</th></tr></thead>
-                <tbody>
-                  {usage.map((x) => {
-                    const cyl = x.gas === bottomGas ? backCyl : (mode === 'inventory' ? items.find((i) => i.role === 'deco' && gasName(i.gas) === x.name)?.cylinder : pack.find((p) => p.gasLabel === x.name)?.cylinder);
-                    return (
-                      <tr key={x.name}>
-                        <td>{x.name} <span className={`tag ${x.gas === bottomGas ? '' : 'deco'}`}>{x.gas === bottomGas ? t.roleBackShort : t.roleDecoShort}</span></td>
-                        <td className="num">{fmt(u.volumeN(x.litres), u.sys === 'metric' ? 0 : 1)}</td>
-                        <td className="num">{cyl ? `${u.pressure(x.litres / cyl.volumeL)} (${cylShort(cyl)})` : '—'}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </section>
-          )}
+      <Sheet open={sheet === 'export'} onClose={closeSheet} label={t.exportTitle}>
+        <div className="sheet-head"><h2>{t.exportTitle}</h2><button className="pill" onClick={closeSheet}>{t.done}</button></div>
+        <div className="file">
+          <div className="thumb"><span className="thumb-bar" /><span /><span /><span className="short" /><span /><span className="short" /></div>
+          <div className="file-txt"><div className="file-name">{pdfName()}</div><div className="file-sub">{t.pdfDoc}</div></div>
         </div>
-      </div>)}
+        <div className="sheet-btns">
+          {!mobile && <button disabled={busy} onClick={() => { setSheet(null); doPrint(); }}>{t.print}</button>}
+          {shareable && <button disabled={busy} onClick={() => doPdf('save')}>{t.saveFiles}</button>}
+        </div>
+        <Primary disabled={busy} onClick={() => doPdf(shareable ? 'share' : 'save')}>{busy ? '…' : shareable ? t.sharePdf : t.savePdf}</Primary>
+      </Sheet>
+      <Toast text={toast} />
+
       {env === 'rec' && (
         <RecPrintSheet t={t} u={u} lang={lang} input={recData.input} plan={recData.plan} events={recData.events} cylinderName={recData.cyl.name} />
       )}
@@ -576,13 +565,9 @@ export function App() {
           gfLow={gfLow} gfHigh={gfHigh} lastStopDepth={lastStopDepth}
           plan={plan} stops={stops} events={events} usage={usage} bg={bg} minGas={minGas} minGasBar={minGasBar} backCyl={backCyl} backStart={backStart}
           pack={pack} verdict={mode === 'inventory' ? verdict : null} eventText={eventText} warnings={warnings}
+          planOk={techOk} planTitle={techOk ? t.techFeasible(stdLabel) : t.techNotFeasible(stdLabel)} blockers={blockers}
         />
       )}
-      <footer className="footer">
-        <img src={logoUrl} alt="" aria-hidden="true" />
-        <span className="motto">Mindig van lejjebb!!!</span>
-        <span className="small">BTT Explorers Hungary · 2018 · made by sadrobot · v{__APP_VERSION__}</span>
-      </footer>
     </div>
   );
 }

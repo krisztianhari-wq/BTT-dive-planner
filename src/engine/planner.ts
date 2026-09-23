@@ -65,7 +65,7 @@ export interface DivePlan {
   segments: Segment[];
   /** total runtime, minutes */
   runtime: number;
-  /** total decompression time (stops + ascent from first stop), minutes */
+  /** time from leaving the bottom to the surface (ascent, gas switches and stops; time to surface), minutes; 0 without mandatory stops */
   decoTime: number;
   bottomTime: number;
   maxDepth: number;
@@ -209,7 +209,7 @@ export function planDive(input: DiveInput): DivePlan {
     ascendTo(nextTarget);
   }
 
-  // Merge consecutive ascent segments with the same gas for readability (keeps switches)
+  // Merge consecutive ascent segments with the same gas and rate for readability (keeps switches)
   const merged = mergeSegments(segments);
 
   const maxDepth = input.maxDepth;
@@ -246,7 +246,11 @@ function mergeSegments(segs: Segment[]): Segment[] {
   const out: Segment[] = [];
   for (const sg of segs) {
     const prev = out[out.length - 1];
-    if (prev && prev.kind === 'ascent' && sg.kind === 'ascent' && prev.gas === sg.gas && prev.endDepth === sg.startDepth) {
+    // only merge ascents at the same rate: a merged segment is treated as one linear depth change, so merging a
+    // 9 m/min and a 3 m/min leg would misstate the time spent deep (gas consumption, tissue replay, chart)
+    const rate = (x: Segment) => (x.startDepth - x.endDepth) / x.duration;
+    if (prev && prev.kind === 'ascent' && sg.kind === 'ascent' && prev.gas === sg.gas && prev.endDepth === sg.startDepth
+      && prev.duration > 0 && sg.duration > 0 && Math.abs(rate(prev) - rate(sg)) < 1e-9) {
       prev.endDepth = sg.endDepth;
       prev.duration += sg.duration;
       prev.runtime = sg.runtime;
