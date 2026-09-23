@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/mobile-schema.json",
   "identifier": "mobile",
-  "description": "Mobile: PDF goes to the share sheet, fallback into the app's own Documents folder",
+  "description": "Mobile: PDF via share sheet (iOS) or the system save dialog (Android)",
   "platforms": [
     "iOS",
     "android"
@@ -11,9 +11,9 @@
   ],
   "permissions": [
     "core:default",
+    "dialog:allow-save",
     "dialog:allow-confirm",
     "dialog:allow-message",
-    "fs:allow-write-file",
-    "fs:allow-document-write-recursive"
+    "fs:allow-write-file"
   ]
 }

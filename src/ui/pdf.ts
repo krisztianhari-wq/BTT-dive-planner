@@ -62,16 +62,12 @@ export async function showMessage(text: string, title = 'BTT Dive Planner'): Pro
 
 async function saveBlob(blob: Blob, filename: string): Promise<void> {
   if (isMobileTauri()) {
-    // iOS / Android: hand the PDF to the system share sheet (AirDrop, Files, Mail, …)
+    // iOS: system share sheet (AirDrop, Files, Mail, …); Android's webview has no Web Share,
+    // so it falls through to the native "save as" dialog below (SAF document picker).
     const file = new File([blob], filename, { type: 'application/pdf' });
-    if (typeof navigator.share === 'function' && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+    if (typeof navigator.share === 'function' && navigator.canShare && navigator.canShare({ files: [file] })) {
       try { await navigator.share({ files: [file], title: filename }); return; } catch (e) { if ((e as Error).name === 'AbortError') return; }
     }
-    // fallback: drop it into the app's Documents folder
-    const { writeFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
-    await writeFile(filename, new Uint8Array(await blob.arrayBuffer()), { baseDir: BaseDirectory.Document });
-    await showMessage(`PDF: Documents/${filename}`);
-    return;
   }
   if ('__TAURI_INTERNALS__' in window) {
     const { save } = await import('@tauri-apps/plugin-dialog');

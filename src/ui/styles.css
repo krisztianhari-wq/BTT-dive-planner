@@ -8,7 +8,7 @@
   --ok: #1f7a3a; --ok-soft: rgba(52, 199, 89, .16);
   --line: rgba(60, 60, 67, .12); --sep: rgba(60, 60, 67, .08);
   --shadow: 0 1px 1px rgba(0,0,0,.03), 0 10px 30px -18px rgba(0,0,0,.18);
-  --header-bg: rgba(242, 242, 247, .72);
+  --header-bg: rgba(242, 242, 247, .86);
   --logo-filter: none;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter, "Segoe UI", Roboto, sans-serif;
   color-scheme: light;
@@ -22,7 +22,7 @@
   --ok: #4cd964; --ok-soft: rgba(48, 209, 88, .18);
   --line: rgba(84, 84, 88, .55); --sep: rgba(84, 84, 88, .35);
   --shadow: none;
-  --header-bg: rgba(0, 0, 0, .6);
+  --header-bg: rgba(0, 0, 0, .82);
   --logo-filter: invert(1);
   color-scheme: dark;
 }
@@ -32,7 +32,9 @@ body { margin: 0; background: var(--bg); color: var(--text); -webkit-font-smooth
 .app { max-width: 1240px; margin: 0 auto; padding: 0 20px 56px; }
 
 /* header */
-.topbar { position: sticky; top: 0; z-index: 10; background: var(--header-bg); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); margin: 0 -20px 22px; padding: 12px 20px; border-bottom: 1px solid var(--sep); }
+.topbar { position: sticky; top: 0; z-index: 10; background: var(--header-bg); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); margin: 0 -20px 22px; padding: calc(12px + env(safe-area-inset-top, 0px)) calc(20px + env(safe-area-inset-right, 0px)) 12px calc(20px + env(safe-area-inset-left, 0px)); border-bottom: 1px solid var(--sep); }
+/* phones: keep content clear of the notch / status bar and the gesture bar */
+body { padding-bottom: env(safe-area-inset-bottom, 0px); }
 .topbar-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand img { width: 46px; height: 46px; filter: var(--logo-filter); transition: filter .25s; }
