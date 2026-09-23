@@ -45,6 +45,21 @@ export async function exportPdf(sheet: HTMLElement, filename: string): Promise<v
 export const isMobileTauri = (): boolean =>
   '__TAURI_INTERNALS__' in window && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
+/** Yes/no question: native Tauri dialog inside the app (the mobile webview has no window.confirm), window.confirm on the web. */
+export async function askConfirm(text: string, title = 'BTT Dive Planner'): Promise<boolean> {
+  if ('__TAURI_INTERNALS__' in window) {
+    try { const { confirm } = await import('@tauri-apps/plugin-dialog'); return await confirm(text, { title, kind: 'warning' }); } catch { /* fall back */ }
+  }
+  return window.confirm(text);
+}
+
+export async function showMessage(text: string, title = 'BTT Dive Planner'): Promise<void> {
+  if ('__TAURI_INTERNALS__' in window) {
+    try { const { message } = await import('@tauri-apps/plugin-dialog'); await message(text, { title }); return; } catch { /* fall back */ }
+  }
+  window.alert(text);
+}
+
 async function saveBlob(blob: Blob, filename: string): Promise<void> {
   if (isMobileTauri()) {
     // iOS / Android: hand the PDF to the system share sheet (AirDrop, Files, Mail, …)
@@ -55,7 +70,7 @@ async function saveBlob(blob: Blob, filename: string): Promise<void> {
     // fallback: drop it into the app's Documents folder
     const { writeFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
     await writeFile(filename, new Uint8Array(await blob.arrayBuffer()), { baseDir: BaseDirectory.Document });
-    window.alert(`PDF: Documents/${filename}`);
+    await showMessage(`PDF: Documents/${filename}`);
     return;
   }
   if ('__TAURI_INTERNALS__' in window) {

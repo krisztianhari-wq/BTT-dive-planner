@@ -1,3 +1,4 @@
+import { askConfirm } from './pdf';
 import { useMemo, useState } from 'react';
 import {
   Agency, CYLINDERS, DecoGasSpec, Environment, Flow, Gas, GasStandard, PenEvent, PlanSettings, StageRule, TeamMember,
@@ -285,7 +286,7 @@ export function PenetrationView({ t, u, lang, std, settings, side, state: s, set
           <span className="small">{t.penBraveLabel}</span>
           <div className="seg" role="radiogroup">
             <button className={!s.brave ? 'on' : ''} onClick={() => set({ brave: false })}>{t.penBraveOff}</button>
-            <button className={s.brave ? 'on brave' : ''} onClick={() => { if (s.brave) return; if (window.confirm(t.penBraveConfirm)) set({ brave: true }); }}>{t.penBrave}</button>
+            <button className={s.brave ? 'on brave' : ''} onClick={async () => { if (s.brave) return; if (await askConfirm(t.penBraveConfirm)) set({ brave: true }); }}>{t.penBrave}</button>
           </div>
         </div>
         <div className="kpis">

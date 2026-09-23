@@ -10,7 +10,7 @@ import { NumInput } from './NumInput';
 import { PenetrationView, PenState, defaultPenState, usePenetrationPlan, penEventText } from './PenetrationView';
 import { RecreationalView, RecState, defaultRecState, useRecreationalPlan } from './RecreationalView';
 import { RecPrintSheet, PenPrintSheet } from './PrintSheets';
-import { exportPdf, isMobileTauri } from './pdf';
+import { exportPdf, isMobileTauri, askConfirm } from './pdf';
 import { Lang, dict, initialLang } from './i18n';
 import { UnitSystem, makeUnits } from './units';
 import logoUrl from '../assets/btt-logo.png';
@@ -55,12 +55,12 @@ export function App() {
   const [mode, setMode] = useState<Mode>('standard');
   // Recreational is the base mode on every start; technical / penetration need an explicit confirmation per session
   const [env, setEnvRaw] = useState<'rec' | 'open' | 'pen'>('rec');
-  const setEnv = (target: 'rec' | 'open' | 'pen') => {
+  const setEnv = async (target: 'rec' | 'open' | 'pen') => {
     if (target === 'rec') { setEnvRaw('rec'); return; }
     let acked = false;
     try { acked = sessionStorage.getItem(`btt-ack-${target}`) === '1'; } catch { /* ignore */ }
     if (!acked) {
-      if (!window.confirm(target === 'open' ? t.confirmTech : t.confirmPen)) return;
+      if (!(await askConfirm(target === 'open' ? t.confirmTech : t.confirmPen))) return;
       try { sessionStorage.setItem(`btt-ack-${target}`, '1'); } catch { /* ignore */ }
     }
     setEnvRaw(target);

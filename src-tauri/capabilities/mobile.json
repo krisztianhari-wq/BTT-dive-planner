@@ -11,6 +11,8 @@
   ],
   "permissions": [
     "core:default",
+    "dialog:allow-confirm",
+    "dialog:allow-message",
     "fs:allow-write-file",
     "fs:allow-document-write-recursive"
   ]
