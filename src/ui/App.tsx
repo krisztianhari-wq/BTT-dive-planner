@@ -65,6 +65,17 @@ export function App() {
     }
     setEnvRaw(target);
   };
+  // header collapses while the page is scrolled (hysteresis so it does not flicker)
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      setCompact((c) => (c ? y > 24 : y > 72));
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   const [rec, setRec] = useState<RecState>(defaultRecState);
   const [pen, setPen] = useState<PenState>(defaultPenState);
   const [stdId, setStdId] = useState<StandardId>(() => stored('btt-std', ['gue', 'generic'], 'gue'));
@@ -222,7 +233,7 @@ export function App() {
 
   return (
     <div className="app">
-      <div className="topbar">
+      <div className={compact ? 'topbar compact' : 'topbar'}>
         <div className="topbar-inner">
           <div className="brand">
             <img src={logoUrl} alt="BTT Explorers Hungary" />
@@ -233,9 +244,9 @@ export function App() {
           </div>
           <div className="controls">
             <div className="seg env" role="tablist">
-              <button className={env === 'rec' ? 'on rec' : ''} onClick={() => setEnv('rec')}>🐰 {t.envRec}</button>
-              <button className={env === 'open' ? 'on' : ''} onClick={() => setEnv('open')}>🌊 {t.envOpen}</button>
-              <button className={env === 'pen' ? 'on pen' : ''} onClick={() => setEnv('pen')}><CaveIcon /> {t.envPen}</button>
+              <button className={env === 'rec' ? 'on rec' : ''} onClick={() => setEnv('rec')} title={t.envRec}><span className="ico">🐰</span> <span className="lbl">{t.envRec}</span></button>
+              <button className={env === 'open' ? 'on' : ''} onClick={() => setEnv('open')} title={t.envOpen}><span className="ico">🌊</span> <span className="lbl">{t.envOpen}</span></button>
+              <button className={env === 'pen' ? 'on pen' : ''} onClick={() => setEnv('pen')} title={t.envPen}><span className="ico"><CaveIcon /></span> <span className="lbl">{t.envPen}</span></button>
             </div>
             {env === 'open' && (
             <div className="seg" role="tablist">
@@ -260,8 +271,8 @@ export function App() {
               <button className={theme === 'dark' ? 'on' : ''} onClick={() => setTheme('dark')} title={t.themeDark}>☾</button>
             </div>
             <div className="seg lang actions" role="group" aria-label={t.print}>
-              {!mobile && <button onClick={doPrint} disabled={!canPrint} title={t.print}>🖨 {t.print}</button>}
-              <button onClick={doPdf} disabled={!canPrint || busy} title={t.savePdf}>{busy ? '…' : '⤓ PDF'}</button>
+              {!mobile && <button onClick={doPrint} disabled={!canPrint} title={t.print}><span className="ico">🖨</span> <span className="lbl">{t.print}</span></button>}
+              <button onClick={doPdf} disabled={!canPrint || busy} title={t.savePdf}>{busy ? '…' : <><span className="ico">⤓</span> <span className="lbl">PDF</span></>}</button>
             </div>
           </div>
         </div>

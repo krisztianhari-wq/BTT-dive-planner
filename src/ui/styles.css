@@ -37,7 +37,7 @@ body { margin: 0; background: var(--bg); color: var(--text); -webkit-font-smooth
 body { padding-bottom: env(safe-area-inset-bottom, 0px); }
 .topbar-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .brand { display: flex; align-items: center; gap: 12px; }
-.brand img { width: 46px; height: 46px; filter: var(--logo-filter); transition: filter .25s; }
+.brand img { width: 46px; height: 46px; filter: var(--logo-filter); transition: filter .25s, width .2s, height .2s; }
 .brand h1 { font-size: 1.2rem; margin: 0; font-weight: 600; letter-spacing: -.02em; }
 .brand .sub { color: var(--muted); font-size: .78rem; margin-top: 1px; }
 .controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
@@ -233,3 +233,19 @@ table.itinerary tr.ev-reg td, table.itinerary tr.ev-regSwitch td { color: var(--
   .panel .row3 > div:last-child:nth-child(3) { grid-column: 1 / -1; }
   .kpis { grid-template-columns: repeat(2, 1fr); }
 }
+
+
+/* ---- collapsed header while scrolling ---- */
+.topbar, .topbar-inner, .brand h1, .seg button { transition: padding .2s ease, font-size .2s ease, gap .2s ease; }
+.topbar.compact { padding-top: calc(6px + env(safe-area-inset-top, 0px)); padding-bottom: 6px; margin-bottom: 14px; }
+.topbar.compact .topbar-inner { gap: 8px; }
+.topbar.compact .brand { gap: 8px; }
+.topbar.compact .brand img { width: 26px; height: 26px; }
+.topbar.compact .brand h1 { font-size: .95rem; }
+.topbar.compact .brand .sub { display: none; }
+.topbar.compact .controls { gap: 6px; }
+.topbar.compact .seg button { padding: 4px 9px; font-size: .78rem; }
+.topbar.compact .seg.lang button { min-width: 32px; height: 24px; padding: 4px 8px; font-size: .72rem; }
+.topbar.compact .seg.env button .lbl, .topbar.compact .seg.actions button .lbl { display: none; }
+.topbar.compact .seg.env button { padding: 4px 10px; }
+.topbar.compact .seg.env button .ico svg { width: 15px; height: 15px; }
