@@ -49,10 +49,14 @@ export interface StandardBottomGas {
   /** depth range in metres where this is the standard bottom gas */
   minDepth: number;
   maxDepth: number;
+  /** selectable, but never picked automatically (not a standard gas of the agency, e.g. air under GUE) */
+  optional?: boolean;
 }
 
 export const GUE_BOTTOM_GASES: StandardBottomGas[] = [
   { gas: { o2: 0.32, he: 0.0, name: 'EAN32' }, minDepth: 0, maxDepth: 30 },
+  // air: selectable (clubs dive it in shallow water and caves); limited to 30 m by the GUE END limit
+  { gas: { o2: 0.21, he: 0.0, name: 'Air' }, minDepth: 0, maxDepth: 30, optional: true },
   { gas: { o2: 0.30, he: 0.30, name: '30/30' }, minDepth: 30, maxDepth: 40 },
   { gas: { o2: 0.21, he: 0.35, name: '21/35' }, minDepth: 40, maxDepth: 51 },
   { gas: { o2: 0.18, he: 0.45, name: '18/45' }, minDepth: 51, maxDepth: 60 },
@@ -84,7 +88,7 @@ export const GUE_LIMITS = {
 };
 
 export function standardBottomGasFor(maxDepthM: number): StandardBottomGas | undefined {
-  return GUE_BOTTOM_GASES.find((g) => maxDepthM > g.minDepth && maxDepthM <= g.maxDepth) ??
+  return GUE_BOTTOM_GASES.find((g) => !g.optional && maxDepthM > g.minDepth && maxDepthM <= g.maxDepth) ??
     (maxDepthM <= 0 ? GUE_BOTTOM_GASES[0] : undefined);
 }
 

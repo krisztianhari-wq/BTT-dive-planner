@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   GUE_DECO_GASES, ceilingDepth, end, gasName, initialTissues, loadSegment, minimumGas, mod, ndl,
   planDive, ppO2, recommendedDecoGasesFor, standardBottomGasFor, stopTable, CYLINDERS, planConsumption,
+  GUE_STANDARD, GENERIC_STANDARD, evaluateInventory,
 } from '../src/engine';
 
 const AIR = { o2: 0.21, he: 0 };
@@ -512,5 +513,42 @@ describe('sidemount', () => {
     for (let i = 1; i < switches.length; i++) expect(switches[i].runtime!).toBeGreaterThan(switches[i - 1].runtime!);
     expect(worstSingleCylinderLitres(end, 12)).toBeGreaterThan(0);
     expect(worstSingleCylinderLitres(end, 12)).toBeLessThanOrEqual(Math.max(end.left, end.right) * 12);
+  });
+});
+
+describe('air in the GUE gas list', () => {
+  it('is listed (0–30 m) but never picked automatically', () => {
+    const air = GUE_STANDARD.bottomGases.find((b) => gasName(b.gas) === 'Air');
+    expect(air).toBeDefined();
+    expect(air!.maxDepth).toBe(30);
+    for (let d = 1; d <= 120; d++) {
+      expect(GUE_STANDARD.bottomGasFor(d)?.gas.name).not.toBe('Air');
+      expect(standardBottomGasFor(d)?.gas.name).not.toBe('Air');
+    }
+  });
+  it('air plans like any other gas: 30 m / 25 min under GUE settings, pO2 within limits', () => {
+    const p = planDive({ maxDepth: 30, bottomTime: 25, bottomGas: AIR, decoGases: [], settings: { ppO2Working: 1.2, ppO2Max: 1.4 } });
+    expect(p.warnings.some((w) => w.code === 'ppo2AboveMax')).toBe(false);
+    expect(ppO2(AIR, 30)).toBeCloseTo(0.84, 2);
+    expect(end(AIR, 30)).toBeCloseTo(30, 0);
+    // air loads more nitrogen than EAN32, so it never needs less deco
+    const n = planDive({ maxDepth: 30, bottomTime: 25, bottomGas: EAN32, decoGases: [], settings: { ppO2Working: 1.2, ppO2Max: 1.4 } });
+    expect(p.runtime).toBeGreaterThanOrEqual(n.runtime);
+  });
+  it('GUE blocks air beyond its 30 m END limit, the generic standard only warns', () => {
+    const items = [{ id: '1', cylinder: CYLINDERS[0], count: 1, gas: AIR, pressureBar: 200, role: 'back' as const }];
+    const gue35 = evaluateInventory(items, 35, 15, 20, 15, {}, 1.5, GUE_STANDARD);
+    expect(gue35.blockers.some((b) => b.code === 'backEndAboveLimit')).toBe(true);
+    const gue25 = evaluateInventory(items, 25, 20, 20, 15, {}, 1.5, GUE_STANDARD);
+    expect(gue25.blockers.some((b) => b.code === 'backEndAboveLimit')).toBe(false);
+    expect(gue25.feasible).toBe(true);
+    const gen45 = evaluateInventory(items, 45, 15, 20, 15, {}, 1.5, GENERIC_STANDARD);
+    expect(gen45.blockers.some((b) => b.code === 'backEndAboveLimit')).toBe(false);
+    expect(gen45.warnings.some((w) => w.code === 'endHigh')).toBe(true);
+  });
+  it('the conservative method still surfaces a shallow air dive whose only stop is the last stop', () => {
+    const p = planDive({ maxDepth: 10, bottomTime: 30, bottomGas: AIR, decoGases: [], settings: { gf: { low: 0.2, high: 0.85 }, lastStopDepth: 6, gfEvalAt: 'current' } });
+    expect(p.warnings.some((w) => w.code === 'stopTooLong')).toBe(false);
+    expect(p.runtime).toBeLessThan(60);
   });
 });

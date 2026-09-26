@@ -38,7 +38,7 @@ export const GUE_STANDARD: GasStandard = {
   lastStopDepth: 6,
   ascentRateShallowMpm: 3,
   bottomGasFor(maxDepthM) {
-    return GUE_BOTTOM_GASES.find((g) => maxDepthM > g.minDepth && maxDepthM <= g.maxDepth) ??
+    return GUE_BOTTOM_GASES.find((g) => !g.optional && maxDepthM > g.minDepth && maxDepthM <= g.maxDepth) ??
       (maxDepthM <= 0 ? GUE_BOTTOM_GASES[0] : undefined);
   },
   recommendedDecoGasesFor(maxDepthM) {

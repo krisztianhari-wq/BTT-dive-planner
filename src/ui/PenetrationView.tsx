@@ -43,7 +43,7 @@ export const defaultPenState = (): PenState => ({
 });
 
 const AIR: Gas = { o2: 0.21, he: 0, name: 'Air' };
-/** Bottom gas options: the standard's gases plus Air (GUE lists no air, but clubs dive it in shallow caves). */
+/** Bottom gas options: the standard's gases, plus Air if the standard does not list it. */
 export function penBottomGases(std: GasStandard) {
   return std.bottomGases.some((g) => Math.abs(g.gas.o2 - 0.21) < 0.005 && g.gas.he === 0) ? std.bottomGases : [{ gas: AIR, minDepth: 0, maxDepth: 30 }, ...std.bottomGases];
 }

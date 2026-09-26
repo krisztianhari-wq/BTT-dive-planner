@@ -39,6 +39,9 @@ function replay(plan: DivePlan, gfAt: (d: number) => number) {
   return { worstExcess, tissues: t };
 }
 
+/** Air as listed by a standard (GUE lists it as an optional, never auto-picked bottom gas). */
+const std0Air = () => (std: GasStandard): Gas => std.bottomGases.find((b) => b.gas.o2 === 0.21 && b.gas.he === 0)!.gas;
+
 /* ---------------------------------------------------------------- technical ---------------------------------------------------------------- */
 describe('technical (open water deco) sweep', () => {
   const depths = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100, 110, 120];
@@ -56,8 +59,8 @@ describe('technical (open water deco) sweep', () => {
     const excess = worst(), surfGf = worst(), sumErr = worst(), gasErr = worst(), minGasErr = worst(), stopSumErr = worst();
     const problems: string[] = [];
     const impossible: string[] = [];
-    for (const std of stds) for (const d of depths) {
-      const bottom = std.bottomGasFor(d)?.gas ?? std.bottomGases[std.bottomGases.length - 1].gas;
+    const AIR = std0Air();
+    for (const std of stds) for (const d of depths) for (const bottom of [std.bottomGasFor(d)?.gas ?? std.bottomGases[std.bottomGases.length - 1].gas, ...(d <= 40 ? [AIR(std)] : [])]) {
       for (const bt of times) for (const [low, high] of gfs) for (const [setName, deco] of decoSets(std, d)) for (const last of [3, 6]) for (const at of ['next', 'current'] as const) {
         const settings: Partial<PlanSettings> = { ...DEFAULT_SETTINGS, gf: { low, high }, lastStopDepth: last, gfEvalAt: at, ascentRateShallowMpm: std.ascentRateShallowMpm, ppO2Working: std.limits.bottomPpO2Working, ppO2Max: std.limits.bottomPpO2Max, decoPpO2Max: std.limits.decoPpO2Max };
         const where = `${std.id} ${d}m/${bt}min ${gasName(bottom)} GF${low * 100}/${high * 100} deco:${setName} last${last} ${at}`;

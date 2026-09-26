@@ -17,6 +17,8 @@ const MODE: Record<PrintEnv, { color: string; soft: string }> = {
 /** Gas colours in order of use on the dive (bottom gas first). */
 const GAS_PALETTE = ['#0a66d6', '#5b3fc4', '#0f8a80', '#d97706', '#1a7f37', '#c2185b', '#6b7180'];
 export type GasColors = (name: string) => string;
+/** Dash pattern per gas, in the same order as the colours: the profile stays readable when printed in black and white. */
+const GAS_DASH = ['', '7 4', '2 3', '9 3 2 3', '', '4 4', '1 2'];
 export function gasColorsFor(names: string[]): GasColors {
   const order: string[] = [];
   for (const n of names) if (!order.includes(n)) order.push(n);
@@ -123,12 +125,19 @@ export function PrintProfile({ plan, colors, t, u, env }: { plan: DivePlan; colo
   const xStep = niceStep(maxT / 4);
   const xTicks: number[] = []; for (let x = 0; x <= maxT + 1e-9; x += xStep) xTicks.push(x);
   const gases = [...new Set(runs.map((r) => r.gas))];
+  const dash = (g: string) => GAS_DASH[gases.indexOf(g) % GAS_DASH.length];
+  // gas switches: where the breathed gas changes along the profile
+  const switches: { x: number; y: number; gas: string; depth: number }[] = [];
+  { let rt = 0; let prev = gasName(plan.segments[0]?.gas ?? { o2: 0.21, he: 0 });
+    for (const sg of plan.segments) { const g = gasName(sg.gas); if (g !== prev && sg.duration >= 0) switches.push({ x: X(rt), y: Y(sg.startDepth), gas: g, depth: sg.startDepth }); prev = g; rt += sg.duration; } }
   const minUnit = t.minUnit;
   return (
     <PCard className="ps-profile pb">
       <div className="ps-profile-head">
         <span className="ps-label inline">{t.profile}</span>
-        <span className="ps-legend">{gases.map((g) => <span key={g}><i style={{ background: colors(g) }} />{g}</span>)}</span>
+        <span className="ps-legend">{gases.map((g) => (
+          <span key={g}><svg width="22" height="6" aria-hidden="true"><line x1="1" x2="21" y1="3" y2="3" stroke={colors(g)} strokeWidth="2.6" strokeDasharray={dash(g) || undefined} /></svg>{g}</span>
+        ))}</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block' }}>
         {yTicks.map((d, i) => (
@@ -139,7 +148,17 @@ export function PrintProfile({ plan, colors, t, u, env }: { plan: DivePlan; colo
         ))}
         <text x={L - 8} y={H - B + 17} fontSize="11" textAnchor="end" fill="#8a909c">{u.d}</text>
         <path d={area} fill={MODE[env].soft} />
-        {runs.map((r, i) => <path key={i} d={r.d} fill="none" stroke={colors(r.gas)} strokeWidth="2.6" strokeLinejoin="round" strokeLinecap="round" />)}
+        {runs.map((r, i) => <path key={i} d={r.d} fill="none" stroke={colors(r.gas)} strokeWidth="2.6" strokeLinejoin="round" strokeLinecap={dash(r.gas) ? 'butt' : 'round'} strokeDasharray={dash(r.gas) || undefined} />)}
+        {switches.map((sw, i) => {
+          const right = sw.x < W - 150;
+          return (
+            <g key={`sw${i}`}>
+              <circle cx={sw.x} cy={sw.y} r="4.5" fill={colors(sw.gas)} stroke="#fff" strokeWidth="2" />
+              <text x={right ? sw.x + 8 : sw.x - 8} y={sw.y + 15} fontSize="11" fontWeight="700" textAnchor={right ? 'start' : 'end'} fill="#15171c"
+                stroke="#fff" strokeWidth="3" paintOrder="stroke" strokeLinejoin="round">→ {sw.gas} @ {u.stopDepth(sw.depth)}</text>
+            </g>
+          );
+        })}
         {xTicks.map((x, i) => (
           <text key={i} x={X(x)} y={H - 6} fontSize="11" fill="#8a909c" textAnchor={i === 0 ? 'start' : 'middle'}>
             {Math.round(x)}{i === xTicks.length - 1 && x + xStep > maxT ? ` ${minUnit}` : ''}

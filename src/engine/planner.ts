@@ -188,7 +188,10 @@ export function planDive(input: DiveInput): DivePlan {
     const nextDepth = Math.max(0, depth - s.stopIncrementM);
     const nextTarget = depth <= s.lastStopDepth ? 0 : nextDepth;
     // Can we ascend to nextTarget now? Check ceiling at GF for nextTarget.
-    const canAscend = () => ceilingBar(t, gfAt(s.gfEvalAt === 'current' ? depth : nextTarget)) <= depthToAmbient(nextTarget) + 1e-9;
+    // the final ascent to the surface is always judged at GF high (the surfacing limit); otherwise 'current' would
+    // demand GF low at a last stop that is also the first stop, which a diver breathing air or trimix can never reach
+    const evalDepth = s.gfEvalAt === 'current' && nextTarget > 0 ? depth : nextTarget;
+    const canAscend = () => ceilingBar(t, gfAt(evalDepth)) <= depthToAmbient(nextTarget) + 1e-9;
     let stopMinutes = 0;
     // Ensure gas at this stop depth is correct (switch if we are at a switch depth)
     const gasHere = gasAtDepth(depth, input.bottomGas, input.decoGases);
