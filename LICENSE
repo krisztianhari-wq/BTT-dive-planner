@@ -1,0 +1,105 @@
+BTT Dive Planner – Licence / Licenc
+Copyright (c) 2026 sadrobot. All rights reserved. / Minden jog fenntartva.
+
+The English and the Hungarian texts below are equivalent.
+Az alábbi angol és magyar szöveg egyenértékű.
+
+==============================================================================
+ENGLISH
+==============================================================================
+
+1. Ownership
+   The BTT Dive Planner software – its source code, calculation engine,
+   user interface and print design, texts, graphics, icons and the sadrobot
+   name and logo – is the property of sadrobot and is protected by copyright.
+   The BTT Explorers Hungary name and logo belong to BTT Explorers Hungary.
+
+2. What you may do without asking
+   You may use the official published builds – the web app at
+   https://krisztianhari-wq.github.io/BTT-dive-planner/ and the installers
+   and APK on the project's GitHub Releases page – free of charge, for your
+   own personal, non-commercial dive planning. You may view the source code
+   on GitHub.
+
+3. What needs prior written permission from sadrobot
+   Anything else, in particular:
+   a) copying, modifying, adapting or translating the source code or any
+      part of it, including the calculation engine;
+   b) publishing, distributing, selling, renting or sublicensing the
+      software, a modified version or any work derived from it;
+   c) building any part of it (code, engine, design, graphics, icons) into
+      another product, app, website or service;
+   d) any commercial use, including use in paid courses, trainings or
+      services;
+   e) using the sadrobot name or logo, or the BTT Explorers Hungary name or
+      logo (the latter also needs the permission of BTT Explorers Hungary).
+   Viewing or forking the repository on GitHub does not grant any of these
+   rights.
+
+4. Asking for permission
+   Open an issue at https://github.com/krisztianhari-wq/BTT-dive-planner or
+   contact the author through the GitHub profile krisztianhari-wq.
+   Permission is valid only in writing.
+
+5. Third-party components
+   The software uses open-source components (among others React, Vite,
+   jsPDF, html-to-image, Tauri and the Figtree typeface). Those components
+   remain under their own licences; this licence does not restrict them.
+
+6. No warranty, no liability
+   The software is unvalidated and provided "as is", without any warranty.
+   It does not replace training, judgement or an independent cross-check.
+   Every dive carries risk. To the extent permitted by law, sadrobot is not
+   liable for any damage, injury or loss arising from the use of the
+   software.
+
+==============================================================================
+MAGYAR
+==============================================================================
+
+1. Tulajdonjog
+   A BTT Dive Planner szoftver – forráskódja, számítómotorja, felhasználói
+   felülete és nyomtatási designja, szövegei, grafikái, ikonjai, valamint a
+   sadrobot név és logó – a sadrobot tulajdona, és szerzői jogi védelem
+   alatt áll. A BTT Explorers Hungary név és logó a BTT Explorers Hungary
+   tulajdona.
+
+2. Amit engedély nélkül megtehetsz
+   A hivatalosan kiadott változatokat – a webes appot a
+   https://krisztianhari-wq.github.io/BTT-dive-planner/ címen, valamint a
+   projekt GitHub Releases oldalán közzétett telepítőket és APK-t –
+   ingyenesen használhatod saját, nem kereskedelmi merülés-tervezésre.
+   A forráskódot a GitHubon megtekintheted.
+
+3. Amihez a sadrobot előzetes írásos engedélye kell
+   Minden más, különösen:
+   a) a forráskód vagy bármely része – ideértve a számítómotort – másolása,
+      módosítása, átdolgozása vagy fordítása;
+   b) a szoftver, egy módosított változata vagy abból származó mű
+      közzététele, terjesztése, értékesítése, bérbeadása vagy
+      továbblicencelése;
+   c) bármely részének (kód, motor, design, grafika, ikon) beépítése más
+      termékbe, alkalmazásba, weboldalba vagy szolgáltatásba;
+   d) bármilyen kereskedelmi felhasználás, ideértve a fizetős tanfolyamokon,
+      képzéseken vagy szolgáltatásokban való használatot;
+   e) a sadrobot név vagy logó, illetve a BTT Explorers Hungary név vagy logó
+      használata (utóbbihoz a BTT Explorers Hungary engedélye is kell).
+   A repó GitHubon való megtekintése vagy forkolása ezen jogok egyikét sem
+   adja meg.
+
+4. Engedélykérés
+   Nyiss egy issue-t a https://github.com/krisztianhari-wq/BTT-dive-planner
+   oldalon, vagy keresd a szerzőt a krisztianhari-wq GitHub-profilon
+   keresztül. Engedély csak írásban érvényes.
+
+5. Harmadik féltől származó összetevők
+   A szoftver nyílt forráskódú összetevőket használ (többek között React,
+   Vite, jsPDF, html-to-image, Tauri és a Figtree betűtípus). Ezekre a saját
+   licencük vonatkozik; ez a licenc nem korlátozza őket.
+
+6. Garancia és felelősség kizárása
+   A szoftver nem validált, és „ahogy van” állapotban, mindenféle garancia
+   nélkül érhető el. Nem helyettesíti a képzést, a saját gondolkodást és a
+   független ellenőrzést. Minden merülésnek megvan a veszélye. A jogszabályok
+   által megengedett mértékig a sadrobot nem felel a szoftver használatából
+   eredő semmilyen kárért, sérülésért vagy veszteségért.

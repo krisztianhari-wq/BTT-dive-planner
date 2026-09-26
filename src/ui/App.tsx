@@ -13,6 +13,7 @@ import { renderPdf, savePdf, sharePdf, canShareFiles, isMobileTauri, askConfirm 
 import { Lang, dict, initialLang } from './i18n';
 import { UnitSystem, makeUnits } from './units';
 import logoUrl from '../assets/btt-logo.png';
+import sadrobotUrl from '../assets/sadrobot.png';
 
 type Mode = 'standard' | 'inventory';
 type Theme = 'light' | 'dark';
@@ -489,7 +490,8 @@ export function App() {
         <footer className="footer2">
           <img src={logoUrl} alt="" aria-hidden="true" />
           <span className="motto">Mindig van lejjebb!!!</span>
-          <span>BTT Explorers Hungary · 2018 · made by sadrobot · v{__APP_VERSION__}</span>
+          <span className="credit"><img className="sricon" src={sadrobotUrl} alt="sadrobot" />BTT Explorers Hungary · 2018 · made by sadrobot · v{__APP_VERSION__}</span>
+          <span className="rights">{t.rights}</span>
         </footer>
       </main>
 

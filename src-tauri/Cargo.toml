@@ -3,6 +3,8 @@ name = "btt-dive-planner"
 version = "0.8.0"
 description = "BTT Dive Planner – decompression and gas planner"
 authors = ["sadrobot", "BTT Explorers Hungary"]
+license-file = "../LICENSE"
+publish = false
 edition = "2021"
 
 [lib]

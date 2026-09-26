@@ -35,6 +35,7 @@
     }
   },
   "bundle": {
+    "copyright": "© 2026 sadrobot. All rights reserved.",
     "active": true,
     "targets": [
       "dmg",

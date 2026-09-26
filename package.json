@@ -2,6 +2,7 @@
   "name": "gue-dive-planner",
   "private": true,
   "author": "sadrobot",
+  "license": "SEE LICENSE IN LICENSE",
   "version": "0.8.0",
   "type": "module",
   "scripts": {

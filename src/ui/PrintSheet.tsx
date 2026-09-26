@@ -5,6 +5,7 @@ import { Dict } from './i18n';
 import { Units } from './units';
 import type React from 'react';
 import logoUrl from '../assets/btt-logo.png';
+import sadrobotUrl from '../assets/sadrobot.png';
 
 /* ================================================================ shared print building blocks ================================================================ */
 
@@ -48,7 +49,8 @@ export function PrintFrame({ t, lang, env, subtitle, children }: { t: Dict; lang
       {children}
       <footer className="ps-foot pb">
         <div className="ps-motto-row"><img src={logoUrl} alt="" /><span className="ps-motto">Mindig van lejjebb!!!</span></div>
-        <div className="ps-foot-line">BTT Explorers Hungary · 2018 · made by sadrobot · v{__APP_VERSION__}</div>
+        <div className="ps-foot-line ps-credit"><img src={sadrobotUrl} alt="" />BTT Explorers Hungary · 2018 · made by sadrobot · v{__APP_VERSION__}</div>
+        <div className="ps-foot-line">{t.rights}</div>
         <div className="ps-disclaimer">{t.printDisclaimer}</div>
       </footer>
     </div>

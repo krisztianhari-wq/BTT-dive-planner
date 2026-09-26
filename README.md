@@ -96,3 +96,9 @@ An independent Bühlmann implementation (the [dive-deco](https://github.com/KG32
 
 ## Credits
 Made by **sadrobot** for BTT Explorers Hungary. Logo © BTT Explorers Hungary.
+
+## License
+© 2026 sadrobot. All rights reserved – see [LICENSE](LICENSE) (English and Hungarian).
+The published app (web app, installers, APK) may be used free of charge for personal, non-commercial dive planning.
+Copying, modifying, redistributing or reusing the code, the calculation engine, the design or the logos requires prior written permission from sadrobot.
+
