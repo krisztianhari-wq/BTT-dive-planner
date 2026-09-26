@@ -1,6 +1,6 @@
 [package]
 name = "btt-dive-planner"
-version = "0.7.0"
+version = "0.8.0"
 description = "BTT Dive Planner – decompression and gas planner"
 authors = ["sadrobot", "BTT Explorers Hungary"]
 edition = "2021"
