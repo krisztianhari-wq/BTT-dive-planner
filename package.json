@@ -3,7 +3,7 @@
   "private": true,
   "author": "sadrobot",
   "license": "SEE LICENSE IN LICENSE",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
