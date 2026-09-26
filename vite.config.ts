@@ -8,10 +8,26 @@ import { VitePWA } from 'vite-plugin-pwa';
 // Base path: '/' locally, '/<repo>/' on GitHub Pages (set by the workflow via VITE_BASE)
 const base = process.env.VITE_BASE ?? '/';
 
+// Content Security Policy for the web build (GitHub Pages cannot send headers, so it goes in a <meta> tag).
+// No network access: every resource is bundled, PDFs are made in the page. The Tauri apps get their own CSP
+// from tauri.conf.json (a meta CSP there would block the IPC), so the tag is left out when Tauri builds.
+const CSP = [
+  "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline'", "img-src 'self' data: blob:",
+  "font-src 'self' data:", "connect-src 'self'", "worker-src 'self'", "manifest-src 'self'",
+  "object-src 'none'", "base-uri 'self'", "form-action 'none'",
+].join('; ');
+const cspPlugin = {
+  name: 'csp-meta',
+  apply: 'build' as const,
+  transformIndexHtml: (html: string) => process.env.TAURI_ENV_PLATFORM ? html
+    : html.replace('<meta charset="UTF-8" />', `<meta charset="UTF-8" />\n    <meta http-equiv="Content-Security-Policy" content="${CSP}" />\n    <meta name="referrer" content="no-referrer" />`),
+};
+
 export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   base,
   plugins: [
+    cspPlugin,
     react(),
     VitePWA({
       registerType: 'autoUpdate',

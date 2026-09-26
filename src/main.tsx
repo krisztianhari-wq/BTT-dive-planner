@@ -8,6 +8,9 @@ import '@fontsource/figtree/800.css';
 import './ui/styles.css';
 import { registerSW } from 'virtual:pwa-register';
 
+// Refuse to run inside a frame (clickjacking); GitHub Pages cannot send a frame-ancestors header.
+if (window.top !== window.self) { document.body.textContent = 'BTT Dive Planner cannot run inside a frame.'; throw new Error('framed'); }
+
 const isTauri = '__TAURI_INTERNALS__' in window;
 if (location.protocol !== 'file:' && !isTauri) registerSW({ immediate: true });
 

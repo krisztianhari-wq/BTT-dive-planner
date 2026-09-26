@@ -8,6 +8,7 @@ Decompression and gas planner for technical diving. Bühlmann ZH-L16C with gradi
 - **Web / PWA:** https://krisztianhari-wq.github.io/BTT-dive-planner/ – installable (Chrome/Edge: “Install” icon in the address bar; iPhone: Share → Add to Home Screen), works offline.
 - **macOS, Windows 11, Android:** installers and the signed `.apk` on the [Releases](https://github.com/krisztianhari-wq/BTT-dive-planner/releases) page.
 - **Privacy:** the app collects no data – see the [privacy policy](https://krisztianhari-wq.github.io/BTT-dive-planner/privacy.html).
+- **Verify a download:** every release lists the SHA-256 of each installer and ships a `SHA256SUMS.txt` (`shasum -a 256 <file>` on macOS, `Get-FileHash <file>` on Windows).
   - **macOS:** the app is not signed with an Apple developer certificate, so a downloaded copy is reported as “damaged”. Drag it to Applications, then run once in Terminal:
     ```bash
     xattr -cr "/Applications/BTT Dive Planner.app"
@@ -66,6 +67,12 @@ uploaded to Google Play as an `.aab`.
 
 ## Validation
 An independent Bühlmann implementation (the [dive-deco](https://github.com/KG32/dive-deco) Rust crate) is run on reference profiles via `tools/oracle`; generated golden tests in `tests/golden` compare our schedules against it on every test run. See `tools/oracle/README.md` for the known divergence on deep profiles with a GF slope.
+
+A variation sweep (`tests/sweep.test.ts`) runs on every test run and in every release build: **more than 56 000 plans** (14 400 technical, 24 480 recreational, 17 280 penetration) covering both gas standards, depths 5–120 m, bottom times, five GF pairs, deco gas sets (none / recommended / all), 3 and 6 m last stops, both calculation methods, air, team sizes and configurations, stages and flow rules. Each plan is checked against independent invariants, not against the engine's own numbers:
+- **Decompression:** the profile is replayed on fresh Bühlmann tissues; the GF-high-scaled M-values are never exceeded at any point and every diver surfaces within GF high.
+- **Profile and gases:** profiles are continuous and surface, runtimes add up, every stop is breathed on the richest carried gas allowed at that depth, deco pO2 limits hold.
+- **Gas maths:** consumption, minimum gas, rock bottom, turn and surfacing pressures match hand calculations; the no-deco limit is exact (NDL minutes allow a direct ascent, one more minute does not).
+- **Penetration rules:** nobody penetrates past thirds / sixths of the weakest diver's supply, a dropped stage always covers its way out, a feasible plan never fails the gas-sharing exit.
 
 ## Structure
 - `src/engine/` – calculation engine, UI-independent TypeScript

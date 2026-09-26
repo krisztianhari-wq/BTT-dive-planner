@@ -13,12 +13,16 @@ if [ -n "${ANDROID_KEYSTORE_B64:-}" ]; then
 else
   echo "::warning::No ANDROID_KEYSTORE_B64 secret – signing with a throw-away key"
   PASS=$(head -c 24 /dev/urandom | base64); ALIAS=ci
-  keytool -genkeypair -keystore "$KS" -storepass "$PASS" -keypass "$PASS" -alias "$ALIAS" \
+  export PASS
+  keytool -genkeypair -keystore "$KS" -storepass:env PASS -keypass:env PASS -alias "$ALIAS" \
     -keyalg RSA -keysize 2048 -validity 3650 -dname "CN=BTT Dive Planner CI" >/dev/null
 fi
 OUT="dist-android/BTT.Dive.Planner_${VERSION#v}_arm64.apk"
 "$BT/zipalign" -p -f 4 "$IN" "$OUT.aligned"
-"$BT/apksigner" sign --ks "$KS" --ks-pass "pass:$PASS" --ks-key-alias "$ALIAS" --out "$OUT" "$OUT.aligned"
+# the password goes through the environment, not the command line (visible in the process list)
+export APK_KS_PASS="$PASS"
+"$BT/apksigner" sign --ks "$KS" --ks-pass env:APK_KS_PASS --ks-key-alias "$ALIAS" --out "$OUT" "$OUT.aligned"
+unset APK_KS_PASS
 rm -f "$OUT.aligned" "$KS"
 "$BT/apksigner" verify --print-certs "$OUT" | head -3
 ls -la dist-android
