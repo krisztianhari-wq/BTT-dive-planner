@@ -35,6 +35,7 @@ Dekompressziós és gáztervező (Bühlmann ZH-L16C + GF) a BTT Explorers Hungar
 8. Licenc: saját, minden jog fenntartva (LICENSE, EN+HU).
 
 ## Buktatók
+- A `@fontsource/figtree` import (`src/main.tsx`) kell: a UI rendszerfontot használ, de a nyomtatási lap (`.print-sheet`) Figtree-vel készül.
 - iOS 27 SDK UIScene nélkül leállítja az appot: `Info.ios.plist` UIApplicationSceneManifest (`UIApplicationSupportsMultipleScenes=true`) + vendorolt tao 0.35.3 (tao#1245 javítás, `[patch.crates-io]`). Törlendő, ha a tauri-runtime-wry tao ≥ 0.36-ot használ. iOS min 15.0.
 - Android 16 KB page alignment a `src-tauri/build.rs`-ben (rustc-link-arg), nem `.cargo/config`-ban (a Tauri felülírja a RUSTFLAGS-t).
 - Mobilon nincs `window.confirm/alert` és nincs print: `askConfirm`/`showMessage` (dialog plugin); iOS PDF → `navigator.share`, Android (nincs Web Share) → dialog plugin natív mentés.
@@ -46,4 +47,3 @@ Dekompressziós és gáztervező (Bühlmann ZH-L16C + GF) a BTT Explorers Hungar
 ## Nyitott
 - App Store feltöltéshez Apple Developer fiók kell (még nincs); a `docs/app-store-listing.md` és screenshotok készen.
 - `tests/golden/profile-*.json` külső (Decobuddy) referenciái még kitöltendők.
-- `@fontsource/figtree` még importálva van (`src/main.tsx`), pedig v0.9.0 óta a UI rendszerfontot használ – tisztázandó.
