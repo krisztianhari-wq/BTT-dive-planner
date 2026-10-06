@@ -7,3 +7,4 @@ src-tauri/gen
 .DS_Store
 tools/oracle/target
 dist-android
+CLAUDE.local.md
