@@ -43,7 +43,7 @@ export function BlendTool({ t, u, lang }: { t: Dict; u: Units; lang: 'hu' | 'en'
             <KV l={t.blendAddO2} sub={`→ ${pAbs(r.afterO2Bar)}`} v={`+${pAbs(r.o2Bar)}`} />
             <KV l={t.blendAddTop(top === 'air' ? t.blendAir : 'EAN32')} sub={`→ ${pAbs(tBar)}`} v={`+${pAbs(r.topBar)}`} />
             <KV l={t.blendResult} v={`${gasName({ o2: r.result.o2, he: r.result.he })} · ${fmt(r.result.o2 * 100)}/${fmt(r.result.he * 100)}`} tone="ok" />
-            <KV l={t.blendMod} v={`${u.depth(r.mod14)} / ${u.depth(r.mod16)}`} />
+            <KV l={t.blendMod} v={`${u.depth(Math.floor(r.mod14))} / ${u.depth(Math.floor(r.mod16))}`} />
           </Card>
         </>
       )}

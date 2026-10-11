@@ -417,7 +417,8 @@ export function App() {
     const notes = [...(repResult ? [t.briefRepNote] : []), ...(altitudeM > 0 ? [t.altitudeNote(acclimatised)] : []), t.disclaimer];
     const gasDetail = (g: Gas, d: number) => {
       const dens = gasDensity(g, d);
-      return { detail: `pO2 ${ppO2(g, d).toFixed(2)} · END ${u.depth(end(g, d))} · ${fmt(dens, 1)} ${t.densityUnit}`, tone: densityTone(dens) };
+      const tone = densityTone(dens);
+      return { detail: `pO2 ${ppO2(g, d).toFixed(2)} · END ${u.depth(end(g, d))} · ${fmt(dens, 1)} ${t.densityUnit}`, tone: tone === 'ok' ? undefined : tone };
     };
     if (env === 'rec') {
       const r = recData.plan;
@@ -444,7 +445,7 @@ export function App() {
         title, envLabel: t.envPen, verdict: { ok: p.feasible && !p.overridden, title: p.overridden ? t.penBraveActive : p.feasible ? t.penFeasible : t.feasibleNo }, pills,
         kpis: [{ v: u.pressure(lim.turnBar), l: t.teamTurnsAt }, { v: fmt(p.penetrationMinutes), l: t.penKpiPenMin }, { v: fmt(p.bottomTime), l: t.penKpiBottom }, { v: fmt(p.deco.decoTime), l: t.decoTotal }, { v: fmt(p.deco.runtime), l: t.runtime }],
         gases: [{ name: gasName(penData.bottomGas), role: t.roleBottom, ...gasDetail(penData.bottomGas, pen.maxDepth) },
-          ...penData.input.decoGases.map((d) => ({ name: gasName(d.gas), role: t.roleDecoShort, detail: t.switchAt(u.stopDepth(d.switchDepth)) }))],
+          ...[...penData.input.decoGases].sort((a, b) => b.switchDepth - a.switchDepth).map((d) => ({ name: gasName(d.gas), role: t.roleDecoShort, detail: t.switchAt(u.stopDepth(d.switchDepth)) }))],
         stops: pst.map((x) => ({ depth: u.stopDepth(x.depth), minutes: x.minutes, runtime: Math.round(x.runtime + (p.bottomTime - p.deco.bottomTime)), gas: x.gas })), stopsEmpty: t.noStops(true, u),
         gasRows: p.members.map((m) => ({ l: `${m.member.name} · ${gasName(m.member.gas ?? penData.bottomGas)}`, v: `${u.pressureN(m.member.startBar)} → ${u.pressure(m.turnBar)}`, tone: m.sharedExitRemainingLitres < 0 ? 'bad' as const : undefined })),
         lostGas: [], warnings: [...p.blockers.map((m) => ({ text: t.msg(m, u), bad: true })), ...p.warnings.map((m) => ({ text: t.msg(m, u), bad: false }))], notes,
@@ -456,7 +457,7 @@ export function App() {
       kpis: [{ v: u.depth(maxDepth), l: t.maxDepth(u) }, { v: `${bottomTime}′`, l: t.bottomTime }, { v: fmt(plan.runtime), l: t.runtime }, { v: fmt(plan.decoTime), l: t.decoTotal },
         { v: plan.firstStopDepth === null ? '—' : u.stopDepth(plan.firstStopDepth), l: t.firstStop(u) }],
       gases: [{ name: gasName(bottomGas), role: t.roleBottom, ...gasDetail(bottomGas, maxDepth) },
-        ...decoGases.map((d) => ({ name: gasName(d.gas), role: t.roleDecoShort, detail: `${t.switchAt(u.stopDepth(d.switchDepth))} · pO2 ${ppO2(d.gas, d.switchDepth).toFixed(2)}` }))],
+        ...[...decoGases].sort((a, b) => b.switchDepth - a.switchDepth).map((d) => ({ name: gasName(d.gas), role: t.roleDecoShort, detail: `${t.switchAt(u.stopDepth(d.switchDepth))} · pO2 ${ppO2(d.gas, d.switchDepth).toFixed(2)}` }))],
       stops: stops.map((x) => ({ depth: u.stopDepth(x.depth), minutes: x.minutes, runtime: x.runtime, gas: x.gas })), stopsEmpty: t.noStops(isGue, u),
       gasRows: [
         { l: t.minGas, v: u.pressure(minGasBar) },
@@ -527,7 +528,7 @@ export function App() {
           <SelectRow label={t.bottomGas} value={bottomGasIdx} onChange={setBottomGasIdx}
             options={[{ v: 'auto' as const, l: isGue ? t.autoBottomGas(autoBottom?.gas.name ?? '—') : t.autoBottomGasGeneric(autoBottom?.gas.name ?? '—') },
               ...std.bottomGases.map((g, i) => ({ v: i as number | 'auto' | 'custom', l: `${g.gas.name} (${isGue ? `${u.depthN(g.minDepth)}–${u.depth(g.maxDepth)}` : `MOD ${u.depth(mod(g.gas, 1.4))}`})` })),
-              ...(customBottom ? [{ v: 'custom' as const, l: `${gasName(customBottom)} (${t.fromLink}, MOD ${u.depth(mod(customBottom, L.bottomPpO2Max))})` }] : [])]} />
+              ...(customBottom ? [{ v: 'custom' as const, l: `${gasName(customBottom)} (${t.fromLink}, MOD ${u.depth(Math.floor(mod(customBottom, L.bottomPpO2Max)))})` }] : [])]} />
           <div className="row stack">
             <span className="row-l">{t.decoGases}</span>
             <div className="tchips">
@@ -749,8 +750,7 @@ export function App() {
                 <div className="lg-sub">{t.lostGasRun(fmt(sc.plan.runtime), signed(sc.extraRuntime), fmt(sc.plan.decoTime), signed(sc.extraDeco))}</div>
                 {sc.rows.map((r) => (
                   <div className={`lg-row ${r.status}`} key={r.name}>
-                    <span>{r.name} <Chip kind={r.role === 'back' ? 'back' : 'deco'}>{r.role === 'back' ? t.roleBackShort : t.roleDecoShort}</Chip></span>
-                    <span className="r">{t.lostGasExtra} {signedVol(r.neededL - r.baseNeededL)}</span>
+                    <span><b>{r.name}</b> <small>{r.role === 'back' ? t.roleBackShort : t.roleDecoShort} · {t.lostGasExtra} {signedVol(r.neededL - r.baseNeededL)} {u.v}</small></span>
                     <span className="r">{vol(r.neededL)} / {vol(r.availableL)} {u.v}</span>
                   </div>
                 ))}

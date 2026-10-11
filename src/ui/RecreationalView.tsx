@@ -42,7 +42,7 @@ export function RecreationalView({ t, u, lang, gfHigh, tab, state: s, setState, 
         <Card className="list">
           <SelectRow label={t.bottomGas} value={s.gasIdx} onChange={(v) => set({ gasIdx: v })}
             options={[{ v: 'auto' as const, l: t.autoBottomGasGeneric(auto?.gas.name ?? '—') }, ...REC_GASES.map((g, i) => ({ v: i as number | 'auto' | 'custom', l: `${g.gas.name} (MOD ${u.depth(mod(g.gas, 1.4))})` })),
-              ...(s.customGas ? [{ v: 'custom' as const, l: `${gasName(s.customGas)} (${t.fromLink}, MOD ${u.depth(mod(s.customGas, 1.4))})` }] : [])]} />
+              ...(s.customGas ? [{ v: 'custom' as const, l: `${gasName(s.customGas)} (${t.fromLink}, MOD ${u.depth(Math.floor(mod(s.customGas, 1.4)))})` }] : [])]} />
           <div className="row info">{gasName(gas)}: pO2 <b className={po2 > 1.4 ? 'bad' : 'ok'}>{po2.toFixed(2)}</b> bar · END {u.depth(end(gas, s.maxDepth))} · {t.densityShort} <DensityVal gL={gasDensity(gas, s.maxDepth)} locale={lang === 'hu' ? 'hu-HU' : 'en-GB'} unit={t.densityUnit} /></div>
           <SelectRow label={t.backCylinder} value={s.cylIdx} onChange={(v) => set({ cylIdx: v })} options={REC_CYLINDERS.map((c, i) => ({ v: i, l: c.name }))} />
           <NumRow label={t.startPressure(u)} min={0} value={u.pressureN(s.startBar)} onChange={(v) => set({ startBar: u.toBar(v) })} />
