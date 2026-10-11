@@ -43,7 +43,8 @@ ENGLISH
 
 5. Third-party components
    The software uses open-source components (among others React, Vite,
-   jsPDF, html-to-image, Tauri and the Figtree typeface). Those components
+   jsPDF, html-to-image, Tauri, and the Figtree, Chakra Petch and IBM Plex Mono
+   typefaces under the SIL Open Font License). Those components
    remain under their own licences; this licence does not restrict them.
 
 6. No warranty, no liability
@@ -94,7 +95,8 @@ MAGYAR
 
 5. Harmadik féltől származó összetevők
    A szoftver nyílt forráskódú összetevőket használ (többek között React,
-   Vite, jsPDF, html-to-image, Tauri és a Figtree betűtípus). Ezekre a saját
+   Vite, jsPDF, html-to-image, Tauri, valamint a Figtree, Chakra Petch és IBM Plex
+   Mono betűtípus SIL Open Font License alatt). Ezekre a saját
    licencük vonatkozik; ez a licenc nem korlátozza őket.
 
 6. Garancia és felelősség kizárása

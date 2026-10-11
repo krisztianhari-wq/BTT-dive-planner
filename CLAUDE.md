@@ -33,9 +33,13 @@ Dekompressziós és gáztervező (Bühlmann ZH-L16C + GF) a BTT Explorers Hungar
 6. Sidemount: 2 független palack, váltási létra 1/6 majd 1/3, elvesztett palack ellenőrzés (Technical + Penetration).
 7. Hálózat nincs: minden asset bundle-ölve, a web CSP-t `vite.config.ts` teszi meta-ba (csak nem-Tauri buildnél); Tauri CSP a `tauri.conf.json`-ban. Google Fonts tilos (CSP).
 8. Licenc: saját, minden jog fenntartva (LICENSE, EN+HU).
+9. Dizájn (v0.10.0): a sadrobot merülésnapló rendszere – grafit/cián tokenek (`styles.css` eleje), alapból sötét, teljes szélességű
+   fejléc HU/EN és téma gombbal; ≥1024 px-en kétoszlopos (beállítás | eredmények), alatta fülsor. Beágyazott build
+   (`VITE_HOME_URL`, `VITE_LOG_URL`, lásd `src/ui/host.ts`): közös menü (Kezdőlap · Tervező · Napló), a nyelv és a téma a gazdaoldal
+   `lang`/`theme` sütijét követi. A napló (`~/Claude_code/divelog`) `scripts/build-planner.sh`-sel építi be a /terv/ alá.
 
 ## Buktatók
-- A `@fontsource/figtree` import (`src/main.tsx`) kell: a UI rendszerfontot használ, de a nyomtatási lap (`.print-sheet`) Figtree-vel készül.
+- A `@fontsource/figtree` import (`src/main.tsx`) kell: a UI Chakra Petch + IBM Plex Mono (`src/ui/fonts/`, helyben, SIL OFL), de a nyomtatási lap (`.print-sheet`) Figtree-vel készül.
 - iOS 27 SDK UIScene nélkül leállítja az appot: `Info.ios.plist` UIApplicationSceneManifest (`UIApplicationSupportsMultipleScenes=true`) + vendorolt tao 0.35.3 (tao#1245 javítás, `[patch.crates-io]`). Törlendő, ha a tauri-runtime-wry tao ≥ 0.36-ot használ. iOS min 15.0.
 - Android 16 KB page alignment a `src-tauri/build.rs`-ben (rustc-link-arg), nem `.cargo/config`-ban (a Tauri felülírja a RUSTFLAGS-t).
 - Mobilon nincs `window.confirm/alert` és nincs print: `askConfirm`/`showMessage` (dialog plugin); iOS PDF → `navigator.share`, Android (nincs Web Share) → dialog plugin natív mentés.
