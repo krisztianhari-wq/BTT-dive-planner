@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CYLINDERS, Cylinder, DEFAULT_SETTINGS, DecoGasSpec, DivePlan, Gas, GasUsage, STANDARDS, StandardId,
   InventoryItem, Msg, backGasPlan, end, evaluateInventory, gasName, minimumGas, mod, packingList, planConsumption, planDive, ppO2,
-  roundBar, stopTable, itinerary, ItineraryEvent, sidemountSwitchesOnProfile, worstSingleCylinderLitres, defaultSwitchStep, msg, gasDensity, altitudeToSurfacePressure, initialTissues, TissueState, PlanSettings, supersaturationTrace, ascentStart, GasSupply, lostGasScenarios, DiveInput, rangeTable, maxFeasibleBottomTime, CellIssue,
+  roundBar, stopTable, itinerary, ItineraryEvent, sidemountSwitchesOnProfile, worstSingleCylinderLitres, defaultSwitchStep, msg, gasDensity, tissuesAfterDives, tissuesFromLog, altitudeToSurfacePressure, initialTissues, TissueState, PlanSettings, supersaturationTrace, ascentStart, GasSupply, lostGasScenarios, DiveInput, rangeTable, maxFeasibleBottomTime, CellIssue,
 } from '../engine';
 import { PrintSheet } from './PrintSheet';
 import { GfChart, DensityVal, densityTone, Card, Chevron, Chip, Disclaimer, IconShare, RobotMark, IconSliders, KV, Label, Note, NumRow, Primary, ProfileCard, Seg, SelectRow, Sheet, Stat, Stats, Stepper, StopRows, Timeline, Toast, Toggle, Verdict, Warnings } from './kit';
@@ -10,6 +10,7 @@ import { PenetrationView, PenState, defaultPenState, usePenetrationPlan, penEven
 import { RecreationalView, RecState, defaultRecState, useRecreationalPlan } from './RecreationalView';
 import { RecPrintSheet, PenPrintSheet } from './PrintSheets';
 import { BlendTool } from './BlendSheet';
+import { RepetitiveCard, RepState, LogStatus, defaultRepState, epochOfLocal, localNow, parsePlannerContext, contextUrl, startSummary } from './Repetitive';
 import { renderPdf, savePdf, sharePdf, canShareFiles, isMobileTauri, askConfirm } from './pdf';
 import { Lang, dict, initialLang } from './i18n';
 import { HOME_URL, LOG_URL, hostCookie, setHostCookie } from './host';
@@ -103,6 +104,8 @@ export function App() {
   const [rateChange, setRateChange] = useState(0);
   const [altitudeM, setAltitudeM] = useState(0);
   const [acclimatised, setAcclimatised] = useState(false);
+  const [rep, setRep] = useState<RepState>(defaultRepState);
+  const [logCtx, setLogCtx] = useState<LogStatus>({ status: 'idle' });
   const [lastStop, setLastStop] = useState<number | null>(null);
   const [cylIdx, setCylIdx] = useState(0);
   const [config, setConfig] = useState<'backmount' | 'sidemount'>(() => stored('btt-config', ['backmount', 'sidemount'], 'backmount'));
@@ -147,14 +150,28 @@ export function App() {
   const shallowRate = ascentSlow ?? std.ascentRateShallowMpm;
   // altitude: surface pressure from the barometric formula; not acclimatised → tissues still saturated at sea level (conservative)
   const surfaceBar = altitudeToSurfacePressure(altitudeM);
-  const startTissues: TissueState | undefined = altitudeM > 0 && !acclimatised ? initialTissues() : undefined;
-  const diveEnv = { ...(altitudeM > 0 ? { surfacePressureBar: surfaceBar } : {}), ...(startTissues ? { initialTissues: startTissues } : {}) };
-  const settings: PlanSettings = {
+  const altStart: TissueState | undefined = altitudeM > 0 && !acclimatised ? initialTissues() : undefined;
+  const coreSettings: PlanSettings = {
     ...DEFAULT_SETTINGS, gf: { low: gfLow / 100, high: gfHigh / 100 }, lastStopDepth, gfEvalAt: method,
     ascentRateShallowMpm: shallowRate, ppO2Working: L.bottomPpO2Working, ppO2Max: L.bottomPpO2Max, decoPpO2Max: L.decoPpO2Max,
     descentRateMpm: descentRate, ascentRateMpm: ascentFast, ...(rateChange > 0 ? { ascentRateChangeDepthM: rateChange } : {}),
-    ...diveEnv,
+    ...(altitudeM > 0 ? { surfacePressureBar: surfaceBar } : {}),
   };
+  // repetitive dive: start tissues from previous dives (manual square profiles, or the logged profiles from the napló)
+  const repKey = JSON.stringify([rep, coreSettings, !!altStart, logCtx.status]);
+  const repResult = useMemo(() => {
+    if (!rep.on) return null;
+    if (rep.source === 'log') {
+      if (logCtx.status !== 'ok') return null;
+      const r = tissuesFromLog(logCtx.data.recent, epochOfLocal(rep.plannedStart), { surfacePressureBar: surfaceBar, start: altStart });
+      return { tissues: r.tissues, used: r.used, unknown: r.unknownTime.length, future: r.future, count: r.used.length, log: true };
+    }
+    const dives = rep.dives.map((d) => ({ maxDepth: d.depth, bottomTime: d.bt, gas: { o2: d.o2 / 100, he: d.he / 100 }, surfaceIntervalMin: d.si }));
+    return { tissues: tissuesAfterDives(dives, { settings: coreSettings, surfacePressureBar: surfaceBar, start: altStart }), used: [], unknown: 0, future: 0, count: dives.length, log: false };
+  }, [repKey, logCtx]);
+  const startTissues: TissueState | undefined = repResult?.tissues ?? altStart;
+  const diveEnv = { ...(altitudeM > 0 ? { surfacePressureBar: surfaceBar } : {}), ...(startTissues ? { initialTissues: startTissues } : {}) };
+  const settings: PlanSettings = { ...coreSettings, ...(startTissues ? { initialTissues: startTissues } : {}) };
   const settingsKey = JSON.stringify(settings);
 
   /* ---- standard mode ---- */
@@ -283,11 +300,38 @@ export function App() {
     }
   };
 
+  const loadLog = async () => {
+    setLogCtx({ status: 'loading' });
+    try {
+      const r = await fetch(contextUrl(), { credentials: 'include', headers: { Accept: 'application/json' } });
+      if (r.status === 401) { setLogCtx({ status: 'login' }); return; }
+      if (!r.ok) throw new Error(String(r.status));
+      const data = parsePlannerContext(await r.json());
+      if (!data) throw new Error('bad context');
+      setLogCtx({ status: 'ok', data });
+      setRep((x) => ({ ...x, on: true, source: 'log', plannedStart: localNow() }));
+    } catch (err) { console.error(err); setLogCtx({ status: 'error' }); }
+  };
+  const applyLogSac = () => {
+    if (logCtx.status !== 'ok' || !logCtx.data.sac) return;
+    const clampSac = (v: number) => Math.max(5, Math.min(60, v));
+    setSacBottom(clampSac(logCtx.data.sac.bottom)); setSacDeco(clampSac(logCtx.data.sac.deco));
+    setRec((r) => ({ ...r, sac: clampSac(logCtx.data.sac!.bottom) }));
+    setToast(t.toastSacApplied);
+  };
+  const repSum = repResult ? startSummary(repResult.tissues, surfaceBar) : null;
+  const repCard = (
+    <RepetitiveCard t={t} u={u} lang={lang} state={rep} setState={setRep} log={logCtx} onLoadLog={loadLog} onApplySac={applyLogSac}
+      summary={repSum} used={repResult?.used ?? []} unknownCount={repResult?.unknown ?? 0} futureCount={repResult?.future ?? 0} />
+  );
+
   /** context badges (altitude, repetitive dive) shown under the page head in every mode */
   const ctxPills: { text: string; tone?: 'warn' }[] = [];
   if (altitudeM > 0) ctxPills.push({ text: `⛰ ${t.altitudeBadge(u.depth(altitudeM), fmt(surfaceBar, 3))}`, tone: 'warn' });
   /** extra rows for the PDF dive card */
   const printExtraRows: { l: string; v: string }[] = [];
+  if (repResult) ctxPills.push({ text: `↻ ${t.repBadge(repResult.count, repResult.log)}`, tone: 'warn' });
+  if (repResult) printExtraRows.push({ l: t.repRow, v: `${t.repBadge(repResult.count, repResult.log)}${repSum ? ` · ${repSum.gf > 0 ? `GF ${fmt(repSum.gf * 100)}%` : ''} +${fmt(repSum.slowExcess * 100)}%` : ''}` });
   if (altitudeM > 0) printExtraRows.push({ l: t.altitudeRow, v: `${u.depth(altitudeM)} · ${fmt(surfaceBar, 3)} bar · ${acclimatised ? t.acclimatisedYes : t.acclimatisedNo}` });
 
   const tabLabel: Record<Tab, string> = { setup: t.tabSetup, plan: t.tabPlan, time: t.tabTimeline, gas: t.tabGasCheck, team: t.tabTeamGas, kit: t.tabKit, deco: t.tabDeco };
@@ -390,6 +434,7 @@ export function App() {
           </Card>
         </>
       )}
+      {repCard}
       <Primary onClick={() => setTab('plan')}>{t.showPlan}</Primary>
     </>
   );
@@ -557,7 +602,7 @@ export function App() {
   );
 
   const renderTab = (tb: Tab) => env === 'rec'
-    ? <RecreationalView t={t} u={u} lang={lang} gfHigh={gfHigh} tab={tb as 'setup' | 'plan' | 'time'} state={rec} setState={setRec} onShowPlan={() => setTab('plan')} env={diveEnv} />
+    ? <RecreationalView t={t} u={u} lang={lang} gfHigh={gfHigh} tab={tb as 'setup' | 'plan' | 'time'} state={rec} setState={setRec} onShowPlan={() => setTab('plan')} env={diveEnv} extra={{ setup: repCard }} />
     : env === 'pen'
       ? <PenetrationView t={t} u={u} lang={lang} std={std} settings={settings} tab={tb as 'setup' | 'team' | 'kit' | 'deco'} state={pen} setState={setPen} onMatch={() => setTab('team')} onExport={() => setSheet('export')} />
       : tb === 'setup' ? techSetup : tb === 'plan' ? techPlan : techGas;

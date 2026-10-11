@@ -14,3 +14,4 @@ export * from './density';
 export * from './contingency';
 export * from './trace';
 export * from './blend';
+export * from './repetitive';

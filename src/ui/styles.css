@@ -289,6 +289,11 @@ button.row:disabled { cursor: default; }
 .ctx-pill { border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font: 500 12px var(--mono); color: var(--muted); background: var(--card); }
 .ctx-pill.warn { border-color: color-mix(in srgb, var(--warn) 45%, transparent); background: var(--warn-bg); color: var(--warn); }
 
+.btn-row.one { grid-template-columns: 1fr; }
+.row.info.warn, .row-sub.warn { color: var(--warn); } .row-sub.bad { color: var(--err); }
+.row-sub a { color: var(--brand); }
+.row-field input[type="datetime-local"] { width: 200px; text-align: left; font-size: 14px; }
+
 /* footer */
 .footer2 { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 18px; text-align: center; font: 500 11px/1.4 var(--sans); color: var(--faint); }
 .footer2 img { width: 34px; height: 34px; filter: var(--logo-filter); opacity: .8; }
