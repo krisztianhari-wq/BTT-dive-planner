@@ -20,7 +20,15 @@ type Mode = 'standard' | 'inventory';
 const HOME_URL = import.meta.env.VITE_HOME_URL as string | undefined;
 type Theme = 'light' | 'dark';
 
+/** Beágyazva (sadrobot napló) a téma a napló „theme” sütijét követi, hogy a két modul mindig egyforma legyen. */
+function hostTheme(): Theme | null {
+  if (!HOME_URL) return null;
+  const m = document.cookie.match(/(?:^|;\s*)theme=(light|dark)/);
+  return m ? (m[1] as Theme) : 'dark';
+}
 function initialTheme(): Theme {
+  const host = hostTheme();
+  if (host) return host;
   try {
     const saved = localStorage.getItem('btt-theme');
     if (saved === 'light' || saved === 'dark') return saved;
@@ -117,6 +125,7 @@ export function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try { localStorage.setItem('btt-theme', theme); } catch { /* ignore */ }
+    if (HOME_URL) document.cookie = `theme=${theme}; path=/; max-age=31536000; samesite=lax${location.protocol === 'https:' ? '; secure' : ''}`;
   }, [theme]);
   useEffect(() => {
     document.documentElement.lang = lang;
