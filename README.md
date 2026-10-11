@@ -29,6 +29,14 @@ Technical mode:
 - Deco schedule, gas plan (minimum gas, consumption per gas), packing list, minute-by-minute itinerary
 - Backmount or Sidemount configuration (two independent cylinders; lost-cylinder reserve checks), per diver in penetration teams
 - Standard (Subsurface / Shearwater convention) or Conservative calculation method
+- **Gas density** of the bottom gas at depth (ideal gas, 20 °C): amber from 5.2 g/L, critical (blocks the plan) from 6.2 g/L (Anthony & Mitchell 2016) – also in Recreational and Penetration
+- **Lost deco gas:** for every deco gas the plan is recomputed without it – runtime, deco time, extra gas from the remaining gases and whether they still suffice with the reserve
+- **Range table:** depth −6…+6 m × bottom time −10…+10 min around the plan (runtime / deco, infeasible cells marked: gas, pO2, density, impossible deco) and the maximum bottom time at the planned depth
+- **Ascent settings** (descent rate, deep / shallow ascent rate, optional fixed rate-change depth) and a **supersaturation chart** (leading-tissue GF over the ascent with the GF low / high lines)
+- **Altitude diving:** surface pressure from the barometric formula, acclimatised / just arrived (conservative) start tissues
+- **Repetitive dive:** previous dives and surface intervals as start tissues (Technical and Recreational); in the embedded logbook build the actual logged profiles of the last 48 h can be loaded
+- **Share link** (`#plan=…`, schema in [docs/plan-link.md](docs/plan-link.md)) and a read-only **Brief** view for the team briefing; embedded build: **save the plan to the logbook**
+- **Gas blender:** partial-pressure nitrox / trimix fill steps (drain, He, O2, top-up with air or EAN32), ideal gas with a real-gas warning
 - Light / dark theme, Hungarian / English, metric / imperial
 
 ## Development
@@ -88,10 +96,16 @@ A variation sweep (`tests/sweep.test.ts`) runs on every test run and in every re
   - `recreational.ts` – no-deco planning with NDL and rock-bottom reserve
   - `sidemount.ts` – independent cylinder pair: switch ladder simulation, single-cylinder reserve
   - `messages.ts` – language-neutral message codes, translated by the UI
+  - `density.ts` – breathing-gas density and its limits
+  - `contingency.ts` – lost deco gas scenarios, gas-supply checks, range table, maximum bottom time
+  - `trace.ts` – supersaturation (leading-tissue GF) trace of a plan
+  - `repetitive.ts` – start tissues from previous dives (manual or logged samples)
+  - `blend.ts` – partial-pressure gas blending
 - `src/ui/` – React UI
   - `App.tsx` – the whole UI and its switches (environment, mode, standard, units, language, theme, method)
   - `PenetrationView.tsx`, `RecreationalView.tsx` – the penetration and recreational mode panels
-  - `ProfileChart.tsx` – dive profile SVG chart
+  - `kit.tsx` – shared components (profile and supersaturation charts, rows, sheets)
+  - `Repetitive.tsx`, `BlendSheet.tsx`, `Brief.tsx`, `planLink.ts` – repetitive dive, gas blender, brief view, share link
   - `i18n.ts` – Hungarian / English dictionary and message translation
   - `units.ts` – metric / imperial conversion
   - `styles.css` – light / dark theme

@@ -11,10 +11,15 @@ Dekompressziós és gáztervező (Bühlmann ZH-L16C + GF) a BTT Explorers Hungar
 - Orákulum: `tools/oracle` (dive-deco Rust crate, `cargo run --release -- 20 85 9`), `npm run golden:oracle`, `npm run compare:oracle`.
 
 ## Felépítés
-- `src/engine/` – UI-független számítómotor (buhlmann, planner, gasPlan, penetration, recreational, sidemount, messages…).
-- `src/ui/` – React UI: `App.tsx`, `kit.tsx` (közös komponensek), `PrintSheet(s).tsx`, `pdf.ts` (PDF, oldaltörés, `askConfirm`/`showMessage`), `i18n.ts` (HU/EN).
+- `src/engine/` – UI-független számítómotor (buhlmann, planner, gasPlan, penetration, recreational, sidemount, messages…);
+  v0.11: `density.ts` (gázsűrűség), `contingency.ts` (elveszett deko-gáz, gázellátás-ellenőrzés, tartomány-tábla, max. fenékidő),
+  `trace.ts` (túltelítettség/GF99), `repetitive.ts` (ismétlő merülés: kézi vagy napló-minták), `blend.ts` (gázkeverő).
+- `src/ui/` – React UI: `App.tsx`, `kit.tsx` (közös komponensek, `GfChart`), `PrintSheet(s).tsx`, `pdf.ts` (PDF, oldaltörés, `askConfirm`/`showMessage`), `i18n.ts` (HU/EN),
+  `Repetitive.tsx` (ismétlő merülés + napló-kontextus), `BlendSheet.tsx`, `Brief.tsx`, `planLink.ts` (`#plan=` kódolás/validálás).
 - `src-tauri/` – `tauri.conf.json` (CSP, verzió), `Info.ios.plist`, `build.rs`, `capabilities/default.json` (desktop) + `mobile.json`, `vendor/tao`.
 - `tests/golden/` – `oracle-*.json` generált (kézzel ne szerkeszd), `profile-*.json` külső tervezőből (pending, ha nincs referencia).
+- `tests/baseline.test.ts` + `tests/fixtures/baseline-plans.json` – a v0.10.0 motor terveinek SHA-256 lenyomata: az új opciók
+  alapértéken bájtazonos tervet kell adjanak. A fixture-t **nem** szabad újragenerálni egy elbukó teszt miatt.
 - `scripts/` – `sign-apk.sh`, `gen-icons.sh`, `inline-icons.mjs`, oracle-szkriptek. `docs/` – App Store listing + screenshotok. `public/privacy.html`.
 
 ## Telepítés / kiadás
@@ -37,6 +42,23 @@ Dekompressziós és gáztervező (Bühlmann ZH-L16C + GF) a BTT Explorers Hungar
    fejléc HU/EN és téma gombbal; ≥1024 px-en kétoszlopos (beállítás | eredmények), alatta fülsor. Beágyazott build
    (`VITE_HOME_URL`, `VITE_LOG_URL`, lásd `src/ui/host.ts`): közös menü (Kezdőlap · Tervező · Napló), a nyelv és a téma a gazdaoldal
    `lang`/`theme` sütijét követi. A napló (`~/Claude_code/divelog`) `scripts/build-planner.sh`-sel építi be a /terv/ alá.
+10. v0.11 funkciók és szerződések:
+   - Gázsűrűség: ideális gáz, 20 °C (nincs vízhőmérséklet-beállítás), tengerszinti felszínnel; ≥ 5,2 g/l figyelmeztetés,
+     ≥ 6,2 g/l `densityCritical` = blokkoló (Technikai, Rekreációs, Penetrációs; a tartomány-táblában is).
+   - Elveszett deko-gáz / tartomány / max. fenékidő: `planDive` a gáz nélkül; fenékgáz tartaléka a minimum gáz, deko-gázé ×1,5;
+     standard módban a deko-palack = normál igény ×1,5 (a min. töltés), „Saját gázaim” módban a valós liter.
+   - Motor-opciók (`PlanSettings`): `surfacePressureBar` (magasság), `initialTissues` (ismétlő / nem akklimatizált),
+     `ascentRateChangeDepthM`; `DiveInput.initialTissues`. Alapértéken a régi terv bájtra (baseline teszt).
+   - Magasság: P = 1,01325·(1 − 2,25577e-5·h)^5,25588; nem akklimatizálva a szövetek tengerszinten telítettek (konzervatív alap).
+     Gáz, pO2, sűrűség, minimum gáz tengerszinten marad (konzervatív).
+   - Tervlink: `#plan=<base64url(JSON)>`, v1 séma a `docs/plan-link.md`-ben (a napló is ezt generálja). Betöltéskor minden mező
+     validálva/korlátozva, a hash törlődik, technikai/penetrációs mód megerősítést kér, a „bátor vagyok” linkből sosem kapcsol be;
+     a standard listán kívüli gázok „(linkből)” opcióként jelennek meg. Tauriban a link a Pages-címre mutat.
+   - Napló-szerződés (csak `VITE_HOME_URL` mellett, same-origin): `GET /api/planner/context` (credentials include) →
+     `{ user, sac|null, recent: [{ id, start_local, start_utc_epoch|null, duration_s, samples:[{t,d,gas?}], gases:[{o2,he}] %, surface_mbar, salinity }] }`
+     (48 óra, 401 = nincs bejelentkezve); `POST /api/plans` (`Content-Type: application/json`, `X-Requested-With: dive`,
+     credentials same-origin) `{ name, planned_for, plan, summary, profile }` → `{ id }`. Ismeretlen időpontú napló-merülés
+     közvetlenül a tervezett merülés elé kerül (konzervatív); sós víznél a mélység ×1,0101, édesvíznél nincs lefelé skálázás.
 
 ## Buktatók
 - A `@fontsource/figtree` import (`src/main.tsx`) kell: a UI Chakra Petch + IBM Plex Mono (`src/ui/fonts/`, helyben, SIL OFL), de a nyomtatási lap (`.print-sheet`) Figtree-vel készül.
@@ -46,6 +68,9 @@ Dekompressziós és gáztervező (Bühlmann ZH-L16C + GF) a BTT Explorers Hungar
 - GF 20/85-nél a 75 m-es E profil ~17 perccel eltér a dive-deco-tól (ő konzervatívabb) – ismert, nem hiba; GF 85/85-nél minden profil 1–2 percen belül egyezik.
 - `mergeSegments` csak azonos sebességű emelkedéseket von össze (korábban ~5%-kal túlbecsülte a gázt). `decoTime` = felszínig hátralévő idő a fenék elhagyásától („felszállás + dekó”).
 - PDF oldaltörés `.pb` blokkokon (`renderPages`/`pageBreaks` a `pdf.ts`-ben).
+- A tervező első megállója a fenéken számolt plafonból jön (Subsurface-konvenció), így odaérve a vezető szövet GF-je kicsit
+  a GF low fölött lehet (pl. 50 m/25′ 21/35, GF 20/85: ~27%) – ismert, nem hiba; a túltelítettség-grafikon ezt mutatja.
+- `features-0.11` ág (`../gue-dive-planner-features`): a v0.11 funkciók fejlesztése; vizuális teszthez launch: `dive-planner-features` (5181).
 - `kiserlet` ág külön git worktree-ben (`../gue-dive-planner-kiserlet`, launch: `dive-planner-kiserlet` 5175, preview 4175): kísérletezésre, a `main` csak kiadásra; onnan soha ne pusholj `v*` taget.
 
 ## Nyitott
