@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CYLINDERS, Cylinder, DEFAULT_SETTINGS, DecoGasSpec, DivePlan, Gas, GasUsage, STANDARDS, StandardId,
   InventoryItem, Msg, backGasPlan, end, evaluateInventory, gasName, minimumGas, mod, packingList, planConsumption, planDive, ppO2,
-  roundBar, stopTable, itinerary, ItineraryEvent, sidemountSwitchesOnProfile, worstSingleCylinderLitres, defaultSwitchStep, msg, gasDensity, GasSupply, lostGasScenarios, DiveInput,
+  roundBar, stopTable, itinerary, ItineraryEvent, sidemountSwitchesOnProfile, worstSingleCylinderLitres, defaultSwitchStep, msg, gasDensity, GasSupply, lostGasScenarios, DiveInput, rangeTable, maxFeasibleBottomTime, CellIssue,
 } from '../engine';
 import { PrintSheet } from './PrintSheet';
 import { DensityVal, densityTone, Card, Chevron, Chip, Disclaimer, IconShare, RobotMark, IconSliders, KV, Label, Note, NumRow, Primary, ProfileCard, Seg, SelectRow, Sheet, Stat, Stats, Stepper, StopRows, Timeline, Toast, Toggle, Verdict, Warnings } from './kit';
@@ -197,6 +197,11 @@ export function App() {
   const supply: GasSupply = { backCylinder: backCyl, backStartBar: backStart, decoLitres, sacBottom, sacDeco };
   const diveInput: DiveInput = { maxDepth, bottomTime, bottomGas, decoGases, settings };
   const contKey = JSON.stringify([env, maxDepth, bottomTime, bottomGas, decoGases, settings, supply, plan?.runtime]);
+  const range = useMemo(() => {
+    if (env !== 'open' || !plan) return null;
+    const limits = { ppO2Max: L.bottomPpO2Max };
+    return { table: rangeTable(diveInput, supply, limits), maxBt: maxFeasibleBottomTime(diveInput, supply, limits) };
+  }, [contKey, L.bottomPpO2Max]);
   const lostGas = useMemo(() => (env === 'open' && plan && decoGases.length ? lostGasScenarios(diveInput, plan, supply) : []), [contKey]);
 
   const bottomPpO2 = ppO2(bottomGas, maxDepth);
@@ -264,6 +269,7 @@ export function App() {
   const tabLabel: Record<Tab, string> = { setup: t.tabSetup, plan: t.tabPlan, time: t.tabTimeline, gas: t.tabGasCheck, team: t.tabTeamGas, kit: t.tabKit, deco: t.tabDeco };
   const depthScale = u.sys === 'metric' ? 1 : 3.28084;
   const vol = (l: number) => fmt(u.volumeN(l), u.sys === 'metric' ? 0 : 1);
+  const issueMark = (i: CellIssue) => (i === 'gas' ? 'G' : i === 'ppo2' ? 'O₂' : i === 'density' ? 'ρ' : 'D');
   const signed = (v: number) => `${v >= 0 ? '+' : '−'}${fmt(Math.abs(v))}`;
   const signedVol = (l: number) => `${l >= 0 ? '+' : '−'}${vol(Math.abs(l))}`;
 
@@ -387,6 +393,27 @@ export function App() {
         <StopRows unit={u.d} minLabel={t.minUnit} leaveAt={t.leaveAt} stops={stops.map((s) => ({ depth: u.stopDepthN(s.depth), minutes: s.minutes, runtime: s.runtime, gas: s.gas }))} />
       )}
       <Note>{t.ratesNote(std.ascentRateShallowMpm, u)}</Note>
+      {range && (
+        <>
+          <Label>{t.rangeTitle}</Label>
+          <Card className="list">
+            <KV l={t.rangeMaxBottom} sub={t.rangeMaxBottomSub} v={range.maxBt === null ? t.rangeNone : `${range.maxBt} ${t.minUnit}`} tone={range.maxBt !== null && range.maxBt >= bottomTime ? 'ok' : 'bad'} />
+            <div className="row stack">
+              <table className="range">
+                <thead><tr><th className="corner">{t.rangeHead(u)}</th>{range.table.times.map((tm) => <th key={tm}>{tm}</th>)}</tr></thead>
+                <tbody>{range.table.depths.map((d, i) => (
+                  <tr key={d}><th>{u.depthN(d)}</th>{range.table.cells[i].map((c) => (
+                    <td key={c.bottomTime} className={`${c.feasible ? '' : 'bad'} ${d === maxDepth && c.bottomTime === bottomTime ? 'cur' : ''}`} title={c.issues.join(', ')}>
+                      <b>{fmt(c.plan.runtime)}</b><small>{c.feasible ? fmt(c.plan.decoTime) : c.issues.map(issueMark).join(' ')}</small>
+                    </td>
+                  ))}</tr>
+                ))}</tbody>
+              </table>
+              <span className="row-sub">{t.rangeLegend}</span>
+            </div>
+          </Card>
+        </>
+      )}
       {events.length > 0 && (
         <>
           <Label>{t.itinerary}</Label>

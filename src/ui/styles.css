@@ -273,6 +273,18 @@ button.row:disabled { cursor: default; }
 .lg-row .r { text-align: right; white-space: nowrap; }
 .lg-row.ok .r:last-child { color: var(--ok); } .lg-row.noReserve .r:last-child { color: var(--warn); } .lg-row.short .r:last-child { color: var(--err); }
 
+.range { width: 100%; border-collapse: separate; border-spacing: 3px; table-layout: fixed; font-family: var(--mono); }
+.range th { font: 600 11px var(--mono); color: var(--faint); padding: 2px 0; text-align: center; }
+.range th.corner { font-size: 9.5px; text-align: left; }
+.range td { text-align: center; padding: 5px 0 4px; border-radius: 6px; background: var(--field); line-height: 1.15; }
+.range td b { display: block; font: 600 13px var(--mono); }
+.range td small { display: block; font: 500 10px var(--mono); color: var(--muted); }
+.range td.cur { box-shadow: inset 0 0 0 2px var(--mode); }
+.range td.bad { background: var(--err-bg); color: var(--err); }
+.range td.bad b { text-decoration: line-through; }
+.range td.bad small { color: var(--err-text); }
+@media (max-width: 360px) { .range td b { font-size: 11.5px; } .range { border-spacing: 2px; } }
+
 /* footer */
 .footer2 { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 18px; text-align: center; font: 500 11px/1.4 var(--sans); color: var(--faint); }
 .footer2 img { width: 34px; height: 34px; filter: var(--logo-filter); opacity: .8; }
