@@ -126,7 +126,7 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 .row.kv { align-items: flex-start; }
 .row.kv .row-l { color: var(--ink); font-weight: 600; }
 .row-kv { font: 700 15px/1.3 var(--sans); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.row-kv.ok { color: var(--ok); } .row-kv.bad { color: var(--err); }
+.row-kv.ok { color: var(--ok); } .row-kv.bad { color: var(--err); } .row-kv.warn { color: var(--warn); }
 
 /* segmented controls */
 .seg2 { display: grid; grid-auto-columns: 1fr; grid-auto-flow: column; gap: 2px; padding: 3px; border-radius: 12px; background: var(--track); }

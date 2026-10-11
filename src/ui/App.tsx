@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CYLINDERS, Cylinder, DEFAULT_SETTINGS, DecoGasSpec, DivePlan, Gas, GasUsage, STANDARDS, StandardId,
   InventoryItem, Msg, backGasPlan, end, evaluateInventory, gasName, minimumGas, mod, packingList, planConsumption, planDive, ppO2,
-  roundBar, stopTable, itinerary, ItineraryEvent, sidemountSwitchesOnProfile, worstSingleCylinderLitres, defaultSwitchStep, msg,
+  roundBar, stopTable, itinerary, ItineraryEvent, sidemountSwitchesOnProfile, worstSingleCylinderLitres, defaultSwitchStep, msg, gasDensity,
 } from '../engine';
 import { PrintSheet } from './PrintSheet';
-import { Card, Chevron, Chip, Disclaimer, IconShare, RobotMark, IconSliders, KV, Label, Note, NumRow, Primary, ProfileCard, Seg, SelectRow, Sheet, Stat, Stats, Stepper, StopRows, Timeline, Toast, Toggle, Verdict, Warnings } from './kit';
+import { DensityVal, densityTone, Card, Chevron, Chip, Disclaimer, IconShare, RobotMark, IconSliders, KV, Label, Note, NumRow, Primary, ProfileCard, Seg, SelectRow, Sheet, Stat, Stats, Stepper, StopRows, Timeline, Toast, Toggle, Verdict, Warnings } from './kit';
 import { PenetrationView, PenState, defaultPenState, usePenetrationPlan, penEventText } from './PenetrationView';
 import { RecreationalView, RecState, defaultRecState, useRecreationalPlan } from './RecreationalView';
 import { RecPrintSheet, PenPrintSheet } from './PrintSheets';
@@ -194,6 +194,7 @@ export function App() {
   const bottomEnd = end(bottomGas, maxDepth);
   const ppo2Class = bottomPpO2 > L.bottomPpO2Max ? 'bad' : bottomPpO2 > L.bottomPpO2Working ? 'warn' : 'ok';
   const endClass = L.maxEndM !== null && bottomEnd > L.maxEndM ? 'bad' : bottomEnd > L.warnEndM ? 'warn' : 'ok';
+  const bottomDensity = gasDensity(bottomGas, maxDepth);
 
   const engineMsgs: Msg[] = mode === 'standard' ? stdPlan.warnings : verdict.warnings;
   const warnings: { text: string; bad: boolean }[] = engineMsgs.map((m) => ({ text: t.msg(m, u), bad: t.isBlocking(m) }));
@@ -279,7 +280,7 @@ export function App() {
             <span className="row-sub">{t.recommended}: {recommended.length ? recommended.map((r) => r.gas.name).join(', ') : t.noneMinDeco}</span>
           </div>
           <div className="row info">
-            {gasName(bottomGas)}: pO2 <b className={ppo2Class}>{bottomPpO2.toFixed(2)}</b> bar · END <b className={endClass}>{u.depth(bottomEnd)}</b> · MOD({L.bottomPpO2Working.toFixed(1)}) {u.depth(mod(bottomGas, L.bottomPpO2Working))}
+            {gasName(bottomGas)}: pO2 <b className={ppo2Class}>{bottomPpO2.toFixed(2)}</b> bar · END <b className={endClass}>{u.depth(bottomEnd)}</b> · MOD({L.bottomPpO2Working.toFixed(1)}) {u.depth(mod(bottomGas, L.bottomPpO2Working))} · {t.densityShort} <DensityVal gL={bottomDensity} locale={locale} unit={t.densityUnit} />
           </div>
         </Card>
       )}
@@ -311,7 +312,7 @@ export function App() {
           <Note>{t.myGasesHint}</Note>
           <Card className="list">
             <div className="row info">
-              {gasName(bottomGas)}: pO2 <b className={ppo2Class}>{bottomPpO2.toFixed(2)}</b> bar · END <b className={endClass}>{u.depth(bottomEnd)}</b> · MOD({L.bottomPpO2Working.toFixed(1)}) {u.depth(mod(bottomGas, L.bottomPpO2Working))}
+              {gasName(bottomGas)}: pO2 <b className={ppo2Class}>{bottomPpO2.toFixed(2)}</b> bar · END <b className={endClass}>{u.depth(bottomEnd)}</b> · MOD({L.bottomPpO2Working.toFixed(1)}) {u.depth(mod(bottomGas, L.bottomPpO2Working))} · {t.densityShort} <DensityVal gL={bottomDensity} locale={locale} unit={t.densityUnit} />
             </div>
           </Card>
           {items.map((it) => {
@@ -431,6 +432,7 @@ export function App() {
             <KV l={t.ascentOnBackGas} v={u.pressure(bg.ascentOnBackGasBar)} />
             <KV l={t.turnPressure} v={u.pressure(bg.turnPressureBar)} />
             <KV l={t.backGasEnough} v={bg.ok ? t.yes : t.no} tone={bg.ok ? 'ok' : 'bad'} />
+            <KV l={t.densityAt(gasName(bottomGas), u.depth(maxDepth))} sub={t.densityNote} v={`${fmt(bottomDensity, 1)} ${t.densityUnit}`} tone={densityTone(bottomDensity)} />
             {sm && <KV l={`${t.configSidemount}: ${t.smAtBottomEnd(u)}`} v={`${u.pressureN(sm.atBottomEnd.left)} / ${u.pressureN(sm.atBottomEnd.right)}`} />}
             {sm && <KV l={t.smLost(u)} v={u.volumeN(sm.lostShort)} tone={sm.lostShort > 0 ? 'bad' : 'ok'} />}
           </Card>

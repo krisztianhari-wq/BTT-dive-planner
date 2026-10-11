@@ -1,7 +1,7 @@
 import { DecoGasRequirement, PenEvent, PenetrationInput, PenetrationPlan, RecEvent, RecInput, RecPlan, gasName, stopTable, recreationalProfile } from '../engine';
 import { Dict } from './i18n';
 import { Units } from './units';
-import { GasDot, PBig, PCard, PItinerary, PKV, PLabel, PPacking, PStops, PTiles, PVerdict, PrintFrame, PrintProfile, gasColorsFor, gasOrder } from './PrintSheet';
+import { densityRow, GasDot, PBig, PCard, PItinerary, PKV, PLabel, PPacking, PStops, PTiles, PVerdict, PrintFrame, PrintProfile, gasColorsFor, gasOrder } from './PrintSheet';
 
 const fmtFor = (lang: 'hu' | 'en') => (v: number, dg = 0) => v.toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: dg, minimumFractionDigits: dg });
 
@@ -30,6 +30,7 @@ export function RecPrintSheet({ t, u, lang, input, plan, events, cylinderName }:
             { l: t.backCylinder, v: `${cylinderName.split(' (')[0]} · ${u.pressure(input.startBar)}` },
             { l: t.penSac(u), v: u.sacS(input.sacLpm) },
             { l: 'GF high', v: Math.round(input.gfHigh * 100) },
+            densityRow(t, input.gas, input.maxDepth, fmt),
           ]} />
         </PCard>
         <div className="ps-col">
@@ -91,6 +92,7 @@ export function PenPrintSheet({ t, u, lang, input, plan, events, agencyLabel, en
             { l: `${t.penType} · ${t.penAgency}`, v: `${envLabel} · ${agencyLabel}` },
             { l: t.penFlow, v: `${flowLabel} · ${plan.rules.fractionLabel}` },
             { l: t.bottomGas, v: gasName(input.bottomGas) },
+            densityRow(t, input.bottomGas, input.maxDepth, fmt),
             { l: t.decoGases, v: input.decoGases.length ? input.decoGases.map((g) => `${gasName(g.gas)} @ ${u.stopDepth(g.switchDepth)}`).join(', ') : '—' },
             { l: t.penStages, v: input.stages.length ? `${input.stages[0].count} × ${input.stages[0].cylinder.name.split(' (')[0]} · ${input.stageRule === 'halfPlus' ? t.penRuleHalfPlus : t.penRuleThirds}` : '—' },
             { l: t.penSwimSpeed(u), v: u.depthN(input.swimSpeedMpm) },

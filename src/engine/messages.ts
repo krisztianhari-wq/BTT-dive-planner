@@ -30,7 +30,9 @@ export type MsgCode =
   | 'smLostCylinderExit'
   | 'recOverNdl'
   | 'recDepthLimit'
-  | 'recGasShort';
+  | 'recGasShort'
+  | 'densityHigh'
+  | 'densityCritical';
 
 export interface Msg {
   code: MsgCode;

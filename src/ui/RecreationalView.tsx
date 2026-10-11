@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import { CYLINDERS, GENERIC_STANDARD, Gas, gasName, mod, planRecreational, ppO2, end, recreationalItinerary, recreationalProfile, RecInput, RecEvent } from '../engine';
+import { CYLINDERS, GENERIC_STANDARD, Gas, gasName, mod, planRecreational, ppO2, end, recreationalItinerary, recreationalProfile, RecInput, RecEvent, gasDensity } from '../engine';
 import { Dict } from './i18n';
 import { Units } from './units';
-import { Card, KV, Label, Note, NumRow, Primary, ProfileCard, SelectRow, Stat, Stats, Stepper, Timeline, Verdict, Warnings } from './kit';
+import { DensityVal, densityTone, Card, KV, Label, Note, NumRow, Primary, ProfileCard, SelectRow, Stat, Stats, Stepper, Timeline, Verdict, Warnings } from './kit';
 
 export interface RecState { maxDepth: number; bottomTime: number; gasIdx: number | 'auto'; cylIdx: number; startBar: number; sac: number }
 /** Recreational mode: single 12 L or 15 L back cylinder only */
@@ -38,7 +38,7 @@ export function RecreationalView({ t, u, lang, gfHigh, tab, state: s, setState, 
         <Card className="list">
           <SelectRow label={t.bottomGas} value={s.gasIdx} onChange={(v) => set({ gasIdx: v })}
             options={[{ v: 'auto' as const, l: t.autoBottomGasGeneric(auto?.gas.name ?? '—') }, ...REC_GASES.map((g, i) => ({ v: i, l: `${g.gas.name} (MOD ${u.depth(mod(g.gas, 1.4))})` }))]} />
-          <div className="row info">{gasName(gas)}: pO2 <b className={po2 > 1.4 ? 'bad' : 'ok'}>{po2.toFixed(2)}</b> bar · END {u.depth(end(gas, s.maxDepth))}</div>
+          <div className="row info">{gasName(gas)}: pO2 <b className={po2 > 1.4 ? 'bad' : 'ok'}>{po2.toFixed(2)}</b> bar · END {u.depth(end(gas, s.maxDepth))} · {t.densityShort} <DensityVal gL={gasDensity(gas, s.maxDepth)} locale={lang === 'hu' ? 'hu-HU' : 'en-GB'} unit={t.densityUnit} /></div>
           <SelectRow label={t.backCylinder} value={s.cylIdx} onChange={(v) => set({ cylIdx: v })} options={REC_CYLINDERS.map((c, i) => ({ v: i, l: c.name }))} />
           <NumRow label={t.startPressure(u)} min={0} value={u.pressureN(s.startBar)} onChange={(v) => set({ startBar: u.toBar(v) })} />
           <NumRow label={t.penSac(u)} min={0} step={u.sacStep} decimals={u.sys === 'metric' ? 0 : 2} value={u.sacN(s.sac)} onChange={(v) => set({ sac: u.toLpm(v) })} />
@@ -81,6 +81,7 @@ export function RecreationalView({ t, u, lang, gfHigh, tab, state: s, setState, 
         <KV l={t.recTurn} v={u.pressure(plan.turnBar)} />
         <KV l={t.recRockBottom} sub={t.recRockBottomDesc} v={`${u.pressure(plan.rockBottomBar)} · ${u.volume(plan.rockBottomLitres)}`} />
         <KV l={t.recGasOk} v={plan.gasOk ? t.yes : t.no} tone={plan.gasOk ? 'ok' : 'bad'} />
+        <KV l={t.densityAt(gasName(gas), u.depth(s.maxDepth))} sub={t.densityNote} v={`${fmt(gasDensity(gas, s.maxDepth), 1)} ${t.densityUnit}`} tone={densityTone(gasDensity(gas, s.maxDepth))} />
       </Card>
     </>
   );

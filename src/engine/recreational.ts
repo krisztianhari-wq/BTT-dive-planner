@@ -8,6 +8,7 @@ import { Cylinder, roundBar } from './gasPlan';
 import { Msg, msg } from './messages';
 import { DivePlan, Segment } from './planner';
 import { initialTissues } from './buhlmann';
+import { densityMsg } from './density';
 
 export interface RecInput {
   maxDepth: number;
@@ -72,6 +73,8 @@ export function planRecreational(i: RecInput): RecPlan {
   if (p > 1.4) blockers.push(msg('ppo2AboveMax', { gas: gasName(i.gas), ppo2: p.toFixed(2), depth: i.maxDepth, mod: '', limit: 1.4 }));
   const e = end(i.gas, i.maxDepth);
   if (e > 30) warnings.push(msg('endHigh', { gas: gasName(i.gas), end: e.toFixed(0), limit: 30 }));
+  const dens = densityMsg(i.gas, i.maxDepth);
+  if (dens) (dens.code === 'densityCritical' ? blockers : warnings).push(dens);
 
   // profile gas: descent + bottom at max depth, ascent to safety stop, stop, ascent to surface
   const descentMin = i.maxDepth / descentRate;

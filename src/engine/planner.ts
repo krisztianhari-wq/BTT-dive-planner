@@ -2,6 +2,7 @@ import { SURFACE_PRESSURE_BAR } from './constants';
 import { Gas, depthToAmbient, gasName, mod, ppO2 } from './gas';
 import { GradientFactors, TissueState, ceilingBar, cloneTissues, initialTissues, loadSegment } from './buhlmann';
 import { Msg, msg } from './messages';
+import { densityMsg } from './density';
 
 export interface DecoGasSpec {
   gas: Gas;
@@ -224,6 +225,9 @@ export function planDive(input: DiveInput): DivePlan {
   if (bottomPpO2 > s.ppO2Max) warnings.push(msg('ppo2AboveMax', { gas: gasName(input.bottomGas), ppo2: bottomPpO2.toFixed(2), depth: maxDepth, mod: mod(input.bottomGas, s.ppO2Max).toFixed(0), limit: s.ppO2Max }));
   else if (bottomPpO2 > s.ppO2Working) warnings.push(msg('ppo2AboveWorking', { gas: gasName(input.bottomGas), ppo2: bottomPpO2.toFixed(2), limit: s.ppO2Working }));
   if (bottomPpO2 < 0.18) warnings.push(msg('hypoxicBottomGas', { gas: gasName(input.bottomGas), ppo2: bottomPpO2.toFixed(2) }));
+  // breathing-gas density of the bottom gas at max depth (Anthony & Mitchell 2016: 5.2 g/L recommended, 6.2 g/L critical)
+  const dens = densityMsg(input.bottomGas, maxDepth);
+  if (dens) warnings.push(dens);
   for (const d of input.decoGases) {
     const m = mod(d.gas, s.decoPpO2Max);
     if (d.switchDepth > m + 0.5) warnings.push(msg('decoSwitchExceedsMod', { gas: gasName(d.gas), depth: d.switchDepth, mod: m.toFixed(1), limit: s.decoPpO2Max }));

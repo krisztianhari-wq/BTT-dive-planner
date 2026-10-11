@@ -7,6 +7,7 @@
 import { Cylinder } from './gasPlan';
 import { Gas, depthToAmbient, end, gasName, ppO2 } from './gas';
 import { Msg, msg } from './messages';
+import { densityMsg } from './density';
 import { DecoGasSpec, DivePlan, PlanSettings, planDive } from './planner';
 import { defaultSwitchStep, simulateSidemount, worstSingleCylinderLitres } from './sidemount';
 
@@ -272,6 +273,8 @@ export function planPenetration(input: PenetrationInput): PenetrationPlan {
     else if (p > 1.2) warnings.push(msg('ppo2AboveWorking', { gas: gasName(g), ppo2: p.toFixed(2), limit: 1.2 }));
     const e = end(g, input.maxDepth);
     if (e > 30) warnings.push(msg('endHigh', { gas: gasName(g), end: e.toFixed(0), limit: 30 }));
+    const dens = densityMsg(g, input.maxDepth);
+    if (dens) (dens.code === 'densityCritical' ? blockers : warnings).push(dens);
   }
   if (input.flow === 'siphon') warnings.push(msg('penSiphon'));
   const vols = new Set(team.map((m) => m.cylinder.volumeL));

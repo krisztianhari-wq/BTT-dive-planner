@@ -1,5 +1,5 @@
 import { ReactNode, useEffect } from 'react';
-import { DivePlan, gasName } from '../engine';
+import { DivePlan, densityLevel, gasName } from '../engine';
 import { NumInput } from './NumInput';
 
 /* ---------- icons (2 px stroke line icons) ---------- */
@@ -102,9 +102,16 @@ export function NumRow({ label, value, onChange, min, max, step, decimals }: {
 }
 
 /** Read-only label / value row. */
-export const KV = ({ l, v, sub, tone }: { l: ReactNode; v: ReactNode; sub?: ReactNode; tone?: 'ok' | 'bad' }) => (
+export const KV = ({ l, v, sub, tone }: { l: ReactNode; v: ReactNode; sub?: ReactNode; tone?: 'ok' | 'bad' | 'warn' }) => (
   <div className="row kv"><span className="row-l">{l}{sub && <span className="row-sub">{sub}</span>}</span><span className={`row-kv ${tone ?? ''}`}>{v}</span></div>
 );
+
+/** Gas density inline value, coloured by the Anthony & Mitchell limits (≥ 5.2 g/L amber, ≥ 6.2 g/L red). */
+export const DensityVal = ({ gL, locale, unit }: { gL: number; locale: string; unit: string }) => {
+  const lvl = densityLevel(gL);
+  return <><b className={lvl === 'crit' ? 'bad' : lvl === 'warn' ? 'warn' : 'ok'}>{gL.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</b> {unit}</>;
+};
+export const densityTone = (gL: number): 'ok' | 'bad' | 'warn' => { const l = densityLevel(gL); return l === 'crit' ? 'bad' : l === 'warn' ? 'warn' : 'ok'; };
 
 export const Chip = ({ children, kind = 'back' }: { children: ReactNode; kind?: 'back' | 'deco' | 'mode' }) => <span className={`chip2 ${kind}`}>{children}</span>;
 export const Toggle = ({ on, children, onClick }: { on: boolean; children: ReactNode; onClick: () => void }) => (

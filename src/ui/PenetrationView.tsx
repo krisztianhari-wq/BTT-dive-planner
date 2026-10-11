@@ -2,11 +2,11 @@ import { askConfirm } from './pdf';
 import { useMemo, useState } from 'react';
 import {
   Agency, CYLINDERS, DecoGasSpec, Environment, Flow, Gas, GasStandard, PenEvent, PlanSettings, StageRule, TeamMember,
-  gasName, penetrationItinerary, planPenetration, stagesNeeded, stopTable, planConsumption, decoGasRequirements, DecoGasRequirement, Cylinder, defaultSwitchStep,
+  gasName, gasDensity, ppO2, end, penetrationItinerary, planPenetration, stagesNeeded, stopTable, planConsumption, decoGasRequirements, DecoGasRequirement, Cylinder, defaultSwitchStep,
 } from '../engine';
 import { Dict } from './i18n';
 import { Units } from './units';
-import { Card, Chevron, Chip, KV, Label, Note, NumRow, Primary, ProfileCard, Secondary, Seg, SelectRow, Stat, Stats, Stepper, StopRows, Timeline, Toggle, Verdict, Warnings } from './kit';
+import { DensityVal, Card, Chevron, Chip, KV, Label, Note, NumRow, Primary, ProfileCard, Secondary, Seg, SelectRow, Stat, Stats, Stepper, StopRows, Timeline, Toggle, Verdict, Warnings } from './kit';
 
 interface Props {
   t: Dict; u: Units; lang: 'hu' | 'en'; std: GasStandard; settings: Partial<PlanSettings>;
@@ -136,6 +136,9 @@ export function PenetrationView({ t, u, lang, std, settings, tab, state: s, setS
           <NumRow label={t.penSwimSpeed(u)} min={1} value={u.depthN(s.swimSpeed)} onChange={(v) => set({ swimSpeed: u.toM(v) })} />
           <SelectRow label={t.bottomGas} value={s.bottomGasIdx} onChange={(v) => set({ bottomGasIdx: v })}
             options={[{ v: 'auto' as const, l: t.autoBottomGas(autoBottom?.gas.name ?? '—') }, ...bottomList.map((g, i) => ({ v: i, l: g.gas.name ?? '' }))]} />
+          <div className="row info">
+            {gasName(input.bottomGas)} @ {u.depth(s.maxDepth)}: pO2 <b className={ppO2(input.bottomGas, s.maxDepth) > 1.4 ? 'bad' : ppO2(input.bottomGas, s.maxDepth) > 1.2 ? 'warn' : 'ok'}>{ppO2(input.bottomGas, s.maxDepth).toFixed(2)}</b> bar · END {u.depth(end(input.bottomGas, s.maxDepth))} · {t.densityShort} <DensityVal gL={gasDensity(input.bottomGas, s.maxDepth)} locale={lang === 'hu' ? 'hu-HU' : 'en-GB'} unit={t.densityUnit} />
+          </div>
           <div className="row stack">
             <span className="row-l">{t.decoGases}</span>
             <div className="tchips">

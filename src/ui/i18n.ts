@@ -43,6 +43,12 @@ const hu = {
   teamSizeLabel: (n: number) => `Csapat · létszám ${n}`,
   diverSummary: (gas: string, p: string) => `${gas} · indulás ${p}`,
   algorithmRow: 'Bühlmann ZH-L16C + gradient factor',
+  densityShort: 'sűrűség',
+  densityUnit: 'g/l',
+  densityLabel: 'Gázsűrűség',
+  densityAt: (gas: string, depth: string) => `${gas} sűrűsége ${depth}-en`,
+  densityNote: 'Gázsűrűség 20 °C-on, ideális gázzal számolva. Ajánlott max. 5,2 g/l, kritikus 6,2 g/l (Anthony & Mitchell 2016); hideg vízben a valós érték néhány százalékkal nagyobb.',
+  densityLevelText: (lvl: 'ok' | 'warn' | 'crit'): string => (lvl === 'crit' ? 'kritikus' : lvl === 'warn' ? 'ajánlott max. felett' : 'rendben'),
   minUnit: 'perc',
   rights: '© 2026 sadrobot · minden jog fenntartva · a kód, a számítómotor, a design és a logók csak engedéllyel használhatók',
   techFeasible: (std: string) => `A ${std} szabályai szerint megmerülhető.`,
@@ -313,10 +319,12 @@ const hu = {
       case 'recDepthLimit': return `A ${u.depth(n('depth'))} mélység meghaladja a rekreációs ${u.depth(n('limit'))} limitet.`;
       case 'smLostCylinderMinGas': return `Sidemount: egy palack elvesztésekor a másikban nincs meg a minimum gáz a fenékidő végén, ${u.volume(n('short'))} hiányzik.`;
       case 'smLostCylinderExit': return `Sidemount, ${p.diver}: ha a fordulónál egy palack elveszik, a másik egyedül ${u.volume(n('short'))}-rel kevesebbet ad a kijövetelhez.`;
+      case 'densityHigh': return `A ${p.gas} sűrűsége ${String(p.density).replace('.', ',')} g/l ${u.depth(n('depth'))}-en, az ajánlott 5,2 g/l felett (Anthony & Mitchell 2016): nő a légzési munka és a CO2-visszatartás kockázata. Több hélium vagy kisebb mélység javasolt.`;
+      case 'densityCritical': return `KRITIKUS gázsűrűség: a ${p.gas} sűrűsége ${String(p.density).replace('.', ',')} g/l ${u.depth(n('depth'))}-en, eléri a 6,2 g/l határt (Anthony & Mitchell 2016). Válassz több héliumot tartalmazó gázt vagy kisebb mélységet.`;
       case 'recGasShort': return `Nem elég a gáz: ${u.pressure(n('reserve'))}-ral kell felszínre érni, ehhez ${u.pressure(n('short'))} (${u.volume(n('shortL'))}) hiányzik.`;
     }
   },
-  isBlocking: (m: Msg) => ['ppo2AboveMax', 'decoSwitchExceedsMod', 'backEndAboveLimit', 'gasShort', 'missingGas', 'noBackGas', 'stopTooLong', 'penNoTeam', 'penDepthLimit', 'penMinStartGas', 'penSharedExitShort', 'recOverNdl', 'recDepthLimit', 'recGasShort', 'penTimeOverGas'].includes(m.code),
+  isBlocking: (m: Msg) => ['ppo2AboveMax', 'decoSwitchExceedsMod', 'backEndAboveLimit', 'gasShort', 'missingGas', 'noBackGas', 'stopTooLong', 'penNoTeam', 'penDepthLimit', 'penMinStartGas', 'penSharedExitShort', 'recOverNdl', 'recDepthLimit', 'recGasShort', 'penTimeOverGas', 'densityCritical'].includes(m.code),
 };
 
 export type Dict = typeof hu;
@@ -360,6 +368,12 @@ const en: Dict = {
   teamSizeLabel: (n) => `Team · size ${n}`,
   diverSummary: (gas, p) => `${gas} · start ${p}`,
   algorithmRow: 'Bühlmann ZH-L16C + gradient factors',
+  densityShort: 'density',
+  densityUnit: 'g/L',
+  densityLabel: 'Gas density',
+  densityAt: (gas: string, depth: string) => `${gas} density at ${depth}`,
+  densityNote: 'Gas density at 20 °C, ideal gas. Recommended max 5.2 g/L, critical 6.2 g/L (Anthony & Mitchell 2016); in cold water the real value is a few per cent higher.',
+  densityLevelText: (lvl: 'ok' | 'warn' | 'crit') => (lvl === 'crit' ? 'critical' : lvl === 'warn' ? 'above recommended max' : 'ok'),
   minUnit: 'min',
   rights: '© 2026 sadrobot · all rights reserved · code, engine, design and logos may be used only with permission',
   techFeasible: (std) => `Diveable under ${std} rules.`,
@@ -630,6 +644,8 @@ const en: Dict = {
       case 'recDepthLimit': return `Depth ${u.depth(n('depth'))} exceeds the recreational ${u.depth(n('limit'))} limit.`;
       case 'smLostCylinderMinGas': return `Sidemount: if one cylinder is lost, the other does not hold minimum gas at the end of bottom time, ${u.volume(n('short'))} short.`;
       case 'smLostCylinderExit': return `Sidemount, ${p.diver}: if a cylinder is lost at the turn, the other alone is ${u.volume(n('short'))} short for the exit.`;
+      case 'densityHigh': return `${p.gas} density is ${p.density} g/L at ${u.depth(n('depth'))}, above the recommended 5.2 g/L (Anthony & Mitchell 2016): higher work of breathing and CO2 retention risk. More helium or a shallower depth is advised.`;
+      case 'densityCritical': return `CRITICAL gas density: ${p.gas} is ${p.density} g/L at ${u.depth(n('depth'))}, at or above the 6.2 g/L limit (Anthony & Mitchell 2016). Choose a gas with more helium or a shallower depth.`;
       case 'recGasShort': return `Not enough gas: you must surface with ${u.pressure(n('reserve'))}, which is ${u.pressure(n('short'))} (${u.volume(n('shortL'))}) short.`;
     }
   },

@@ -1,5 +1,5 @@
 import {
-  Cylinder, DivePlan, Gas, GasUsage, ItineraryEvent, StopRow, BackGasPlan, MinimumGasResult, PackingItem, InventoryVerdict, gasName,
+  Cylinder, DivePlan, Gas, GasUsage, ItineraryEvent, StopRow, BackGasPlan, MinimumGasResult, PackingItem, InventoryVerdict, gasName, gasDensity, densityLevel,
 } from '../engine';
 import { Dict } from './i18n';
 import { Units } from './units';
@@ -179,6 +179,13 @@ function niceMax(v: number): number {
   return Math.ceil(v / step - 1e-9) * step;
 }
 
+/** Bottom-gas density row for the dive card (red when ≥ 6.2 g/L, amber when ≥ 5.2 g/L). */
+export function densityRow(t: Dict, g: Gas, depthM: number, fmt: (v: number, d?: number) => string): { l: React.ReactNode; v: React.ReactNode; tone?: 'bad' | 'ok' } {
+  const dens = gasDensity(g, depthM);
+  const lvl = densityLevel(dens);
+  return { l: t.densityLabel, v: `${fmt(dens, 1)} ${t.densityUnit}${lvl === 'ok' ? '' : ` · ${t.densityLevelText(lvl)}`}`, tone: lvl === 'crit' ? 'bad' : undefined };
+}
+
 /** Decompression stop table (depth, time, runtime, gas). */
 export function PStops({ t, u, rows, colors, empty }: { t: Dict; u: Units; rows: { depth: number; minutes: number; runtime: number; gas: string }[]; colors: GasColors; empty: string }) {
   return (
@@ -270,6 +277,7 @@ export function PrintSheet(d: PrintData) {
             { l: t.bottomGas, v: gasName(d.bottomGas) },
             { l: t.decoGases, v: d.decoGases.length ? d.decoGases.map((g) => `${gasName(g.gas)} @ ${u.stopDepth(g.switchDepth)}`).join(', ') : '—' },
             { l: 'GF', v: `${d.gfLow}/${d.gfHigh} · ${t.lastStop(u)}: ${u.stopDepthN(d.lastStopDepth)}` },
+            densityRow(t, d.bottomGas, d.maxDepth, fmt),
           ]} />
         </PCard>
         <div className="ps-col">
