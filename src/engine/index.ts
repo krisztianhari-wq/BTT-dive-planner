@@ -11,3 +11,4 @@ export * from './penetration';
 export * from './recreational';
 export * from './sidemount';
 export * from './density';
+export * from './contingency';

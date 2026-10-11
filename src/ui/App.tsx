@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CYLINDERS, Cylinder, DEFAULT_SETTINGS, DecoGasSpec, DivePlan, Gas, GasUsage, STANDARDS, StandardId,
   InventoryItem, Msg, backGasPlan, end, evaluateInventory, gasName, minimumGas, mod, packingList, planConsumption, planDive, ppO2,
-  roundBar, stopTable, itinerary, ItineraryEvent, sidemountSwitchesOnProfile, worstSingleCylinderLitres, defaultSwitchStep, msg, gasDensity,
+  roundBar, stopTable, itinerary, ItineraryEvent, sidemountSwitchesOnProfile, worstSingleCylinderLitres, defaultSwitchStep, msg, gasDensity, GasSupply, lostGasScenarios, DiveInput,
 } from '../engine';
 import { PrintSheet } from './PrintSheet';
 import { DensityVal, densityTone, Card, Chevron, Chip, Disclaimer, IconShare, RobotMark, IconSliders, KV, Label, Note, NumRow, Primary, ProfileCard, Seg, SelectRow, Sheet, Stat, Stats, Stepper, StopRows, Timeline, Toast, Toggle, Verdict, Warnings } from './kit';
@@ -190,6 +190,15 @@ export function App() {
   }, [config, env, mode, plan, bottomGas, sacBottom, sacDeco, backStart, smSingle, smStepBar, minGas.litres]);
   const events: ItineraryEvent[] = plan ? itinerary(plan) : [];
 
+  /* ---- contingencies: lost deco gas (technical mode) ---- */
+  const decoLitres: Record<string, number> | null = mode === 'inventory'
+    ? items.filter((i) => i.role === 'deco').reduce<Record<string, number>>((m, i) => { const k = gasName(i.gas); m[k] = (m[k] ?? 0) + i.cylinder.volumeL * i.pressureBar * i.count; return m; }, {})
+    : null;
+  const supply: GasSupply = { backCylinder: backCyl, backStartBar: backStart, decoLitres, sacBottom, sacDeco };
+  const diveInput: DiveInput = { maxDepth, bottomTime, bottomGas, decoGases, settings };
+  const contKey = JSON.stringify([env, maxDepth, bottomTime, bottomGas, decoGases, settings, supply, plan?.runtime]);
+  const lostGas = useMemo(() => (env === 'open' && plan && decoGases.length ? lostGasScenarios(diveInput, plan, supply) : []), [contKey]);
+
   const bottomPpO2 = ppO2(bottomGas, maxDepth);
   const bottomEnd = end(bottomGas, maxDepth);
   const ppo2Class = bottomPpO2 > L.bottomPpO2Max ? 'bad' : bottomPpO2 > L.bottomPpO2Working ? 'warn' : 'ok';
@@ -255,6 +264,8 @@ export function App() {
   const tabLabel: Record<Tab, string> = { setup: t.tabSetup, plan: t.tabPlan, time: t.tabTimeline, gas: t.tabGasCheck, team: t.tabTeamGas, kit: t.tabKit, deco: t.tabDeco };
   const depthScale = u.sys === 'metric' ? 1 : 3.28084;
   const vol = (l: number) => fmt(u.volumeN(l), u.sys === 'metric' ? 0 : 1);
+  const signed = (v: number) => `${v >= 0 ? '+' : '−'}${fmt(Math.abs(v))}`;
+  const signedVol = (l: number) => `${l >= 0 ? '+' : '−'}${vol(Math.abs(l))}`;
 
   /* ---------- technical mode tabs ---------- */
   const techSetup = (
@@ -451,6 +462,27 @@ export function App() {
           </Card>
         </>
       )}
+      {lostGas.length > 0 && (
+        <>
+          <Label>{t.lostGasTitle}</Label>
+          <Card className="list">
+            {lostGas.map((sc) => (
+              <div className="lg-block" key={sc.name}>
+                <div className="lg-head"><span className="gas-name">{t.lostGasIf(sc.name)}</span><span className={`st ${sc.status}`}>{t.lostGasStatus(sc.status)}</span></div>
+                <div className="lg-sub">{t.lostGasRun(fmt(sc.plan.runtime), signed(sc.extraRuntime), fmt(sc.plan.decoTime), signed(sc.extraDeco))}</div>
+                {sc.rows.map((r) => (
+                  <div className={`lg-row ${r.status}`} key={r.name}>
+                    <span>{r.name} <Chip kind={r.role === 'back' ? 'back' : 'deco'}>{r.role === 'back' ? t.roleBackShort : t.roleDecoShort}</Chip></span>
+                    <span className="r">{t.lostGasExtra} {signedVol(r.neededL - r.baseNeededL)}</span>
+                    <span className="r">{vol(r.neededL)} / {vol(r.availableL)} {u.v}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </Card>
+          <Note>{t.lostGasNote}</Note>
+        </>
+      )}
       {mode === 'standard' && pack.length > 0 && (
         <>
           <Label>{t.packing}</Label>
@@ -614,6 +646,7 @@ export function App() {
           plan={plan} stops={stops} events={events} usage={usage} bg={bg} minGas={minGas} minGasBar={minGasBar} backCyl={backCyl} backStart={backStart}
           pack={pack} verdict={mode === 'inventory' ? verdict : null} eventText={eventText} warnings={warnings}
           planOk={techOk} planTitle={techOk ? t.techFeasible(stdLabel) : t.techNotFeasible(stdLabel)} blockers={blockers}
+          lostGas={lostGas}
         />
       )}
     </div>

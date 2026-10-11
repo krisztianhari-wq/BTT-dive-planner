@@ -262,6 +262,17 @@ button.row:disabled { cursor: default; }
 .dg-more .row.kv .row-l { color: var(--muted); font-weight: 500; font-size: 13px; }
 .dg-more .row-kv { font-size: 14px; }
 
+/* contingency tables (lost gas, range) */
+.st { display: inline-block; flex: none; border-radius: 6px; padding: 3px 8px; font: 600 11px var(--mono); white-space: nowrap; }
+.st.ok { background: var(--ok-bg); color: var(--ok); } .st.noReserve { background: var(--warn-bg); color: var(--warn); } .st.short { background: var(--err-bg); color: var(--err); }
+.lg-block { padding: 12px 0; border-top: 1px solid var(--divider); display: flex; flex-direction: column; gap: 6px; }
+.card.list > .lg-block:first-child { border-top: 0; }
+.lg-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: space-between; }
+.lg-sub { font: 500 12px/1.4 var(--sans); color: var(--muted); }
+.lg-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 10px; font: 500 12.5px/1.35 var(--mono); align-items: baseline; }
+.lg-row .r { text-align: right; white-space: nowrap; }
+.lg-row.ok .r:last-child { color: var(--ok); } .lg-row.noReserve .r:last-child { color: var(--warn); } .lg-row.short .r:last-child { color: var(--err); }
+
 /* footer */
 .footer2 { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 18px; text-align: center; font: 500 11px/1.4 var(--sans); color: var(--faint); }
 .footer2 img { width: 34px; height: 34px; filter: var(--logo-filter); opacity: .8; }

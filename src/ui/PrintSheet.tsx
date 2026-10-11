@@ -1,5 +1,5 @@
 import {
-  Cylinder, DivePlan, Gas, GasUsage, ItineraryEvent, StopRow, BackGasPlan, MinimumGasResult, PackingItem, InventoryVerdict, gasName, gasDensity, densityLevel,
+  Cylinder, DivePlan, Gas, GasUsage, ItineraryEvent, StopRow, BackGasPlan, MinimumGasResult, PackingItem, InventoryVerdict, gasName, gasDensity, densityLevel, LostGasScenario,
 } from '../engine';
 import { Dict } from './i18n';
 import { Units } from './units';
@@ -259,6 +259,8 @@ export interface PrintData {
   warnings: { text: string; bad: boolean }[];
   /** plan verdict under the selected gas standard */
   planOk: boolean; planTitle: string; blockers: string[];
+  /** lost deco gas scenarios (technical mode) */
+  lostGas?: LostGasScenario[];
 }
 
 export function PrintSheet(d: PrintData) {
@@ -326,6 +328,25 @@ export function PrintSheet(d: PrintData) {
           </div>
         </PCard>
       </div>
+
+      {d.lostGas && d.lostGas.length > 0 && (
+        <>
+          <PLabel>{t.lostGasTitle}</PLabel>
+          <table className="ps-table zebra">
+            <thead><tr className="pb"><th>{t.lostGasCol}</th><th className="num">{t.runtime}</th><th className="num">{t.decoTotal}</th><th>{t.lostGasNeed} ({u.v})</th><th>{t.status}</th></tr></thead>
+            <tbody>{d.lostGas.map((sc) => (
+              <tr key={sc.name} className="pb">
+                <td className="b"><GasDot name={sc.name} colors={colors} /></td>
+                <td className="num">{fmt(sc.plan.runtime)} <span className="muted">({sc.extraRuntime >= 0 ? '+' : '−'}{fmt(Math.abs(sc.extraRuntime))})</span></td>
+                <td className="num">{fmt(sc.plan.decoTime)} <span className="muted">({sc.extraDeco >= 0 ? '+' : '−'}{fmt(Math.abs(sc.extraDeco))})</span></td>
+                <td>{sc.rows.map((r) => `${r.name} ${vol(r.neededL)}/${vol(r.availableL)}`).join(' · ')}</td>
+                <td className={`b ${sc.status === 'ok' ? 'ok' : 'bad'}`}>{t.lostGasStatus(sc.status)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+          <p className="ps-note pb">{t.lostGasNote}</p>
+        </>
+      )}
 
       {d.mode === 'standard' ? (
         <PPacking title={t.packing} colors={colors} fillLabel={t.minFill}
