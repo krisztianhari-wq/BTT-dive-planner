@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CYLINDERS, Cylinder, DEFAULT_SETTINGS, DecoGasSpec, DivePlan, Gas, GasUsage, STANDARDS, StandardId,
   InventoryItem, Msg, backGasPlan, end, evaluateInventory, gasName, minimumGas, mod, packingList, planConsumption, planDive, ppO2,
@@ -7,9 +7,11 @@ import {
 import { PrintSheet } from './PrintSheet';
 import { GfChart, DensityVal, densityTone, Card, Chevron, Chip, Disclaimer, IconShare, RobotMark, IconSliders, KV, Label, Note, NumRow, Primary, ProfileCard, Seg, SelectRow, Sheet, Stat, Stats, Stepper, StopRows, Timeline, Toast, Toggle, Verdict, Warnings } from './kit';
 import { PenetrationView, PenState, defaultPenState, usePenetrationPlan, penEventText } from './PenetrationView';
-import { RecreationalView, RecState, defaultRecState, useRecreationalPlan } from './RecreationalView';
+import { RecreationalView, RecState, defaultRecState, useRecreationalPlan, REC_GASES } from './RecreationalView';
 import { RecPrintSheet, PenPrintSheet } from './PrintSheets';
 import { BlendTool } from './BlendSheet';
+import { Brief, BriefData } from './Brief';
+import { PLAN_HASH, PlanLinkV1, decodePlanHash, planUrl } from './planLink';
 import { RepetitiveCard, RepState, LogStatus, defaultRepState, epochOfLocal, localNow, parsePlannerContext, contextUrl, startSummary } from './Repetitive';
 import { renderPdf, savePdf, sharePdf, canShareFiles, isMobileTauri, askConfirm } from './pdf';
 import { Lang, dict, initialLang } from './i18n';
@@ -62,11 +64,14 @@ export function App() {
     if (el && window.matchMedia?.('(min-width: 1024px)').matches) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     else window.scrollTo({ top: 0 });
   };
-  const [sheet, setSheet] = useState<null | 'settings' | 'export' | 'blend'>(null);
+  const [sheet, setSheet] = useState<null | 'settings' | 'export' | 'blend' | 'share'>(null);
+  const [briefOpen, setBriefOpen] = useState(false);
+  const [planName, setPlanName] = useState('');
   const [algoOpen, setAlgoOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(null), 1800); return () => clearTimeout(id); }, [toast]);
   const closeSheet = useCallback(() => setSheet(null), []);
+  const closeBrief = useCallback(() => setBriefOpen(false), []);
   const setEnv = async (target: Env) => {
     if (target === env) return;
     if (target === 'rec') { setEnvRaw('rec'); setTabRaw(TABS.rec[1]); return; }
@@ -94,7 +99,10 @@ export function App() {
   const [method, setMethod] = useState<'next' | 'current'>(() => stored('btt-method', ['next', 'current'], 'next'));
   const [maxDepth, setMaxDepth] = useState(45);
   const [bottomTime, setBottomTime] = useState(25);
-  const [bottomGasIdx, setBottomGasIdx] = useState<number | 'auto'>('auto');
+  const [bottomGasIdx, setBottomGasIdx] = useState<number | 'auto' | 'custom'>('auto');
+  // gases from a plan link that are not in the standard's list
+  const [customBottom, setCustomBottom] = useState<Gas | null>(null);
+  const [customDeco, setCustomDeco] = useState<{ gas: Gas; switchDepth: number; on: boolean }[]>([]);
   const [decoOn, setDecoOn] = useState<Record<string, boolean> | null>(null);
   const [gfLow, setGfLow] = useState(20);
   const [gfHigh, setGfHigh] = useState(85);
@@ -128,7 +136,7 @@ export function App() {
   const isGue = stdId === 'gue';
   const L = std.limits;
   const lastStopDepth = lastStop ?? std.lastStopDepth;
-  const changeStandard = (id: StandardId) => { setStdId(id); setBottomGasIdx('auto'); setDecoOn(null); setLastStop(null); };
+  const changeStandard = (id: StandardId) => { setStdId(id); setBottomGasIdx('auto'); setDecoOn(null); setLastStop(null); setCustomBottom(null); setCustomDeco([]); };
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -176,12 +184,16 @@ export function App() {
 
   /* ---- standard mode ---- */
   const autoBottom = std.bottomGasFor(maxDepth);
-  const stdBottomGas: Gas = bottomGasIdx === 'auto' || bottomGasIdx >= std.bottomGases.length
-    ? (autoBottom?.gas ?? std.bottomGases[std.bottomGases.length - 1].gas)
-    : std.bottomGases[bottomGasIdx].gas;
+  const stdBottomGas: Gas = bottomGasIdx === 'custom' && customBottom ? customBottom
+    : bottomGasIdx === 'auto' || bottomGasIdx === 'custom' || bottomGasIdx >= std.bottomGases.length
+      ? (autoBottom?.gas ?? std.bottomGases[std.bottomGases.length - 1].gas)
+      : std.bottomGases[bottomGasIdx].gas;
   const recommended = std.recommendedDecoGasesFor(maxDepth);
   const decoSelection: Record<string, boolean> = decoOn ?? Object.fromEntries(std.decoGases.map((d) => [d.gas.name!, recommended.includes(d)]));
-  const stdDecoGases: DecoGasSpec[] = std.decoGases.filter((d) => decoSelection[d.gas.name!]).map((d) => ({ gas: d.gas, switchDepth: d.switchDepth }));
+  const stdDecoGases: DecoGasSpec[] = [
+    ...std.decoGases.filter((d) => decoSelection[d.gas.name!]).map((d) => ({ gas: d.gas, switchDepth: d.switchDepth })),
+    ...customDeco.filter((d) => d.on).map((d) => ({ gas: d.gas, switchDepth: d.switchDepth })),
+  ];
   const SM_CYLINDERS = CYLINDERS.filter((c) => c.name.startsWith('Single') || c.name.startsWith('AL80'));
   const smSingle = SM_CYLINDERS[smCylIdx] ?? SM_CYLINDERS[0];
   const cylinder: Cylinder = config === 'sidemount'
@@ -325,6 +337,136 @@ export function App() {
       summary={repSum} used={repResult?.used ?? []} unknownCount={repResult?.unknown ?? 0} futureCount={repResult?.future ?? 0} />
   );
 
+  /* ---------- shareable plan link (#plan=) ---------- */
+  const frac = (g: Gas) => ({ o2: Math.round(g.o2 * 1000) / 1000, he: Math.round(g.he * 1000) / 1000 });
+  const gasLabel = (g: Gas) => (g.he > 0 ? `Tx ${Math.round(g.o2 * 100)}/${Math.round(g.he * 100)}` : gasName(g));
+  const curDepth = env === 'rec' ? rec.maxDepth : env === 'pen' ? pen.maxDepth : maxDepth;
+  const curBt = env === 'rec' ? rec.bottomTime : env === 'pen' ? Math.round(penData.plan?.bottomTime ?? pen.plannedMinutes) : bottomTime;
+  const curGas = env === 'rec' ? recData.gas : env === 'pen' ? penData.bottomGas : bottomGas;
+  const defaultName = `${u.depth(curDepth)} / ${curBt}′ – ${gasLabel(curGas)}`;
+  const buildPlan = (): PlanLinkV1 => {
+    const base = { v: 1 as const, gfLow, gfHigh, lastStop: lastStopDepth, sacDeco, std: stdId, unit: unitSys, ...(altitudeM > 0 ? { altitudeM } : {}), name: planName.trim() || defaultName };
+    if (env === 'rec') return { ...base, env: 'rec', maxDepth: rec.maxDepth, bottomTime: rec.bottomTime, bottomGas: frac(recData.gas), decoGases: [], sacBottom: rec.sac };
+    if (env === 'pen') {
+      return { ...base, env: 'pen', maxDepth: pen.maxDepth, bottomTime: curBt, bottomGas: frac(penData.bottomGas), sacBottom: pen.shared.sac,
+        decoGases: penData.input.decoGases.map((d) => ({ ...frac(d.gas), switchDepth: d.switchDepth })), pen: { ...pen, brave: false } };
+    }
+    return { ...base, env: 'open', maxDepth, bottomTime, bottomGas: frac(bottomGas), sacBottom, decoGases: decoGases.map((d) => ({ ...frac(d.gas), switchDepth: d.switchDepth })) };
+  };
+  const sameGas = (a: { o2: number; he: number }, b: { o2: number; he: number }) => Math.abs(a.o2 - b.o2) < 0.005 && Math.abs(a.he - b.he) < 0.005;
+  const applyPlan = async (p: PlanLinkV1) => {
+    if (p.unit) setUnitSys(p.unit);
+    const sid = p.std ?? stdId;
+    if (p.std) setStdId(p.std);
+    const S = STANDARDS[sid];
+    setGfLow(p.gfLow); setGfHigh(p.gfHigh); setLastStop(p.lastStop);
+    setSacBottom(p.sacBottom); setSacDeco(p.sacDeco);
+    setAltitudeM(p.altitudeM ?? 0);
+    setPlanName(p.name ?? '');
+    if (p.env === 'rec') {
+      const i = REC_GASES.findIndex((g) => sameGas(g.gas, p.bottomGas));
+      setRec((r) => ({ ...r, maxDepth: p.maxDepth, bottomTime: p.bottomTime, sac: p.sacBottom, gasIdx: i >= 0 ? i : 'custom', customGas: i >= 0 ? undefined : { ...p.bottomGas } }));
+    } else if (p.env === 'open') {
+      setMode('standard'); setMaxDepth(p.maxDepth); setBottomTime(p.bottomTime);
+      const bi = S.bottomGases.findIndex((g) => sameGas(g.gas, p.bottomGas));
+      if (bi >= 0) { setBottomGasIdx(bi); setCustomBottom(null); } else { setCustomBottom({ ...p.bottomGas }); setBottomGasIdx('custom'); }
+      const on: Record<string, boolean> = Object.fromEntries(S.decoGases.map((d) => [d.gas.name!, false]));
+      const custom: { gas: Gas; switchDepth: number; on: boolean }[] = [];
+      for (const d of p.decoGases) {
+        const sd = S.decoGases.find((x) => sameGas(x.gas, d) && x.switchDepth === d.switchDepth);
+        if (sd) on[sd.gas.name!] = true; else custom.push({ gas: { o2: d.o2, he: d.he }, switchDepth: d.switchDepth, on: true });
+      }
+      setDecoOn(on); setCustomDeco(custom);
+    } else {
+      setPen((x) => ({ ...x, ...(p.pen ?? {}), maxDepth: p.pen?.maxDepth ?? p.maxDepth, brave: false }));
+    }
+    if (p.env !== env) await setEnv(p.env); // technical / penetration still need the qualification confirmation
+  };
+  const applyRef = useRef(applyPlan);
+  applyRef.current = applyPlan;
+  const tRef = useRef(t);
+  tRef.current = t;
+  useEffect(() => {
+    const load = () => {
+      if (!location.hash.startsWith(PLAN_HASH)) return;
+      const p = decodePlanHash(location.hash);
+      try { history.replaceState(null, '', `${location.pathname}${location.search}`); } catch { /* ignore */ }
+      if (!p) { setToast(tRef.current.linkInvalid); return; }
+      void applyRef.current(p).then(() => setToast(tRef.current.linkLoaded));
+    };
+    load();
+    window.addEventListener('hashchange', load);
+    return () => window.removeEventListener('hashchange', load);
+  }, []);
+  const shareUrl = sheet === 'share' ? planUrl(buildPlan()) : '';
+  const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(shareUrl); setToast(t.shareCopied); }
+    catch { const el = document.querySelector<HTMLTextAreaElement>('.share-url'); el?.select(); }
+  };
+  const nativeShare = async () => {
+    try { await navigator.share({ title: planName.trim() || defaultName, url: shareUrl }); } catch { /* cancelled */ }
+  };
+
+  const signed = (v: number) => `${v >= 0 ? '+' : '−'}${fmt(Math.abs(v))}`;
+  const buildBrief = (): BriefData | null => {
+    const title = planName.trim() || defaultName;
+    const pills = ctxPills.map((p) => p.text);
+    const notes = [...(repResult ? [t.briefRepNote] : []), ...(altitudeM > 0 ? [t.altitudeNote(acclimatised)] : []), t.disclaimer];
+    const gasDetail = (g: Gas, d: number) => {
+      const dens = gasDensity(g, d);
+      return { detail: `pO2 ${ppO2(g, d).toFixed(2)} · END ${u.depth(end(g, d))} · ${fmt(dens, 1)} ${t.densityUnit}`, tone: densityTone(dens) };
+    };
+    if (env === 'rec') {
+      const r = recData.plan;
+      return {
+        title, envLabel: t.envRec, verdict: { ok: r.feasible, title: r.feasible ? t.recFeasible : t.feasibleNo }, pills,
+        kpis: [{ v: u.depth(rec.maxDepth), l: t.maxDepth(u) }, { v: `${rec.bottomTime}′`, l: t.bottomTime }, { v: r.ndlMinutes >= 999 ? '∞' : r.ndlMinutes, l: t.recNdl }, { v: fmt(r.runtime), l: t.runtime }, { v: u.pressure(r.turnBar), l: t.recTurn }],
+        gases: [{ name: gasName(recData.gas), role: t.roleBottom, ...gasDetail(recData.gas, rec.maxDepth) }],
+        stops: [], stopsEmpty: t.recSafetyStop(u.depth(5), 3),
+        gasRows: [
+          { l: t.recSurfaceWith(u.pressure(r.surfaceReserveBar)), v: u.pressure(r.surfaceReserveBar) },
+          { l: t.recGasUsed, v: `${u.pressure(r.gasUsedBar)} · ${u.volume(r.gasUsedLitres)}` },
+          { l: t.recSurfaceBar, v: u.pressure(r.surfaceBar), tone: r.gasOk ? 'ok' : 'bad' },
+          { l: t.recRockBottom, v: u.pressure(r.rockBottomBar) },
+        ],
+        lostGas: [], warnings: [...r.blockers.map((m) => ({ text: t.msg(m, u), bad: true })), ...r.warnings.map((m) => ({ text: t.msg(m, u), bad: false }))], notes,
+      };
+    }
+    if (env === 'pen') {
+      const p = penData.plan;
+      if (!p) return null;
+      const lim = p.members.find((m) => m.member.id === p.limiting.id) ?? p.members[0];
+      const pst = stopTable(p.deco);
+      return {
+        title, envLabel: t.envPen, verdict: { ok: p.feasible && !p.overridden, title: p.overridden ? t.penBraveActive : p.feasible ? t.penFeasible : t.feasibleNo }, pills,
+        kpis: [{ v: u.pressure(lim.turnBar), l: t.teamTurnsAt }, { v: fmt(p.penetrationMinutes), l: t.penKpiPenMin }, { v: fmt(p.bottomTime), l: t.penKpiBottom }, { v: fmt(p.deco.decoTime), l: t.decoTotal }, { v: fmt(p.deco.runtime), l: t.runtime }],
+        gases: [{ name: gasName(penData.bottomGas), role: t.roleBottom, ...gasDetail(penData.bottomGas, pen.maxDepth) },
+          ...penData.input.decoGases.map((d) => ({ name: gasName(d.gas), role: t.roleDecoShort, detail: t.switchAt(u.stopDepth(d.switchDepth)) }))],
+        stops: pst.map((x) => ({ depth: u.stopDepth(x.depth), minutes: x.minutes, runtime: Math.round(x.runtime + (p.bottomTime - p.deco.bottomTime)), gas: x.gas })), stopsEmpty: t.noStops(true, u),
+        gasRows: p.members.map((m) => ({ l: `${m.member.name} · ${gasName(m.member.gas ?? penData.bottomGas)}`, v: `${u.pressureN(m.member.startBar)} → ${u.pressure(m.turnBar)}`, tone: m.sharedExitRemainingLitres < 0 ? 'bad' as const : undefined })),
+        lostGas: [], warnings: [...p.blockers.map((m) => ({ text: t.msg(m, u), bad: true })), ...p.warnings.map((m) => ({ text: t.msg(m, u), bad: false }))], notes,
+      };
+    }
+    if (!plan || !bg) return null;
+    return {
+      title, envLabel: t.envOpen, verdict: { ok: techOk, title: techOk ? t.techFeasible(stdLabel) : t.techNotFeasible(stdLabel) }, pills,
+      kpis: [{ v: u.depth(maxDepth), l: t.maxDepth(u) }, { v: `${bottomTime}′`, l: t.bottomTime }, { v: fmt(plan.runtime), l: t.runtime }, { v: fmt(plan.decoTime), l: t.decoTotal },
+        { v: plan.firstStopDepth === null ? '—' : u.stopDepth(plan.firstStopDepth), l: t.firstStop(u) }],
+      gases: [{ name: gasName(bottomGas), role: t.roleBottom, ...gasDetail(bottomGas, maxDepth) },
+        ...decoGases.map((d) => ({ name: gasName(d.gas), role: t.roleDecoShort, detail: `${t.switchAt(u.stopDepth(d.switchDepth))} · pO2 ${ppO2(d.gas, d.switchDepth).toFixed(2)}` }))],
+      stops: stops.map((x) => ({ depth: u.stopDepth(x.depth), minutes: x.minutes, runtime: x.runtime, gas: x.gas })), stopsEmpty: t.noStops(isGue, u),
+      gasRows: [
+        { l: t.minGas, v: u.pressure(minGasBar) },
+        { l: t.turnPressure, v: u.pressure(bg.turnPressureBar) },
+        { l: t.backGasEnough, v: bg.ok ? t.yes : t.no, tone: bg.ok ? 'ok' : 'bad' },
+        ...usage.map((x) => ({ l: x.name, v: u.volume(x.litres) })),
+      ],
+      lostGas: lostGas.map((sc) => ({ name: sc.name, text: t.lostGasRun(fmt(sc.plan.runtime), signed(sc.extraRuntime), fmt(sc.plan.decoTime), signed(sc.extraDeco)), status: sc.status, statusText: t.lostGasStatus(sc.status) })),
+      warnings, notes,
+    };
+  };
+
   /** context badges (altitude, repetitive dive) shown under the page head in every mode */
   const ctxPills: { text: string; tone?: 'warn' }[] = [];
   if (altitudeM > 0) ctxPills.push({ text: `⛰ ${t.altitudeBadge(u.depth(altitudeM), fmt(surfaceBar, 3))}`, tone: 'warn' });
@@ -338,7 +480,6 @@ export function App() {
   const depthScale = u.sys === 'metric' ? 1 : 3.28084;
   const vol = (l: number) => fmt(u.volumeN(l), u.sys === 'metric' ? 0 : 1);
   const issueMark = (i: CellIssue) => (i === 'gas' ? 'G' : i === 'ppo2' ? 'O₂' : i === 'density' ? 'ρ' : 'D');
-  const signed = (v: number) => `${v >= 0 ? '+' : '−'}${fmt(Math.abs(v))}`;
   const signedVol = (l: number) => `${l >= 0 ? '+' : '−'}${vol(Math.abs(l))}`;
 
   /* ---------- technical mode tabs ---------- */
@@ -353,7 +494,8 @@ export function App() {
         <Card className="list">
           <SelectRow label={t.bottomGas} value={bottomGasIdx} onChange={setBottomGasIdx}
             options={[{ v: 'auto' as const, l: isGue ? t.autoBottomGas(autoBottom?.gas.name ?? '—') : t.autoBottomGasGeneric(autoBottom?.gas.name ?? '—') },
-              ...std.bottomGases.map((g, i) => ({ v: i, l: `${g.gas.name} (${isGue ? `${u.depthN(g.minDepth)}–${u.depth(g.maxDepth)}` : `MOD ${u.depth(mod(g.gas, 1.4))}`})` }))]} />
+              ...std.bottomGases.map((g, i) => ({ v: i as number | 'auto' | 'custom', l: `${g.gas.name} (${isGue ? `${u.depthN(g.minDepth)}–${u.depth(g.maxDepth)}` : `MOD ${u.depth(mod(g.gas, 1.4))}`})` })),
+              ...(customBottom ? [{ v: 'custom' as const, l: `${gasName(customBottom)} (${t.fromLink}, MOD ${u.depth(mod(customBottom, L.bottomPpO2Max))})` }] : [])]} />
           <div className="row stack">
             <span className="row-l">{t.decoGases}</span>
             <div className="tchips">
@@ -361,6 +503,9 @@ export function App() {
                 const on = !!decoSelection[d.gas.name!];
                 return <Toggle key={d.gas.name} on={on} onClick={() => setDecoOn({ ...decoSelection, [d.gas.name!]: !on })}>{d.gas.name} · {u.stopDepth(d.switchDepth)}</Toggle>;
               })}
+              {customDeco.map((d, i) => (
+                <Toggle key={`c${i}`} on={d.on} onClick={() => setCustomDeco(customDeco.map((x, j) => (j === i ? { ...x, on: !x.on } : x)))}>{gasName(d.gas)} · {u.stopDepth(d.switchDepth)} ({t.fromLink})</Toggle>
+              ))}
             </div>
             <span className="row-sub">{t.recommended}: {recommended.length ? recommended.map((r) => r.gas.name).join(', ') : t.noneMinDeco}</span>
           </div>
@@ -607,6 +752,12 @@ export function App() {
       ? <PenetrationView t={t} u={u} lang={lang} std={std} settings={settings} tab={tb as 'setup' | 'team' | 'kit' | 'deco'} state={pen} setState={setPen} onMatch={() => setTab('team')} onExport={() => setSheet('export')} />
       : tb === 'setup' ? techSetup : tb === 'plan' ? techPlan : techGas;
   const [setupTab, ...resultTabs] = TABS[env];
+  const actionRow = canPrint ? (
+    <div className="actions">
+      <button onClick={() => setBriefOpen(true)}>{t.briefOpen}</button>
+      <button onClick={() => setSheet('share')}>{t.shareAction}</button>
+    </div>
+  ) : null;
 
   return (
     <div className="app">
@@ -653,6 +804,7 @@ export function App() {
               {renderTab(setupTab)}
             </section>
             <div className="col col-results">
+              {actionRow}
               {resultTabs.map((id) => (
                 <section className="col-sec" id={`tab-${id}`} key={id} aria-label={tabLabel[id]}>
                   <h2 className="col-h">{tabLabel[id]}</h2>
@@ -662,7 +814,7 @@ export function App() {
             </div>
           </div>
         ) : (
-          <div className="stack" key={`${env}-${tab}`}>{renderTab(tab)}</div>
+          <div className="stack" key={`${env}-${tab}`}>{tab !== setupTab && actionRow}{renderTab(tab)}</div>
         )}
         <footer className="footer2">
           <img src={logoUrl} alt="" aria-hidden="true" />
@@ -757,6 +909,20 @@ export function App() {
         </div>
         <Primary disabled={busy} onClick={() => doPdf(shareable ? 'share' : 'save')}>{busy ? '…' : shareable ? t.sharePdf : t.savePdf}</Primary>
       </Sheet>
+      <Sheet open={sheet === 'share'} onClose={closeSheet} label={t.shareTitle}>
+        <div className="sheet-head"><h2>{t.shareTitle}</h2><button className="pill" onClick={closeSheet}>{t.done}</button></div>
+        <div className="sheet-field"><span>{t.planNameLabel}</span>
+          <input className="text-field" value={planName} placeholder={defaultName} maxLength={80} onChange={(e) => setPlanName(e.target.value)} />
+        </div>
+        <textarea className="share-url" readOnly rows={4} value={shareUrl} onFocus={(e) => e.currentTarget.select()} />
+        <div className="sheet-btns">
+          <button onClick={copyLink}>{t.shareCopy}</button>
+          {canNativeShare && <button onClick={nativeShare}>{t.shareNative}</button>}
+          <button onClick={() => { setSheet(null); setBriefOpen(true); }}>{t.briefOpen}</button>
+        </div>
+        <Note>{t.shareNote}</Note>
+      </Sheet>
+      {briefOpen && (() => { const b = buildBrief(); return b ? <Brief t={t} data={b} onClose={closeBrief} /> : null; })()}
       <Toast text={toast} />
 
       {env === 'rec' && (

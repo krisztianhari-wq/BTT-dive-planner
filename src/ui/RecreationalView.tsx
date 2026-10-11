@@ -4,12 +4,12 @@ import { Dict } from './i18n';
 import { Units } from './units';
 import { DensityVal, densityTone, Card, KV, Label, Note, NumRow, Primary, ProfileCard, SelectRow, Stat, Stats, Stepper, Timeline, Verdict, Warnings } from './kit';
 
-export interface RecState { maxDepth: number; bottomTime: number; gasIdx: number | 'auto'; cylIdx: number; startBar: number; sac: number }
+export interface RecState { maxDepth: number; bottomTime: number; gasIdx: number | 'auto' | 'custom'; cylIdx: number; startBar: number; sac: number; /** nitrox from a plan link that is not in the list */ customGas?: Gas }
 /** Recreational mode: single 12 L or 15 L back cylinder only */
 export const REC_CYLINDERS = CYLINDERS.filter((c) => c.name.startsWith('Single 12') || c.name.startsWith('Single 15'));
 export const defaultRecState = (): RecState => ({ maxDepth: 18, bottomTime: 30, gasIdx: 'auto', cylIdx: 0, startBar: 200, sac: 18 });
 
-const REC_GASES = GENERIC_STANDARD.bottomGases.filter((g) => g.gas.he === 0); // Air, EAN28/32/36/40
+export const REC_GASES = GENERIC_STANDARD.bottomGases.filter((g) => g.gas.he === 0); // Air, EAN28/32/36/40
 
 /** Dive environment shared with the other modes: surface pressure (altitude) and start tissues (repetitive dive). */
 export interface RecEnv { surfacePressureBar?: number; initialTissues?: TissueState }
@@ -18,7 +18,7 @@ export function useRecreationalPlan(s: RecState, gfHigh: number, env: RecEnv = {
   const envKey = JSON.stringify(env);
   return useMemo(() => {
     const auto = GENERIC_STANDARD.bottomGasFor(Math.min(s.maxDepth, 40));
-    const gas: Gas = s.gasIdx === 'auto' ? (auto?.gas ?? REC_GASES[REC_GASES.length - 1].gas) : REC_GASES[s.gasIdx].gas;
+    const gas: Gas = s.gasIdx === 'custom' && s.customGas ? s.customGas : s.gasIdx === 'auto' || s.gasIdx === 'custom' || !REC_GASES[s.gasIdx] ? (auto?.gas ?? REC_GASES[REC_GASES.length - 1].gas) : REC_GASES[s.gasIdx].gas;
     const cyl = REC_CYLINDERS[s.cylIdx] ?? REC_CYLINDERS[0];
     const input: RecInput = { maxDepth: s.maxDepth, bottomTime: s.bottomTime, gas, cylinder: cyl, startBar: s.startBar, sacLpm: s.sac, gfHigh: gfHigh / 100, ...env };
     const plan = planRecreational(input);
@@ -41,7 +41,8 @@ export function RecreationalView({ t, u, lang, gfHigh, tab, state: s, setState, 
         <Stepper label={t.bottomTime} min={1} max={300} step={5} value={s.bottomTime} onChange={(v) => set({ bottomTime: v })} />
         <Card className="list">
           <SelectRow label={t.bottomGas} value={s.gasIdx} onChange={(v) => set({ gasIdx: v })}
-            options={[{ v: 'auto' as const, l: t.autoBottomGasGeneric(auto?.gas.name ?? '—') }, ...REC_GASES.map((g, i) => ({ v: i, l: `${g.gas.name} (MOD ${u.depth(mod(g.gas, 1.4))})` }))]} />
+            options={[{ v: 'auto' as const, l: t.autoBottomGasGeneric(auto?.gas.name ?? '—') }, ...REC_GASES.map((g, i) => ({ v: i as number | 'auto' | 'custom', l: `${g.gas.name} (MOD ${u.depth(mod(g.gas, 1.4))})` })),
+              ...(s.customGas ? [{ v: 'custom' as const, l: `${gasName(s.customGas)} (${t.fromLink}, MOD ${u.depth(mod(s.customGas, 1.4))})` }] : [])]} />
           <div className="row info">{gasName(gas)}: pO2 <b className={po2 > 1.4 ? 'bad' : 'ok'}>{po2.toFixed(2)}</b> bar · END {u.depth(end(gas, s.maxDepth))} · {t.densityShort} <DensityVal gL={gasDensity(gas, s.maxDepth)} locale={lang === 'hu' ? 'hu-HU' : 'en-GB'} unit={t.densityUnit} /></div>
           <SelectRow label={t.backCylinder} value={s.cylIdx} onChange={(v) => set({ cylIdx: v })} options={REC_CYLINDERS.map((c, i) => ({ v: i, l: c.name }))} />
           <NumRow label={t.startPressure(u)} min={0} value={u.pressureN(s.startBar)} onChange={(v) => set({ startBar: u.toBar(v) })} />
