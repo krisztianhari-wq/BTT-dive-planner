@@ -36,13 +36,13 @@ function inspired(fraction: number, ambientBar: number): number {
 
 /**
  * Schreiner equation: load tissues for a segment where depth changes linearly
- * from startDepth to endDepth over `minutes` breathing `gas`.
+ * from startDepth to endDepth over `minutes` breathing `gas` (`surface`: surface pressure in bar, sea level by default).
  * Mutates and returns `t`.
  */
-export function loadSegment(t: TissueState, gas: Gas, startDepthM: number, endDepthM: number, minutes: number): TissueState {
+export function loadSegment(t: TissueState, gas: Gas, startDepthM: number, endDepthM: number, minutes: number, surface = SURFACE_PRESSURE_BAR): TissueState {
   if (minutes <= 0) return t;
-  const pStart = depthToAmbient(startDepthM);
-  const pEnd = depthToAmbient(endDepthM);
+  const pStart = depthToAmbient(startDepthM, surface);
+  const pEnd = depthToAmbient(endDepthM, surface);
   const rate = (pEnd - pStart) / minutes; // bar/min
   const fN2 = n2Fraction(gas);
   const fHe = gas.he;

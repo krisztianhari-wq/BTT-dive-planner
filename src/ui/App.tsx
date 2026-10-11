@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CYLINDERS, Cylinder, DEFAULT_SETTINGS, DecoGasSpec, DivePlan, Gas, GasUsage, STANDARDS, StandardId,
   InventoryItem, Msg, backGasPlan, end, evaluateInventory, gasName, minimumGas, mod, packingList, planConsumption, planDive, ppO2,
-  roundBar, stopTable, itinerary, ItineraryEvent, sidemountSwitchesOnProfile, worstSingleCylinderLitres, defaultSwitchStep, msg, gasDensity, GasSupply, lostGasScenarios, DiveInput, rangeTable, maxFeasibleBottomTime, CellIssue,
+  roundBar, stopTable, itinerary, ItineraryEvent, sidemountSwitchesOnProfile, worstSingleCylinderLitres, defaultSwitchStep, msg, gasDensity, PlanSettings, supersaturationTrace, ascentStart, GasSupply, lostGasScenarios, DiveInput, rangeTable, maxFeasibleBottomTime, CellIssue,
 } from '../engine';
 import { PrintSheet } from './PrintSheet';
-import { DensityVal, densityTone, Card, Chevron, Chip, Disclaimer, IconShare, RobotMark, IconSliders, KV, Label, Note, NumRow, Primary, ProfileCard, Seg, SelectRow, Sheet, Stat, Stats, Stepper, StopRows, Timeline, Toast, Toggle, Verdict, Warnings } from './kit';
+import { GfChart, DensityVal, densityTone, Card, Chevron, Chip, Disclaimer, IconShare, RobotMark, IconSliders, KV, Label, Note, NumRow, Primary, ProfileCard, Seg, SelectRow, Sheet, Stat, Stats, Stepper, StopRows, Timeline, Toast, Toggle, Verdict, Warnings } from './kit';
 import { PenetrationView, PenState, defaultPenState, usePenetrationPlan, penEventText } from './PenetrationView';
 import { RecreationalView, RecState, defaultRecState, useRecreationalPlan } from './RecreationalView';
 import { RecPrintSheet, PenPrintSheet } from './PrintSheets';
@@ -96,6 +96,10 @@ export function App() {
   const [decoOn, setDecoOn] = useState<Record<string, boolean> | null>(null);
   const [gfLow, setGfLow] = useState(20);
   const [gfHigh, setGfHigh] = useState(85);
+  const [descentRate, setDescentRate] = useState(DEFAULT_SETTINGS.descentRateMpm);
+  const [ascentFast, setAscentFast] = useState(DEFAULT_SETTINGS.ascentRateMpm);
+  const [ascentSlow, setAscentSlow] = useState<number | null>(null);
+  const [rateChange, setRateChange] = useState(0);
   const [lastStop, setLastStop] = useState<number | null>(null);
   const [cylIdx, setCylIdx] = useState(0);
   const [config, setConfig] = useState<'backmount' | 'sidemount'>(() => stored('btt-config', ['backmount', 'sidemount'], 'backmount'));
@@ -137,10 +141,13 @@ export function App() {
   useEffect(() => { try { localStorage.setItem('btt-config', config); } catch { /* ignore */ } }, [config]);
   useEffect(() => { document.documentElement.dataset.env = env; }, [env]);
 
-  const settings = {
+  const shallowRate = ascentSlow ?? std.ascentRateShallowMpm;
+  const settings: PlanSettings = {
     ...DEFAULT_SETTINGS, gf: { low: gfLow / 100, high: gfHigh / 100 }, lastStopDepth, gfEvalAt: method,
-    ascentRateShallowMpm: std.ascentRateShallowMpm, ppO2Working: L.bottomPpO2Working, ppO2Max: L.bottomPpO2Max, decoPpO2Max: L.decoPpO2Max,
+    ascentRateShallowMpm: shallowRate, ppO2Working: L.bottomPpO2Working, ppO2Max: L.bottomPpO2Max, decoPpO2Max: L.decoPpO2Max,
+    descentRateMpm: descentRate, ascentRateMpm: ascentFast, ...(rateChange > 0 ? { ascentRateChangeDepthM: rateChange } : {}),
   };
+  const settingsKey = JSON.stringify(settings);
 
   /* ---- standard mode ---- */
   const autoBottom = std.bottomGasFor(maxDepth);
@@ -158,11 +165,11 @@ export function App() {
   const smStepBar = smStep ?? defaultSwitchStep(startBar);
 
   const stdPlan = useMemo(() => planDive({ maxDepth, bottomTime, bottomGas: stdBottomGas, decoGases: stdDecoGases, settings }),
-    [maxDepth, bottomTime, stdBottomGas, stdDecoGases, gfLow, gfHigh, lastStopDepth, stdId, method]);
+    [maxDepth, bottomTime, stdBottomGas, stdDecoGases, settingsKey]);
 
   /* ---- inventory mode ---- */
   const verdict = useMemo(() => evaluateInventory(items, maxDepth, bottomTime, sacBottom, sacDeco, settings, 1.5, std),
-    [items, maxDepth, bottomTime, sacBottom, sacDeco, gfLow, gfHigh, lastStopDepth, stdId, method]);
+    [items, maxDepth, bottomTime, sacBottom, sacDeco, settingsKey]);
 
   const backItem = items.find((i) => i.role === 'back');
   const plan: DivePlan | null = mode === 'standard' ? stdPlan : verdict.plan;
@@ -189,6 +196,8 @@ export function App() {
     return { switches: all.switches, end: all.end, atBottomEnd, lostShort };
   }, [config, env, mode, plan, bottomGas, sacBottom, sacDeco, backStart, smSingle, smStepBar, minGas.litres]);
   const events: ItineraryEvent[] = plan ? itinerary(plan) : [];
+  const gfTrace = useMemo(() => (plan ? supersaturationTrace(plan, { fromRuntime: ascentStart(plan) }) : []), [plan]);
+  const gfPeak = gfTrace.reduce((a, b) => (b.gf > a.gf ? b : a), gfTrace[0] ?? { t: 0, depth: 0, gf: 0, lead: 0 });
 
   /* ---- contingencies: lost deco gas (technical mode) ---- */
   const decoLitres: Record<string, number> | null = mode === 'inventory'
@@ -387,12 +396,16 @@ export function App() {
         <Stat v={stops.length} l={t.stopCount} />
       </Stats>
       <ProfileCard plan={plan} title={t.profile} axes={t.profileAxes(u)} depthScale={depthScale} />
+      {gfTrace.length > 1 && plan.firstStopDepth !== null && (
+        <GfChart points={gfTrace} gfLow={settings.gf.low} gfHigh={settings.gf.high} title={t.gfChartTitle} axes={t.gfChartAxes}
+          note={t.gfChartNote(`${fmt(gfPeak.gf * 100)}%`, gfPeak.lead + 1)} />
+      )}
       <Warnings items={warnings.filter((w) => !w.bad)} />
       <Label>{t.stops}</Label>
       {stops.length === 0 ? <Card><Note>{t.noStops(isGue, u)}</Note></Card> : (
         <StopRows unit={u.d} minLabel={t.minUnit} leaveAt={t.leaveAt} stops={stops.map((s) => ({ depth: u.stopDepthN(s.depth), minutes: s.minutes, runtime: s.runtime, gas: s.gas }))} />
       )}
-      <Note>{t.ratesNote(std.ascentRateShallowMpm, u)}</Note>
+      <Note>{t.ratesNote(descentRate, ascentFast, shallowRate, rateChange, u)}</Note>
       {range && (
         <>
           <Label>{t.rangeTitle}</Label>
@@ -627,6 +640,14 @@ export function App() {
               {env !== 'rec' && <NumRow label={t.gfLow} min={5} max={100} value={gfLow} onChange={setGfLow} />}
               <NumRow label={t.gfHigh} min={5} max={100} value={gfHigh} onChange={setGfHigh} />
               {env !== 'rec' && <SelectRow label={t.lastStop(u)} value={lastStopDepth} onChange={(v) => setLastStop(v)} options={[{ v: 6, l: u.stopDepth(6) }, { v: 3, l: u.stopDepth(3) }]} />}
+              {env !== 'rec' && (
+                <>
+                  <NumRow label={t.descentRate(u)} min={u.depthN(3)} max={u.depthN(30)} value={u.depthN(descentRate)} onChange={(v) => setDescentRate(Math.max(3, Math.min(30, u.toM(v))))} />
+                  <NumRow label={t.ascentFast(u)} min={u.depthN(1)} max={u.depthN(18)} value={u.depthN(ascentFast)} onChange={(v) => setAscentFast(Math.max(1, Math.min(18, u.toM(v))))} />
+                  <NumRow label={t.ascentSlow(u)} min={u.depthN(1)} max={u.depthN(18)} value={u.depthN(shallowRate)} onChange={(v) => setAscentSlow(Math.max(1, Math.min(18, u.toM(v))))} />
+                  <NumRow label={t.ascentChange(u)} min={0} max={u.depthN(60)} value={u.depthN(rateChange)} onChange={(v) => setRateChange(Math.max(0, Math.min(60, Math.round(u.toM(v)))))} />
+                </>
+              )}
               {env === 'open' && (
                 <>
                   <div className="row stack">

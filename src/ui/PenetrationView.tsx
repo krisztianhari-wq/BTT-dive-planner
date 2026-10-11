@@ -2,11 +2,11 @@ import { askConfirm } from './pdf';
 import { useMemo, useState } from 'react';
 import {
   Agency, CYLINDERS, DecoGasSpec, Environment, Flow, Gas, GasStandard, PenEvent, PlanSettings, StageRule, TeamMember,
-  gasName, gasDensity, ppO2, end, penetrationItinerary, planPenetration, stagesNeeded, stopTable, planConsumption, decoGasRequirements, DecoGasRequirement, Cylinder, defaultSwitchStep,
+  gasName, gasDensity, ppO2, end, supersaturationTrace, ascentStart, penetrationItinerary, planPenetration, stagesNeeded, stopTable, planConsumption, decoGasRequirements, DecoGasRequirement, Cylinder, defaultSwitchStep,
 } from '../engine';
 import { Dict } from './i18n';
 import { Units } from './units';
-import { DensityVal, Card, Chevron, Chip, KV, Label, Note, NumRow, Primary, ProfileCard, Secondary, Seg, SelectRow, Stat, Stats, Stepper, StopRows, Timeline, Toggle, Verdict, Warnings } from './kit';
+import { GfChart, DensityVal, Card, Chevron, Chip, KV, Label, Note, NumRow, Primary, ProfileCard, Secondary, Seg, SelectRow, Stat, Stats, Stepper, StopRows, Timeline, Toggle, Verdict, Warnings } from './kit';
 
 interface Props {
   t: Dict; u: Units; lang: 'hu' | 'en'; std: GasStandard; settings: Partial<PlanSettings>;
@@ -355,9 +355,13 @@ export function PenetrationView({ t, u, lang, std, settings, tab, state: s, setS
   }
 
   // deco tab
+  const trace = plan.deco.firstStopDepth !== null ? supersaturationTrace(plan.deco, { fromRuntime: ascentStart(plan.deco) }) : [];
+  const peak = trace.reduce((a, b) => (b.gf > a.gf ? b : a), trace[0] ?? { t: 0, depth: 0, gf: 0, lead: 0 });
   return (
     <>
       <ProfileCard plan={plan.deco} title={t.profile} axes={t.profileAxes(u)} depthScale={depthScale} />
+      {trace.length > 1 && <GfChart points={trace} gfLow={settings.gf?.low ?? 0.2} gfHigh={settings.gf?.high ?? 0.85} title={t.gfChartTitle} axes={t.gfChartAxes}
+        note={t.gfChartNote(`${fmt(peak.gf * 100)}%`, peak.lead + 1)} />}
       <Label>{t.stops}</Label>
       {stops.length === 0 ? <Card><Note>{t.noStops(std.id === 'gue', u)}</Note></Card> : (
         <StopRows chip="mode" unit={u.d} minLabel={t.minUnit} leaveAt={t.leaveAt}

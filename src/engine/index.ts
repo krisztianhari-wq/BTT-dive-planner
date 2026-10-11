@@ -12,3 +12,4 @@ export * from './recreational';
 export * from './sidemount';
 export * from './density';
 export * from './contingency';
+export * from './trace';

@@ -374,6 +374,13 @@ body { background-image: none; }
 .algo { border-radius: 10px; border: 1px solid var(--border); }
 .toast { border: 1px solid var(--brand); border-radius: 10px; font: 500 13px var(--display); }
 .pc-line { stroke-width: 2; }
+.gf-lim { stroke-width: 1.2; stroke-dasharray: 5 4; }
+.gf-lim.hi { stroke: var(--err); } .gf-lim.lo { stroke: var(--warn); }
+.gf-tag { position: absolute; right: 0; transform: translateY(-115%); font: 600 10px var(--mono); white-space: nowrap; pointer-events: none; }
+.gf-tag.hi { color: var(--err); } .gf-tag.lo { color: var(--warn); }
+.pc-dot.gf-peak { background: var(--mode); left: -6px; top: -6px; width: 12px; height: 12px; border-width: 2px; }
+.gf-card .pc-body { grid-template-columns: 24px 1fr; }
+.gf-note { margin-top: 2px; font-size: 12px; }
 .footer2 .motto { font-family: var(--display); letter-spacing: .14em; }
 /* ---------- napló-elrendezés: teljes szélességű fejléc + menü, széles tartalom, két oszlop ---------- */
 header.top { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px;

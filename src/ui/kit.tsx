@@ -1,5 +1,5 @@
 import { ReactNode, useEffect } from 'react';
-import { DivePlan, densityLevel, gasName } from '../engine';
+import { DivePlan, TracePoint, densityLevel, gasName } from '../engine';
 import { NumInput } from './NumInput';
 
 /* ---------- icons (2 px stroke line icons) ---------- */
@@ -210,6 +210,45 @@ export function ProfileCard({ plan, title, axes, depthScale = 1 }: { plan: DiveP
           <div className="pc-x">{xs.map((x) => <span key={x} style={{ left: `${(x / maxT) * 100}%` }}>{x}</span>)}</div>
         </div>
       </div>
+    </Card>
+  );
+}
+
+/* ---------- supersaturation chart (leading-tissue GF over the ascent) ---------- */
+export function GfChart({ points, gfLow, gfHigh, title, axes, note }: {
+  points: TracePoint[]; gfLow: number; gfHigh: number; title: string; axes: string; note?: ReactNode;
+}) {
+  if (points.length < 2) return null;
+  const from = points[0].t, to = points[points.length - 1].t;
+  const gfL = gfLow * 100, gfH = gfHigh * 100;
+  const maxY = Math.ceil(Math.max(100, ...points.map((p) => p.gf * 100)) / 25) * 25;
+  const span = Math.max(1, to - from);
+  const X = (t: number) => ((t - from) / span) * 300;
+  const Y = (g: number) => 150 - (Math.max(0, g) / maxY) * 150;
+  const path = points.map((p, i) => `${i ? 'L' : 'M'}${X(p.t).toFixed(1)} ${Y(p.gf * 100).toFixed(1)}`).join(' ');
+  const ys = [0, 1, 2, 3, 4].map((i) => Math.round((maxY * (4 - i)) / 4));
+  const xStep = span <= 30 ? 5 : span <= 60 ? 10 : span <= 120 ? 20 : 40;
+  const xs: number[] = []; for (let x = 0; x <= span + 1e-9; x += xStep) xs.push(x);
+  const peak = points.reduce((a, b) => (b.gf > a.gf ? b : a), points[0]);
+  return (
+    <Card className="profile-card gf-card">
+      <div className="pc-head"><span className="sec-label inline">{title}</span><span className="pc-axes">{axes}</span></div>
+      <div className="pc-body">
+        <div className="pc-y">{ys.map((y) => <span key={y}>{y}</span>)}</div>
+        <div className="pc-plot">
+          <svg viewBox="0 0 300 150" preserveAspectRatio="none" aria-hidden="true">
+            {[0, 37.5, 75, 112.5, 150].map((y, i) => <line key={y} x1="0" x2="300" y1={y} y2={y} className={i === 4 ? 'g0' : 'g'} vectorEffect="non-scaling-stroke" />)}
+            <line x1="0" x2="300" y1={Y(gfH)} y2={Y(gfH)} className="gf-lim hi" vectorEffect="non-scaling-stroke" />
+            <line x1="0" x2="300" y1={Y(gfL)} y2={Y(gfL)} className="gf-lim lo" vectorEffect="non-scaling-stroke" />
+            <path d={path} className="pc-line" vectorEffect="non-scaling-stroke" />
+          </svg>
+          <span className="gf-tag hi" style={{ top: `${(Y(gfH) / 150) * 100}%` }}>GF high {Math.round(gfH)}%</span>
+          <span className="gf-tag lo" style={{ top: `${(Y(gfL) / 150) * 100}%` }}>GF low {Math.round(gfL)}%</span>
+          <div className="pc-sw" style={{ left: `${(X(peak.t) / 300) * 100}%`, top: `${(Y(peak.gf * 100) / 150) * 100}%` }}><span className="pc-dot gf-peak" /></div>
+          <div className="pc-x">{xs.map((x) => <span key={x} style={{ left: `${(x / span) * 100}%` }}>{Math.round(from + x)}</span>)}</div>
+        </div>
+      </div>
+      {note && <p className="note gf-note">{note}</p>}
     </Card>
   );
 }

@@ -45,6 +45,14 @@ const hu = {
   algorithmRow: 'Bühlmann ZH-L16C + gradient factor',
   densityShort: 'sűrűség',
   lostGasTitle: 'Elveszett deko-gáz',
+  gfChartTitle: 'Túltelítettség',
+  gfChartAxes: 'vezető szövet GF % · idő perc',
+  gfChartNote: (peak: string, lead: number) => `A vezető szövet túltelítettsége az M-értékhez képest ((Pt − Pamb) / (M − Pamb), GF99-szerű) a felszállás alatt; csúcs ${peak} (${lead}. kompartment). A szaggatott vonalak a GF low és GF high.`,
+  ascentTitle: 'Felszállási sebességek',
+  descentRate: (u: Units) => `Leszállás (${u.rate})`,
+  ascentFast: (u: Units) => `Felszállás mélyen (${u.rate})`,
+  ascentSlow: (u: Units) => `Felszállás sekélyen (${u.rate})`,
+  ascentChange: (u: Units) => `Sebességváltás mélysége (${u.d}, 0 = első megállónál)`,
   rangeTitle: 'Tartomány: mélység × fenékidő',
   rangeHead: (u: Units) => `${u.d}↓ perc→`,
   rangeLegend: 'Cellánként futásidő és alatta dekóidő (perc). Áthúzott piros cella: nem tervezhető – G: a gáz (tartalékkal) nem elég, O₂: pO2 a max. felett, ρ: gázsűrűség ≥ 6,2 g/l, D: lehetetlen dekó. A fenékgáz és a deko-gázok a jelenlegiek; a MOD feletti mélységek kimaradnak.',
@@ -233,9 +241,9 @@ const hu = {
   methodNote: (conservative: boolean): string => conservative
     ? 'Konzervatív: a GF-meredekséget az aktuális stop mélységén értékeli, ezért a mély stopok hosszabbak (dive-deco konvenció). Hosszabb dekó, nagyobb biztonsági tartalék.'
     : 'Standard: GF low az első stopnál, a továbbindulás feltétele a következő stop mélységén értékelve (Subsurface / Shearwater konvenció).',
-  ratesNote: (shallow: number, u: Units): string => shallow === 9
-    ? `Leszállás ${u.depthN(20)} ${u.rate}, felszállás ${u.depthN(9)} ${u.rate}.`
-    : `Leszállás ${u.depthN(20)} ${u.rate}, felszállás ${u.depthN(9)} ${u.rate} az első stopig, majd ${u.depthN(shallow)} ${u.rate}.`,
+  ratesNote: (descent: number, fast: number, shallow: number, change: number, u: Units): string => shallow === fast
+    ? `Leszállás ${u.depthN(descent)} ${u.rate}, felszállás ${u.depthN(fast)} ${u.rate}.`
+    : `Leszállás ${u.depthN(descent)} ${u.rate}, felszállás ${u.depthN(fast)} ${u.rate} ${change > 0 ? `${u.depth(change)}-ig` : 'az első stopig'}, majd ${u.depthN(shallow)} ${u.rate}.`,
   packing: 'Mit vigyél magaddal',
   minFill: 'min. töltés',
   overfill: 'nem fér a palackba',
@@ -385,6 +393,14 @@ const en: Dict = {
   algorithmRow: 'Bühlmann ZH-L16C + gradient factors',
   densityShort: 'density',
   lostGasTitle: 'Lost deco gas',
+  gfChartTitle: 'Supersaturation',
+  gfChartAxes: 'leading tissue GF % · time min',
+  gfChartNote: (peak: string, lead: number) => `Leading-tissue supersaturation relative to the M-value ((Pt − Pamb) / (M − Pamb), GF99-style) during the ascent; peak ${peak} (compartment ${lead}). Dashed lines: GF low and GF high.`,
+  ascentTitle: 'Ascent rates',
+  descentRate: (u: Units) => `Descent (${u.rate})`,
+  ascentFast: (u: Units) => `Ascent, deep (${u.rate})`,
+  ascentSlow: (u: Units) => `Ascent, shallow (${u.rate})`,
+  ascentChange: (u: Units) => `Rate change depth (${u.d}, 0 = at first stop)`,
   rangeTitle: 'Range: depth × bottom time',
   rangeHead: (u: Units) => `${u.d}↓ min→`,
   rangeLegend: 'Each cell: runtime, deco time below (min). Struck-through red cell: not plannable – G: gas (with reserve) short, O₂: pO2 above max, ρ: gas density ≥ 6.2 g/L, D: impossible deco. Bottom and deco gases as now; depths beyond the MOD are left out.',
@@ -573,9 +589,9 @@ const en: Dict = {
   methodNote: (conservative) => conservative
     ? 'Conservative: the GF slope is evaluated at the current stop depth, so deep stops are longer (dive-deco convention). Longer deco, larger safety margin.'
     : 'Standard: GF low at the first stop, the leave condition is evaluated at the next stop depth (Subsurface / Shearwater convention).',
-  ratesNote: (shallow, u) => shallow === 9
-    ? `Descent ${u.depthN(20)} ${u.rate}, ascent ${u.depthN(9)} ${u.rate}.`
-    : `Descent ${u.depthN(20)} ${u.rate}, ascent ${u.depthN(9)} ${u.rate} to the first stop, then ${u.depthN(shallow)} ${u.rate}.`,
+  ratesNote: (descent, fast, shallow, change, u) => shallow === fast
+    ? `Descent ${u.depthN(descent)} ${u.rate}, ascent ${u.depthN(fast)} ${u.rate}.`
+    : `Descent ${u.depthN(descent)} ${u.rate}, ascent ${u.depthN(fast)} ${u.rate} ${change > 0 ? `to ${u.depth(change)}` : 'to the first stop'}, then ${u.depthN(shallow)} ${u.rate}.`,
   packing: 'What to bring',
   minFill: 'min. fill',
   overfill: 'does not fit the cylinder',

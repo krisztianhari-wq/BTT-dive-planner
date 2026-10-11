@@ -28,6 +28,11 @@ export interface PlanSettings {
    * 'current' (more conservative, dive-deco convention) at the current stop depth.
    */
   gfEvalAt: 'next' | 'current';
+  /**
+   * Optional fixed depth (m) where the ascent rate changes from `ascentRateMpm` (deeper) to `ascentRateShallowMpm`
+   * (shallower). Unset / 0 (default): the rate changes at the first stop, as before.
+   */
+  ascentRateChangeDepthM?: number | null;
   /** pO2 thresholds used for warnings */
   ppO2Working: number;
   ppO2Max: number;
@@ -144,6 +149,18 @@ export function planDive(input: DiveInput): DivePlan {
   // Initial ascent to the first stop candidate (or surface if none)
   let target = firstStop > 0 ? firstStop : 0;
 
+  /** One ascent leg; with a fixed rate-change depth the leg is split there (fast below, slow above). */
+  const X = s.ascentRateChangeDepthM ?? 0;
+  const ascentLeg = (from: number, to: number, defaultRate: number) => {
+    if (!(X > 0)) { push('ascent', from, to, (from - to) / defaultRate, currentGas); return; }
+    if (from > X && to < X) {
+      push('ascent', from, X, (from - X) / s.ascentRateMpm, currentGas);
+      push('ascent', X, to, (X - to) / s.ascentRateShallowMpm, currentGas);
+    } else {
+      push('ascent', from, to, (from - to) / (from > X ? s.ascentRateMpm : s.ascentRateShallowMpm), currentGas);
+    }
+  };
+
   const ascendTo = (to: number) => {
     // handle gas switches on the way: switch at deco gas switch depths crossed
     let from = depth;
@@ -151,14 +168,14 @@ export function planDive(input: DiveInput): DivePlan {
       .filter((d) => d.switchDepth < from && d.switchDepth >= to);
     for (const sw of switches) {
       const rate = from > (firstStopDepth ?? Infinity) ? s.ascentRateMpm : (firstStopDepth === null ? s.ascentRateMpm : s.ascentRateShallowMpm);
-      push('ascent', from, sw.switchDepth, (from - sw.switchDepth) / rate, currentGas);
+      ascentLeg(from, sw.switchDepth, rate);
       currentGas = sw.gas;
       push('switch', sw.switchDepth, sw.switchDepth, s.gasSwitchMinutes, currentGas);
       from = sw.switchDepth;
     }
     if (from > to) {
       const rate = firstStopDepth === null ? s.ascentRateMpm : s.ascentRateShallowMpm;
-      push('ascent', from, to, (from - to) / rate, currentGas);
+      ascentLeg(from, to, rate);
     }
   };
 
