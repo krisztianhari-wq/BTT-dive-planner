@@ -9,6 +9,7 @@ import { GfChart, DensityVal, densityTone, Card, Chevron, Chip, Disclaimer, Icon
 import { PenetrationView, PenState, defaultPenState, usePenetrationPlan, penEventText } from './PenetrationView';
 import { RecreationalView, RecState, defaultRecState, useRecreationalPlan } from './RecreationalView';
 import { RecPrintSheet, PenPrintSheet } from './PrintSheets';
+import { BlendTool } from './BlendSheet';
 import { renderPdf, savePdf, sharePdf, canShareFiles, isMobileTauri, askConfirm } from './pdf';
 import { Lang, dict, initialLang } from './i18n';
 import { HOME_URL, LOG_URL, hostCookie, setHostCookie } from './host';
@@ -60,7 +61,7 @@ export function App() {
     if (el && window.matchMedia?.('(min-width: 1024px)').matches) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     else window.scrollTo({ top: 0 });
   };
-  const [sheet, setSheet] = useState<null | 'settings' | 'export'>(null);
+  const [sheet, setSheet] = useState<null | 'settings' | 'export' | 'blend'>(null);
   const [algoOpen, setAlgoOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(null), 1800); return () => clearTimeout(id); }, [toast]);
@@ -660,6 +661,14 @@ export function App() {
             </div>
           )}
         </div>
+        <div className="sheet-field"><span>{t.toolsTitle}</span>
+          <button className="btn-secondary" onClick={() => setSheet('blend')}>{t.blendOpen}</button>
+        </div>
+      </Sheet>
+
+      <Sheet open={sheet === 'blend'} onClose={closeSheet} label={t.blendTitle}>
+        <div className="sheet-head"><h2>{t.blendTitle}</h2><button className="pill" onClick={closeSheet}>{t.done}</button></div>
+        <BlendTool t={t} u={u} lang={lang} />
       </Sheet>
 
       <Sheet open={sheet === 'export'} onClose={closeSheet} label={t.exportTitle}>
