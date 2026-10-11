@@ -655,7 +655,7 @@ export function App() {
                 <tbody>{range.table.depths.map((d, i) => (
                   <tr key={d}><th>{u.depthN(d)}</th>{range.table.cells[i].map((c) => (
                     <td key={c.bottomTime} className={`${c.feasible ? '' : 'bad'} ${d === maxDepth && c.bottomTime === bottomTime ? 'cur' : ''}`} title={c.issues.join(', ')}>
-                      <b>{fmt(c.plan.runtime)}</b><small>{c.feasible ? fmt(c.plan.decoTime) : c.issues.map(issueMark).join(' ')}</small>
+                      <b>{fmt(c.plan.runtime)}</b><small>{c.feasible ? <>{fmt(c.plan.decoTime)}{c.issues.includes('density') && <span className="warn"> ρ</span>}</> : c.issues.map(issueMark).join(' ')}</small>
                     </td>
                   ))}</tr>
                 ))}</tbody>

@@ -133,9 +133,9 @@ const hu = {
   ascentChange: (u: Units) => `Sebességváltás mélysége (${u.d}, 0 = első megállónál)`,
   rangeTitle: 'Tartomány: mélység × fenékidő',
   rangeHead: (u: Units) => `${u.d}↓ perc→`,
-  rangeLegend: 'Cellánként futásidő és alatta dekóidő (perc). Áthúzott piros cella: nem tervezhető – G: a gáz (tartalékkal) nem elég, O₂: pO2 a max. felett, ρ: gázsűrűség ≥ 6,2 g/l, D: lehetetlen dekó. A fenékgáz és a deko-gázok a jelenlegiek; a MOD feletti mélységek kimaradnak.',
+  rangeLegend: 'Cellánként futásidő és alatta dekóidő (perc). Áthúzott piros cella: nem tervezhető – G: a gáz (tartalékkal) nem elég, O₂: pO2 a max. felett, D: lehetetlen dekó. ρ: figyelmeztetés, a gázsűrűség ≥ 6,2 g/l (a cella ettől még tervezhető). A fenékgáz és a deko-gázok a jelenlegiek; a MOD feletti mélységek kimaradnak.',
   rangeMaxBottom: 'Max. fenékidő ezen a mélységen',
-  rangeMaxBottomSub: 'a leghosszabb egész perc, amelynél a gázterv (tartalékkal), a pO2 és a sűrűség még rendben',
+  rangeMaxBottomSub: 'a leghosszabb egész perc, amelynél a gázterv (tartalékkal) és a pO2 még rendben (a gázsűrűség csak figyelmeztet)',
   rangeNone: 'egy perc sem',
   lostGasIf: (g: string) => `Ha elveszíted: ${g}`,
   lostGasStatus: (s: 'ok' | 'noReserve' | 'short'): string => (s === 'ok' ? 'elég, tartalékkal' : s === 'noReserve' ? 'csak a tartalékból' : 'nem elég'),
@@ -425,7 +425,7 @@ const hu = {
       case 'recGasShort': return `Nem elég a gáz: ${u.pressure(n('reserve'))}-ral kell felszínre érni, ehhez ${u.pressure(n('short'))} (${u.volume(n('shortL'))}) hiányzik.`;
     }
   },
-  isBlocking: (m: Msg) => ['ppo2AboveMax', 'decoSwitchExceedsMod', 'backEndAboveLimit', 'gasShort', 'missingGas', 'noBackGas', 'stopTooLong', 'penNoTeam', 'penDepthLimit', 'penMinStartGas', 'penSharedExitShort', 'recOverNdl', 'recDepthLimit', 'recGasShort', 'penTimeOverGas', 'densityCritical'].includes(m.code),
+  isBlocking: (m: Msg) => ['ppo2AboveMax', 'decoSwitchExceedsMod', 'backEndAboveLimit', 'gasShort', 'missingGas', 'noBackGas', 'stopTooLong', 'penNoTeam', 'penDepthLimit', 'penMinStartGas', 'penSharedExitShort', 'recOverNdl', 'recDepthLimit', 'recGasShort', 'penTimeOverGas'].includes(m.code),
 };
 
 export type Dict = typeof hu;
@@ -559,9 +559,9 @@ const en: Dict = {
   ascentChange: (u: Units) => `Rate change depth (${u.d}, 0 = at first stop)`,
   rangeTitle: 'Range: depth × bottom time',
   rangeHead: (u: Units) => `${u.d}↓ min→`,
-  rangeLegend: 'Each cell: runtime, deco time below (min). Struck-through red cell: not plannable – G: gas (with reserve) short, O₂: pO2 above max, ρ: gas density ≥ 6.2 g/L, D: impossible deco. Bottom and deco gases as now; depths beyond the MOD are left out.',
+  rangeLegend: 'Each cell: runtime, deco time below (min). Struck-through red cell: not plannable – G: gas (with reserve) short, O₂: pO2 above max, D: impossible deco. ρ: warning, gas density ≥ 6.2 g/L (the cell is still plannable). Bottom and deco gases as now; depths beyond the MOD are left out.',
   rangeMaxBottom: 'Max bottom time at this depth',
-  rangeMaxBottomSub: 'longest whole minute for which the gas plan (with reserve), pO2 and density still pass',
+  rangeMaxBottomSub: 'longest whole minute for which the gas plan (with reserve) and pO2 still pass (gas density only warns)',
   rangeNone: 'not even one minute',
   lostGasIf: (g: string) => `If you lose: ${g}`,
   lostGasStatus: (s: 'ok' | 'noReserve' | 'short'): string => (s === 'ok' ? 'enough, with reserve' : s === 'noReserve' ? 'only from the reserve' : 'not enough'),

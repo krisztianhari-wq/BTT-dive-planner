@@ -29,9 +29,9 @@ Technical mode:
 - Deco schedule, gas plan (minimum gas, consumption per gas), packing list, minute-by-minute itinerary
 - Backmount or Sidemount configuration (two independent cylinders; lost-cylinder reserve checks), per diver in penetration teams
 - Standard (Subsurface / Shearwater convention) or Conservative calculation method
-- **Gas density** of the bottom gas at depth (ideal gas, 20 °C): amber from 5.2 g/L, critical (blocks the plan) from 6.2 g/L (Anthony & Mitchell 2016) – also in Recreational and Penetration
+- **Gas density** of the bottom gas at depth (ideal gas, 20 °C): amber from 5.2 g/L, red critical warning from 6.2 g/L (a warning, it does not block the plan) (Anthony & Mitchell 2016) – also in Recreational and Penetration
 - **Lost deco gas:** for every deco gas the plan is recomputed without it – runtime, deco time, extra gas from the remaining gases and whether they still suffice with the reserve
-- **Range table:** depth −6…+6 m × bottom time −10…+10 min around the plan (runtime / deco, infeasible cells marked: gas, pO2, density, impossible deco) and the maximum bottom time at the planned depth
+- **Range table:** depth −6…+6 m × bottom time −10…+10 min around the plan (runtime / deco, infeasible cells marked: gas, pO2, impossible deco; critical gas density flagged as a warning) and the maximum bottom time at the planned depth
 - **Ascent settings** (descent rate, deep / shallow ascent rate, optional fixed rate-change depth) and a **supersaturation chart** (leading-tissue GF over the ascent with the GF low / high lines)
 - **Altitude diving:** surface pressure from the barometric formula, acclimatised / just arrived (conservative) start tissues
 - **Repetitive dive:** previous dives and surface intervals as start tissues (Technical and Recreational); in the embedded logbook build the actual logged profiles of the last 48 h can be loaded

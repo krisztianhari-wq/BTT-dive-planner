@@ -78,7 +78,7 @@ export function planRecreational(i: RecInput): RecPlan {
   const e = end(i.gas, i.maxDepth);
   if (e > 30) warnings.push(msg('endHigh', { gas: gasName(i.gas), end: e.toFixed(0), limit: 30 }));
   const dens = densityMsg(i.gas, i.maxDepth);
-  if (dens) (dens.code === 'densityCritical' ? blockers : warnings).push(dens);
+  if (dens) warnings.push(dens); // a gázsűrűség csak figyelmeztetés (Krisz döntése, v0.11)
 
   // profile gas: descent + bottom at max depth, ascent to safety stop, stop, ascent to surface
   const descentMin = i.maxDepth / descentRate;

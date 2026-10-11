@@ -80,6 +80,9 @@ describe('range table and max bottom time', () => {
     expect(rt.times).toEqual([10, 15, 20, 25, 30]);
     const air = evaluateCell({ maxDepth: 45, bottomTime: 10, bottomGas: { o2: 0.21, he: 0 }, decoGases: [] }, supply(200), { ppO2Max: 1.4 });
     expect(air.issues).toContain('density');
+    // a kritikus gázsűrűség csak figyelmeztetés: a cella ettől még tervezhető (a pO2 45 m-en levegővel 1,15 bar)
+    expect(air.issues.filter((i) => i !== 'density')).toEqual([]);
+    expect(air.feasible).toBe(true);
     const short = evaluateCell({ maxDepth: 30, bottomTime: 60, bottomGas: EAN32, decoGases: [] }, supply(100), { ppO2Max: 1.4 });
     expect(short.issues).toContain('gas');
     expect(short.feasible).toBe(false);

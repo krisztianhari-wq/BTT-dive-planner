@@ -44,7 +44,7 @@ Dekompressziós és gáztervező (Bühlmann ZH-L16C + GF) a BTT Explorers Hungar
    `lang`/`theme` sütijét követi. A napló (`~/Claude_code/divelog`) `scripts/build-planner.sh`-sel építi be a /terv/ alá.
 10. v0.11 funkciók és szerződések:
    - Gázsűrűség: ideális gáz, 20 °C (nincs vízhőmérséklet-beállítás), tengerszinti felszínnel; ≥ 5,2 g/l figyelmeztetés,
-     ≥ 6,2 g/l `densityCritical` = blokkoló (Technikai, Rekreációs, Penetrációs; a tartomány-táblában is).
+     ≥ 6,2 g/l `densityCritical` = piros figyelmeztetés, NEM blokkol (Krisz döntése 2026-10-11; a tartomány-táblában „ρ” jel, a cella tervezhető marad).
    - Elveszett deko-gáz / tartomány / max. fenékidő: `planDive` a gáz nélkül; fenékgáz tartaléka a minimum gáz, deko-gázé ×1,5;
      standard módban a deko-palack = normál igény ×1,5 (a min. töltés), „Saját gázaim” módban a valós liter.
    - Motor-opciók (`PlanSettings`): `surfacePressureBar` (magasság), `initialTissues` (ismétlő / nem akklimatizált),

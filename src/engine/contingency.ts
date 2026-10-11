@@ -134,7 +134,7 @@ export interface CellResult {
   feasible: boolean;
 }
 
-/** Plan one cell and check gas (with reserves), bottom pO2, gas density (≥ 6.2 g/L) and an impossible ascent. */
+/** Plan one cell and check gas (with reserves), bottom pO2 and an impossible ascent; gas density ≥ 6.2 g/L is flagged but only a warning. */
 export function evaluateCell(input: DiveInput, supply: GasSupply, limits: FeasibilityLimits): CellResult {
   const decoGases = input.decoGases.filter((d) => d.switchDepth < input.maxDepth);
   const sub: DiveInput = { ...input, decoGases };
@@ -146,7 +146,7 @@ export function evaluateCell(input: DiveInput, supply: GasSupply, limits: Feasib
   // the normal plan's own gas check: standard mode sizes deco cylinders to the plan, so only the back gas can run short
   const rows = supplyRows(sub, plan, plan, supply);
   if (rows.some((r) => r.status !== 'ok')) issues.push('gas');
-  return { depth: input.maxDepth, bottomTime: input.bottomTime, plan, issues, feasible: issues.length === 0 };
+  return { depth: input.maxDepth, bottomTime: input.bottomTime, plan, issues, feasible: issues.every((i) => i === 'density') };
 }
 
 export interface RangeTable {

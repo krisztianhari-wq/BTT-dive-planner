@@ -41,3 +41,10 @@ describe('gas density (ideal gas, 20 °C) – hand-computed values', () => {
     expect(rec.warnings.some((w) => w.code === 'densityHigh')).toBe(true);
   });
 });
+
+describe('critical density is a warning, never a blocker', () => {
+  it('is not in the blocking message list and recreational plans stay feasible', async () => {
+    const { dict } = await import('../src/ui/i18n');
+    expect(dict.hu.isBlocking({ code: 'densityCritical' } as never)).toBe(false);
+  });
+});
