@@ -1,3 +1,4 @@
+import { HOME_URL, hostCookie } from './host';
 import { Msg } from '../engine';
 import { Units } from './units';
 
@@ -13,7 +14,11 @@ const hu = {
   tabKit: 'Felszerelés',
   tabDeco: 'Dekó',
   settingsTitle: 'Beállítások',
-  homeLink: 'Kezdőlap (tervező és napló)',
+  navHome: 'Kezdőlap',
+  navPlanner: 'Tervező',
+  navLog: 'Napló',
+  navLabel: 'Fő menü',
+  modesLabel: 'Merülési mód',
   done: 'Kész',
   langTitle: 'Nyelv',
   appearance: 'Megjelenés',
@@ -326,7 +331,11 @@ const en: Dict = {
   tabKit: 'Kit',
   tabDeco: 'Deco',
   settingsTitle: 'Settings',
-  homeLink: 'Home (planner and logbook)',
+  navHome: 'Home',
+  navPlanner: 'Planner',
+  navLog: 'Logbook',
+  navLabel: 'Main menu',
+  modesLabel: 'Dive mode',
   done: 'Done',
   langTitle: 'Language',
   appearance: 'Appearance',
@@ -630,6 +639,9 @@ const en: Dict = {
 export const dict: Record<Lang, Dict> = { hu, en };
 
 export function initialLang(): Lang {
+  const host = hostCookie('lang');
+  if (host === 'hu' || host === 'en') return host;
+  if (HOME_URL) return 'hu'; // beágyazva a gazdaoldal alapnyelve (süti nélkül magyar)
   try {
     const saved = localStorage.getItem('btt-lang');
     if (saved === 'hu' || saved === 'en') return saved;

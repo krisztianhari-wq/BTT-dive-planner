@@ -5,30 +5,25 @@ import {
   roundBar, stopTable, itinerary, ItineraryEvent, sidemountSwitchesOnProfile, worstSingleCylinderLitres, defaultSwitchStep, msg,
 } from '../engine';
 import { PrintSheet } from './PrintSheet';
-import { Card, Chevron, Chip, Disclaimer, IconHome, IconShare, IconSliders, KV, Label, Note, NumRow, Primary, ProfileCard, Seg, SelectRow, Sheet, Stat, Stats, Stepper, StopRows, Timeline, Toast, Toggle, Verdict, Warnings } from './kit';
+import { Card, Chevron, Chip, Disclaimer, IconShare, RobotMark, IconSliders, KV, Label, Note, NumRow, Primary, ProfileCard, Seg, SelectRow, Sheet, Stat, Stats, Stepper, StopRows, Timeline, Toast, Toggle, Verdict, Warnings } from './kit';
 import { PenetrationView, PenState, defaultPenState, usePenetrationPlan, penEventText } from './PenetrationView';
 import { RecreationalView, RecState, defaultRecState, useRecreationalPlan } from './RecreationalView';
 import { RecPrintSheet, PenPrintSheet } from './PrintSheets';
 import { renderPdf, savePdf, sharePdf, canShareFiles, isMobileTauri, askConfirm } from './pdf';
 import { Lang, dict, initialLang } from './i18n';
+import { HOME_URL, LOG_URL, hostCookie, setHostCookie } from './host';
 import { UnitSystem, makeUnits } from './units';
 import logoUrl from '../assets/btt-logo.png';
 import sadrobotUrl from '../assets/sadrobot.png';
 
 type Mode = 'standard' | 'inventory';
-/** Beágyazott build (pl. a sadrobot merülésnapló /terv/ modulja): vissza-link a közös kezdőlapra. Pages/app buildben üres. */
-const HOME_URL = import.meta.env.VITE_HOME_URL as string | undefined;
+
 type Theme = 'light' | 'dark';
 
-/** Beágyazva (sadrobot napló) a téma a napló „theme” sütijét követi, hogy a két modul mindig egyforma legyen. */
-function hostTheme(): Theme | null {
-  if (!HOME_URL) return null;
-  const m = document.cookie.match(/(?:^|;\s*)theme=(light|dark)/);
-  return m ? (m[1] as Theme) : 'dark';
-}
 function initialTheme(): Theme {
-  const host = hostTheme();
-  if (host) return host;
+  const host = hostCookie('theme');
+  if (host === 'light' || host === 'dark') return host;
+  if (HOME_URL) return 'dark';
   try {
     const saved = localStorage.getItem('btt-theme');
     if (saved === 'light' || saved === 'dark') return saved;
@@ -59,7 +54,12 @@ export function App() {
   // Recreational is the base mode on every start; technical / penetration need an explicit confirmation per session
   const [env, setEnvRaw] = useState<Env>('rec');
   const [tab, setTabRaw] = useState<Tab>('setup');
-  const setTab = (next: Tab) => { setTabRaw(next); window.scrollTo({ top: 0 }); };
+  const setTab = (next: Tab) => {
+    setTabRaw(next);
+    const el = document.getElementById(`tab-${next}`);
+    if (el && window.matchMedia?.('(min-width: 1024px)').matches) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else window.scrollTo({ top: 0 });
+  };
   const [sheet, setSheet] = useState<null | 'settings' | 'export'>(null);
   const [algoOpen, setAlgoOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -67,7 +67,7 @@ export function App() {
   const closeSheet = useCallback(() => setSheet(null), []);
   const setEnv = async (target: Env) => {
     if (target === env) return;
-    if (target === 'rec') { setEnvRaw('rec'); setTab(TABS.rec[1]); return; }
+    if (target === 'rec') { setEnvRaw('rec'); setTabRaw(TABS.rec[1]); return; }
     let acked = false;
     try { acked = sessionStorage.getItem(`btt-ack-${target}`) === '1'; } catch { /* ignore */ }
     if (!acked) {
@@ -75,18 +75,16 @@ export function App() {
       try { sessionStorage.setItem(`btt-ack-${target}`, '1'); } catch { /* ignore */ }
     }
     setEnvRaw(target);
-    setTab(TABS[target][1]);
+    setTabRaw(TABS[target][1]);
   };
-  // header collapses while the page is scrolled (hysteresis so it does not flicker)
-  const [compact, setCompact] = useState(false);
+  // széles képernyőn (≥ 1024 px) a beállítás és az eredmények egymás mellett, fülsor nélkül
+  const [wide, setWide] = useState(() => window.matchMedia?.('(min-width: 1024px)').matches ?? false);
   useEffect(() => {
-    const onScroll = () => {
-      const y = window.scrollY;
-      setCompact((c) => (c ? y > 24 : y > 72));
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    const mq = window.matchMedia?.('(min-width: 1024px)');
+    if (!mq) return;
+    const on = () => setWide(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
   }, []);
   const [rec, setRec] = useState<RecState>(defaultRecState);
   const [pen, setPen] = useState<PenState>(defaultPenState);
@@ -125,12 +123,13 @@ export function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try { localStorage.setItem('btt-theme', theme); } catch { /* ignore */ }
-    if (HOME_URL) document.cookie = `theme=${theme}; path=/; max-age=31536000; samesite=lax${location.protocol === 'https:' ? '; secure' : ''}`;
+    setHostCookie('theme', theme);
   }, [theme]);
   useEffect(() => {
     document.documentElement.lang = lang;
     document.title = t.appTitle;
     try { localStorage.setItem('btt-lang', lang); } catch { /* ignore */ }
+    setHostCookie('lang', lang);
   }, [lang]);
   useEffect(() => { try { localStorage.setItem('btt-std', stdId); } catch { /* ignore */ } }, [stdId]);
   useEffect(() => { try { localStorage.setItem('btt-units', unitSys); } catch { /* ignore */ } }, [unitSys]);
@@ -468,37 +467,68 @@ export function App() {
     </>
   );
 
-  const content = env === 'rec'
-    ? <RecreationalView t={t} u={u} lang={lang} gfHigh={gfHigh} tab={tab as 'setup' | 'plan' | 'time'} state={rec} setState={setRec} onShowPlan={() => setTab('plan')} />
+  const renderTab = (tb: Tab) => env === 'rec'
+    ? <RecreationalView t={t} u={u} lang={lang} gfHigh={gfHigh} tab={tb as 'setup' | 'plan' | 'time'} state={rec} setState={setRec} onShowPlan={() => setTab('plan')} />
     : env === 'pen'
-      ? <PenetrationView t={t} u={u} lang={lang} std={std} settings={settings} tab={tab as 'setup' | 'team' | 'kit' | 'deco'} state={pen} setState={setPen} onMatch={() => setTab('team')} onExport={() => setSheet('export')} />
-      : tab === 'setup' ? techSetup : tab === 'plan' ? techPlan : techGas;
+      ? <PenetrationView t={t} u={u} lang={lang} std={std} settings={settings} tab={tb as 'setup' | 'team' | 'kit' | 'deco'} state={pen} setState={setPen} onMatch={() => setTab('team')} onExport={() => setSheet('export')} />
+      : tb === 'setup' ? techSetup : tb === 'plan' ? techPlan : techGas;
+  const [setupTab, ...resultTabs] = TABS[env];
 
   return (
     <div className="app">
-      <header className={compact ? 'hdr compact' : 'hdr'}>
-        <div className="hdr-inner">
-          <div className="hdr-row">
-            {HOME_URL && <a className="icon-btn home" href={HOME_URL} aria-label={t.homeLink} title={t.homeLink}><IconHome /></a>}
+      <header className="top">
+        {HOME_URL
+          ? <a className="brand" href={HOME_URL}><RobotMark />SADROBOT <small>// {t.navPlanner}</small></a>
+          : <span className="brand"><RobotMark />SADROBOT <small>// {t.navPlanner}</small></span>}
+        {HOME_URL && (
+          <nav className="main" aria-label={t.navLabel}>
+            <a href={HOME_URL}>{t.navHome}</a>
+            <a href="./" className="on" aria-current="page">{t.navPlanner}</a>
+            {LOG_URL && <a href={LOG_URL}>{t.navLog}</a>}
+          </nav>
+        )}
+        <div className="status">
+          <button className="icon-btn txt" onClick={() => setLang(lang === 'hu' ? 'en' : 'hu')} title={t.langTitle} aria-label={t.langTitle}>{lang === 'hu' ? 'EN' : 'HU'}</button>
+          <button className="icon-btn txt" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} title={t.appearance} aria-label={t.appearance}>◐</button>
+          <button className="icon-btn" onClick={() => setSheet('export')} disabled={!canPrint} aria-label={t.exportTitle} title={canPrint ? t.exportTitle : t.exportNeedsPlan}><IconShare /></button>
+          <button className="icon-btn" onClick={() => setSheet('settings')} aria-label={t.settingsTitle} title={t.settingsTitle}><IconSliders /></button>
+        </div>
+      </header>
+
+      <main className="content">
+        <div className="page-head">
+          <div className="title-block">
             <img className="logo" src={logoUrl} alt="BTT Explorers Hungary" />
-            <div className="hdr-title">
+            <div className="title-txt">
+              <p className="eyebrow">{t.subtitle(isGue, u)}</p>
               <h1>{t.appTitle}</h1>
-              <div className="hdr-sub">{t.subtitle(isGue, u)}</div>
             </div>
-            <button className="icon-btn" onClick={() => setSheet('export')} disabled={!canPrint} aria-label={t.exportTitle} title={canPrint ? t.exportTitle : t.exportNeedsPlan}><IconShare /></button>
-            <button className="icon-btn" onClick={() => setSheet('settings')} aria-label={t.settingsTitle} title={t.settingsTitle}><IconSliders /></button>
           </div>
-          <div className="modes" role="tablist">
+          <div className="modes" role="tablist" aria-label={t.modesLabel}>
             {(['rec', 'open', 'pen'] as Env[]).map((m) => (
               <button key={m} role="tab" aria-selected={env === m} className={`m-${m} ${env === m ? 'on' : ''}`} onClick={() => setEnv(m)}>{m === 'rec' ? t.envRec : m === 'open' ? t.envOpen : t.envPen}</button>
             ))}
           </div>
         </div>
-      </header>
-
-      <main className="content" key={`${env}-${tab}`}>
-        {tab === 'setup' && <Disclaimer text={t.disclaimer} />}
-        {content}
+        {(wide || tab === 'setup') && <Disclaimer text={t.disclaimer} />}
+        {wide ? (
+          <div className="cols" key={env}>
+            <section className="col col-setup" id={`tab-${setupTab}`} aria-label={tabLabel[setupTab]}>
+              <h2 className="col-h">{tabLabel[setupTab]}</h2>
+              {renderTab(setupTab)}
+            </section>
+            <div className="col col-results">
+              {resultTabs.map((id) => (
+                <section className="col-sec" id={`tab-${id}`} key={id} aria-label={tabLabel[id]}>
+                  <h2 className="col-h">{tabLabel[id]}</h2>
+                  {renderTab(id)}
+                </section>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="stack" key={`${env}-${tab}`}>{renderTab(tab)}</div>
+        )}
         <footer className="footer2">
           <img src={logoUrl} alt="" aria-hidden="true" />
           <span className="motto">Mindig van lejjebb!!!</span>
@@ -507,13 +537,15 @@ export function App() {
         </footer>
       </main>
 
-      <nav className="tabbar" role="tablist">
-        <div className="tabbar-inner">
-          {TABS[env].map((id) => (
-            <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{tabLabel[id]}</button>
-          ))}
-        </div>
-      </nav>
+      {!wide && (
+        <nav className="tabbar" role="tablist">
+          <div className="tabbar-inner">
+            {TABS[env].map((id) => (
+              <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{tabLabel[id]}</button>
+            ))}
+          </div>
+        </nav>
+      )}
 
       <Sheet open={sheet === 'settings'} onClose={closeSheet} label={t.settingsTitle}>
         <div className="sheet-head"><h2>{t.settingsTitle}</h2><button className="pill" onClick={closeSheet}>{t.done}</button></div>

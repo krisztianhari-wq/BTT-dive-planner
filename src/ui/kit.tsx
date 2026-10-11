@@ -13,10 +13,11 @@ export const IconSliders = () => (
     <path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" />
   </svg>
 );
-export const IconHome = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M15 18l-6-6 6-6" />
-  </svg>
+/** sadrobot jelvény (a napló fejlécével azonos). */
+export const RobotMark = () => (
+  <span className="mark" aria-hidden="true">
+    <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="7" width="18" height="14" rx="4" /><circle cx="10" cy="14" r="1.6" fill="currentColor" /><circle cx="16" cy="14" r="1.6" fill="currentColor" /><path d="M13 7V3" /></svg>
+  </span>
 );
 export const Chevron = ({ open }: { open?: boolean }) => (
   <svg className={open ? 'chev open' : 'chev'} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
