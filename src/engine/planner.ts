@@ -33,6 +33,10 @@ export interface PlanSettings {
    * (shallower). Unset / 0 (default): the rate changes at the first stop, as before.
    */
   ascentRateChangeDepthM?: number | null;
+  /** surface pressure in bar (altitude diving); default sea level 1.01325 */
+  surfacePressureBar?: number;
+  /** tissue tensions at the start of the dive (repetitive dive / not acclimatised at altitude); default: saturated at the surface */
+  initialTissues?: TissueState;
   /** pO2 thresholds used for warnings */
   ppO2Working: number;
   ppO2Max: number;
@@ -87,6 +91,8 @@ export interface DiveInput {
   bottomGas: Gas;
   decoGases: DecoGasSpec[];
   settings?: Partial<PlanSettings>;
+  /** tissue tensions at the start (overrides settings.initialTissues); default: saturated at the surface */
+  initialTissues?: TissueState;
 }
 
 const roundUpTo = (v: number, step: number) => Math.ceil(v / step - 1e-9) * step;
@@ -106,12 +112,14 @@ export function planDive(input: DiveInput): DivePlan {
   const s: PlanSettings = { ...DEFAULT_SETTINGS, ...input.settings };
   const warnings: Msg[] = [];
   const segments: Segment[] = [];
-  const t = initialTissues();
+  const surface = s.surfacePressureBar ?? SURFACE_PRESSURE_BAR;
+  const start = input.initialTissues ?? s.initialTissues;
+  const t = start ? cloneTissues(start) : initialTissues(surface);
   let runtime = 0;
   let depth = 0;
 
   const push = (kind: SegmentKind, from: number, to: number, duration: number, gas: Gas) => {
-    if (duration > 0) loadSegment(t, gas, from, to, duration);
+    if (duration > 0) loadSegment(t, gas, from, to, duration, surface);
     runtime += duration;
     segments.push({ kind, startDepth: from, endDepth: to, duration, runtime, gas });
     depth = to;
@@ -128,7 +136,7 @@ export function planDive(input: DiveInput): DivePlan {
   // Determine first stop with GF low
   const firstStopCandidate = (): number => {
     const c = ceilingBar(t, s.gf.low);
-    const cDepth = Math.max(0, (c - SURFACE_PRESSURE_BAR) / 0.1);
+    const cDepth = Math.max(0, (c - surface) / 0.1);
     if (cDepth <= 0) return 0;
     return Math.max(s.lastStopDepth, roundUpTo(cDepth, s.stopIncrementM));
   };
@@ -209,7 +217,7 @@ export function planDive(input: DiveInput): DivePlan {
     // the final ascent to the surface is always judged at GF high (the surfacing limit); otherwise 'current' would
     // demand GF low at a last stop that is also the first stop, which a diver breathing air or trimix can never reach
     const evalDepth = s.gfEvalAt === 'current' && nextTarget > 0 ? depth : nextTarget;
-    const canAscend = () => ceilingBar(t, gfAt(evalDepth)) <= depthToAmbient(nextTarget) + 1e-9;
+    const canAscend = () => ceilingBar(t, gfAt(evalDepth)) <= depthToAmbient(nextTarget, surface) + 1e-9;
     let stopMinutes = 0;
     // Ensure gas at this stop depth is correct (switch if we are at a switch depth)
     const gasHere = gasAtDepth(depth, input.bottomGas, input.decoGases);
@@ -219,7 +227,7 @@ export function planDive(input: DiveInput): DivePlan {
     }
     while (!canAscend()) {
       // Simulate one more minute at this depth
-      loadSegment(t, currentGas, depth, depth, s.stopStepMin);
+      loadSegment(t, currentGas, depth, depth, s.stopStepMin, surface);
       runtime += s.stopStepMin;
       stopMinutes += s.stopStepMin;
       if (stopMinutes > 600) { warnings.push(msg('stopTooLong')); break; }

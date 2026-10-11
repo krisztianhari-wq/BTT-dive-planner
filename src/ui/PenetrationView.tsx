@@ -355,7 +355,7 @@ export function PenetrationView({ t, u, lang, std, settings, tab, state: s, setS
   }
 
   // deco tab
-  const trace = plan.deco.firstStopDepth !== null ? supersaturationTrace(plan.deco, { fromRuntime: ascentStart(plan.deco) }) : [];
+  const trace = plan.deco.firstStopDepth !== null ? supersaturationTrace(plan.deco, { fromRuntime: ascentStart(plan.deco), initialTissues: settings.initialTissues, surfacePressureBar: settings.surfacePressureBar }) : [];
   const peak = trace.reduce((a, b) => (b.gf > a.gf ? b : a), trace[0] ?? { t: 0, depth: 0, gf: 0, lead: 0 });
   return (
     <>

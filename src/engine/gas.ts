@@ -25,6 +25,13 @@ export const gasName = (g: Gas): string => {
 export const depthToAmbient = (depthM: number, surface = SURFACE_PRESSURE_BAR): number =>
   surface + depthM * BAR_PER_METER_SW;
 
+/**
+ * Surface pressure at an altitude (m above sea level), standard barometric formula:
+ * P = 1.01325 · (1 − 2.25577e-5 · h)^5.25588 bar. 0 m gives exactly 1.01325 bar.
+ */
+export const altitudeToSurfacePressure = (altitudeM: number): number =>
+  altitudeM <= 0 ? SURFACE_PRESSURE_BAR : SURFACE_PRESSURE_BAR * Math.pow(1 - 2.25577e-5 * altitudeM, 5.25588);
+
 export const ambientToDepth = (pBar: number, surface = SURFACE_PRESSURE_BAR): number =>
   Math.max(0, (pBar - surface) / BAR_PER_METER_SW);
 

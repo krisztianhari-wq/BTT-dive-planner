@@ -261,6 +261,8 @@ export interface PrintData {
   planOk: boolean; planTitle: string; blockers: string[];
   /** lost deco gas scenarios (technical mode) */
   lostGas?: LostGasScenario[];
+  /** extra dive-card rows (altitude, repetitive dive) */
+  extraRows?: { l: string; v: string }[];
 }
 
 export function PrintSheet(d: PrintData) {
@@ -280,6 +282,7 @@ export function PrintSheet(d: PrintData) {
             { l: t.decoGases, v: d.decoGases.length ? d.decoGases.map((g) => `${gasName(g.gas)} @ ${u.stopDepth(g.switchDepth)}`).join(', ') : '—' },
             { l: 'GF', v: `${d.gfLow}/${d.gfHigh} · ${t.lastStop(u)}: ${u.stopDepthN(d.lastStopDepth)}` },
             densityRow(t, d.bottomGas, d.maxDepth, fmt),
+            ...(d.extraRows ?? []),
           ]} />
         </PCard>
         <div className="ps-col">

@@ -106,14 +106,15 @@ export function gradientFactorNow(t: TissueState, ambientBar: number): number {
 /**
  * No-decompression limit in minutes at constant depth for a gas, at GF high
  * (direct ascent to the surface must be possible). Returns Infinity if never limited (within 999 min).
+ * `start`: tissues at the start (repetitive dive), `surface`: surface pressure in bar (altitude).
  */
-export function ndl(gas: Gas, depthM: number, gfHigh: number, start?: TissueState): number {
-  const t = start ? cloneTissues(start) : initialTissues();
+export function ndl(gas: Gas, depthM: number, gfHigh: number, start?: TissueState, surface = SURFACE_PRESSURE_BAR): number {
+  const t = start ? cloneTissues(start) : initialTissues(surface);
   for (let m = 0; m < 999; m++) {
     const probe = cloneTissues(t);
-    loadSegment(probe, gas, depthM, depthM, 1);
-    if (ceilingBar(probe, gfHigh) > SURFACE_PRESSURE_BAR) return m;
-    loadSegment(t, gas, depthM, depthM, 1);
+    loadSegment(probe, gas, depthM, depthM, 1, surface);
+    if (ceilingBar(probe, gfHigh) > surface) return m;
+    loadSegment(t, gas, depthM, depthM, 1, surface);
   }
   return Infinity;
 }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CYLINDERS, Cylinder, DEFAULT_SETTINGS, DecoGasSpec, DivePlan, Gas, GasUsage, STANDARDS, StandardId,
   InventoryItem, Msg, backGasPlan, end, evaluateInventory, gasName, minimumGas, mod, packingList, planConsumption, planDive, ppO2,
-  roundBar, stopTable, itinerary, ItineraryEvent, sidemountSwitchesOnProfile, worstSingleCylinderLitres, defaultSwitchStep, msg, gasDensity, PlanSettings, supersaturationTrace, ascentStart, GasSupply, lostGasScenarios, DiveInput, rangeTable, maxFeasibleBottomTime, CellIssue,
+  roundBar, stopTable, itinerary, ItineraryEvent, sidemountSwitchesOnProfile, worstSingleCylinderLitres, defaultSwitchStep, msg, gasDensity, altitudeToSurfacePressure, initialTissues, TissueState, PlanSettings, supersaturationTrace, ascentStart, GasSupply, lostGasScenarios, DiveInput, rangeTable, maxFeasibleBottomTime, CellIssue,
 } from '../engine';
 import { PrintSheet } from './PrintSheet';
 import { GfChart, DensityVal, densityTone, Card, Chevron, Chip, Disclaimer, IconShare, RobotMark, IconSliders, KV, Label, Note, NumRow, Primary, ProfileCard, Seg, SelectRow, Sheet, Stat, Stats, Stepper, StopRows, Timeline, Toast, Toggle, Verdict, Warnings } from './kit';
@@ -101,6 +101,8 @@ export function App() {
   const [ascentFast, setAscentFast] = useState(DEFAULT_SETTINGS.ascentRateMpm);
   const [ascentSlow, setAscentSlow] = useState<number | null>(null);
   const [rateChange, setRateChange] = useState(0);
+  const [altitudeM, setAltitudeM] = useState(0);
+  const [acclimatised, setAcclimatised] = useState(false);
   const [lastStop, setLastStop] = useState<number | null>(null);
   const [cylIdx, setCylIdx] = useState(0);
   const [config, setConfig] = useState<'backmount' | 'sidemount'>(() => stored('btt-config', ['backmount', 'sidemount'], 'backmount'));
@@ -143,10 +145,15 @@ export function App() {
   useEffect(() => { document.documentElement.dataset.env = env; }, [env]);
 
   const shallowRate = ascentSlow ?? std.ascentRateShallowMpm;
+  // altitude: surface pressure from the barometric formula; not acclimatised → tissues still saturated at sea level (conservative)
+  const surfaceBar = altitudeToSurfacePressure(altitudeM);
+  const startTissues: TissueState | undefined = altitudeM > 0 && !acclimatised ? initialTissues() : undefined;
+  const diveEnv = { ...(altitudeM > 0 ? { surfacePressureBar: surfaceBar } : {}), ...(startTissues ? { initialTissues: startTissues } : {}) };
   const settings: PlanSettings = {
     ...DEFAULT_SETTINGS, gf: { low: gfLow / 100, high: gfHigh / 100 }, lastStopDepth, gfEvalAt: method,
     ascentRateShallowMpm: shallowRate, ppO2Working: L.bottomPpO2Working, ppO2Max: L.bottomPpO2Max, decoPpO2Max: L.decoPpO2Max,
     descentRateMpm: descentRate, ascentRateMpm: ascentFast, ...(rateChange > 0 ? { ascentRateChangeDepthM: rateChange } : {}),
+    ...diveEnv,
   };
   const settingsKey = JSON.stringify(settings);
 
@@ -197,7 +204,7 @@ export function App() {
     return { switches: all.switches, end: all.end, atBottomEnd, lostShort };
   }, [config, env, mode, plan, bottomGas, sacBottom, sacDeco, backStart, smSingle, smStepBar, minGas.litres]);
   const events: ItineraryEvent[] = plan ? itinerary(plan) : [];
-  const gfTrace = useMemo(() => (plan ? supersaturationTrace(plan, { fromRuntime: ascentStart(plan) }) : []), [plan]);
+  const gfTrace = useMemo(() => (plan ? supersaturationTrace(plan, { fromRuntime: ascentStart(plan), initialTissues: settings.initialTissues, surfacePressureBar: settings.surfacePressureBar }) : []), [plan]);
   const gfPeak = gfTrace.reduce((a, b) => (b.gf > a.gf ? b : a), gfTrace[0] ?? { t: 0, depth: 0, gf: 0, lead: 0 });
 
   /* ---- contingencies: lost deco gas (technical mode) ---- */
@@ -230,7 +237,7 @@ export function App() {
     if (sm && sm.lostShort > 0) warnings.push({ text: t.msg(msg('smLostCylinderMinGas', { short: Math.round(sm.lostShort) }), u), bad: true });
   }
 
-  const recData = useRecreationalPlan(rec, gfHigh);
+  const recData = useRecreationalPlan(rec, gfHigh, diveEnv);
   const penData = usePenetrationPlan(pen, std, settings);
   const canPrint = env === 'rec' ? true : env === 'pen' ? !!penData.plan : !!(plan && bg);
   const [busy, setBusy] = useState(false);
@@ -275,6 +282,13 @@ export function App() {
       case 'surface': return t.itSurface;
     }
   };
+
+  /** context badges (altitude, repetitive dive) shown under the page head in every mode */
+  const ctxPills: { text: string; tone?: 'warn' }[] = [];
+  if (altitudeM > 0) ctxPills.push({ text: `⛰ ${t.altitudeBadge(u.depth(altitudeM), fmt(surfaceBar, 3))}`, tone: 'warn' });
+  /** extra rows for the PDF dive card */
+  const printExtraRows: { l: string; v: string }[] = [];
+  if (altitudeM > 0) printExtraRows.push({ l: t.altitudeRow, v: `${u.depth(altitudeM)} · ${fmt(surfaceBar, 3)} bar · ${acclimatised ? t.acclimatisedYes : t.acclimatisedNo}` });
 
   const tabLabel: Record<Tab, string> = { setup: t.tabSetup, plan: t.tabPlan, time: t.tabTimeline, gas: t.tabGasCheck, team: t.tabTeamGas, kit: t.tabKit, deco: t.tabDeco };
   const depthScale = u.sys === 'metric' ? 1 : 3.28084;
@@ -543,7 +557,7 @@ export function App() {
   );
 
   const renderTab = (tb: Tab) => env === 'rec'
-    ? <RecreationalView t={t} u={u} lang={lang} gfHigh={gfHigh} tab={tb as 'setup' | 'plan' | 'time'} state={rec} setState={setRec} onShowPlan={() => setTab('plan')} />
+    ? <RecreationalView t={t} u={u} lang={lang} gfHigh={gfHigh} tab={tb as 'setup' | 'plan' | 'time'} state={rec} setState={setRec} onShowPlan={() => setTab('plan')} env={diveEnv} />
     : env === 'pen'
       ? <PenetrationView t={t} u={u} lang={lang} std={std} settings={settings} tab={tb as 'setup' | 'team' | 'kit' | 'deco'} state={pen} setState={setPen} onMatch={() => setTab('team')} onExport={() => setSheet('export')} />
       : tb === 'setup' ? techSetup : tb === 'plan' ? techPlan : techGas;
@@ -585,6 +599,7 @@ export function App() {
             ))}
           </div>
         </div>
+        {ctxPills.length > 0 && <div className="ctx-pills">{ctxPills.map((p, i) => <span key={i} className={`ctx-pill ${p.tone ?? ''}`}>{p.text}</span>)}</div>}
         {(wide || tab === 'setup') && <Disclaimer text={t.disclaimer} />}
         {wide ? (
           <div className="cols" key={env}>
@@ -661,6 +676,20 @@ export function App() {
             </div>
           )}
         </div>
+        <div className="sheet-field"><span>{t.altitudeTitle}</span>
+          <div className="algo">
+            <div className="algo-body">
+              <NumRow label={t.altitudeLabel(u)} min={0} max={u.depthN(4500)} value={u.depthN(altitudeM)} onChange={(v) => setAltitudeM(Math.max(0, Math.min(4500, Math.round(u.toM(v)))))} />
+              {altitudeM > 0 && (
+                <div className="row stack">
+                  <span className="row-l">{t.acclimatised}</span>
+                  <Seg value={acclimatised} onChange={setAcclimatised} options={[{ v: false, l: t.acclimatisedNo }, { v: true, l: t.acclimatisedYes }]} />
+                  <span className="row-sub">{t.altitudeBadge(u.depth(altitudeM), fmt(surfaceBar, 3))}. {t.altitudeNote(acclimatised)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
         <div className="sheet-field"><span>{t.toolsTitle}</span>
           <button className="btn-secondary" onClick={() => setSheet('blend')}>{t.blendOpen}</button>
         </div>
@@ -686,11 +715,12 @@ export function App() {
       <Toast text={toast} />
 
       {env === 'rec' && (
-        <RecPrintSheet t={t} u={u} lang={lang} input={recData.input} plan={recData.plan} events={recData.events} cylinderName={recData.cyl.name} />
+        <RecPrintSheet t={t} u={u} lang={lang} input={recData.input} plan={recData.plan} events={recData.events} cylinderName={recData.cyl.name} extraRows={printExtraRows} />
       )}
       {env === 'pen' && penData.plan && (
         <PenPrintSheet t={t} u={u} lang={lang} input={penData.input} plan={penData.plan} events={penData.events}
           agencyLabel={pen.agency.toUpperCase()} envLabel={pen.environment === 'cave' ? t.penCave : pen.environment === 'mine' ? t.penMine : t.penWreck}
+          extraRows={printExtraRows}
           flowLabel={pen.flow === 'outflow' ? t.penFlowOut : pen.flow === 'none' ? t.penFlowNone : t.penFlowSiphon} decoStages={penData.decoStages} packing={penData.packing}
           evText={penEventText(t, u, (penData.plan.members.find((m) => m.member.id === penData.plan!.limiting.id) ?? penData.plan.members[0]).turnBar)} />
       )}
@@ -703,7 +733,7 @@ export function App() {
           plan={plan} stops={stops} events={events} usage={usage} bg={bg} minGas={minGas} minGasBar={minGasBar} backCyl={backCyl} backStart={backStart}
           pack={pack} verdict={mode === 'inventory' ? verdict : null} eventText={eventText} warnings={warnings}
           planOk={techOk} planTitle={techOk ? t.techFeasible(stdLabel) : t.techNotFeasible(stdLabel)} blockers={blockers}
-          lostGas={lostGas}
+          lostGas={lostGas} extraRows={printExtraRows}
         />
       )}
     </div>

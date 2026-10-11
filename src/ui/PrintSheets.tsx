@@ -6,7 +6,7 @@ import { densityRow, GasDot, PBig, PCard, PItinerary, PKV, PLabel, PPacking, PSt
 const fmtFor = (lang: 'hu' | 'en') => (v: number, dg = 0) => v.toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: dg, minimumFractionDigits: dg });
 
 /* ---------------- Recreational ---------------- */
-export function RecPrintSheet({ t, u, lang, input, plan, events, cylinderName }: { t: Dict; u: Units; lang: 'hu' | 'en'; input: RecInput; plan: RecPlan; events: RecEvent[]; cylinderName: string }) {
+export function RecPrintSheet({ t, u, lang, input, plan, events, cylinderName, extraRows }: { t: Dict; u: Units; lang: 'hu' | 'en'; input: RecInput; plan: RecPlan; events: RecEvent[]; cylinderName: string; extraRows?: { l: string; v: string }[] }) {
   const fmt = fmtFor(lang);
   const profile = recreationalProfile(input, plan);
   const colors = gasColorsFor(gasOrder(profile));
@@ -31,6 +31,7 @@ export function RecPrintSheet({ t, u, lang, input, plan, events, cylinderName }:
             { l: t.penSac(u), v: u.sacS(input.sacLpm) },
             { l: 'GF high', v: Math.round(input.gfHigh * 100) },
             densityRow(t, input.gas, input.maxDepth, fmt),
+            ...(extraRows ?? []),
           ]} />
         </PCard>
         <div className="ps-col">
@@ -68,9 +69,9 @@ export function RecPrintSheet({ t, u, lang, input, plan, events, cylinderName }:
 }
 
 /* ---------------- Penetration ---------------- */
-export function PenPrintSheet({ t, u, lang, input, plan, events, agencyLabel, envLabel, flowLabel, evText, packing }: {
+export function PenPrintSheet({ t, u, lang, input, plan, events, agencyLabel, envLabel, flowLabel, evText, packing, extraRows }: {
   t: Dict; u: Units; lang: 'hu' | 'en'; input: PenetrationInput; plan: PenetrationPlan; events: PenEvent[];
-  agencyLabel: string; envLabel: string; flowLabel: string; evText: (e: PenEvent) => string; decoStages?: DecoGasRequirement[];
+  agencyLabel: string; envLabel: string; flowLabel: string; evText: (e: PenEvent) => string; decoStages?: DecoGasRequirement[]; extraRows?: { l: string; v: string }[];
   packing?: { count: number; cylinder: string; gas: string; fillBar: number; role: 'back' | 'stage' | 'deco'; divers?: string }[];
 }) {
   const fmt = fmtFor(lang);
@@ -97,6 +98,7 @@ export function PenPrintSheet({ t, u, lang, input, plan, events, agencyLabel, en
             { l: t.penStages, v: input.stages.length ? `${input.stages[0].count} × ${input.stages[0].cylinder.name.split(' (')[0]} · ${input.stageRule === 'halfPlus' ? t.penRuleHalfPlus : t.penRuleThirds}` : '—' },
             { l: t.penSwimSpeed(u), v: u.depthN(input.swimSpeedMpm) },
             ...(gf ? [{ l: 'GF', v: `${Math.round(gf.low * 100)}/${Math.round(gf.high * 100)}` }] : []),
+            ...(extraRows ?? []),
           ]} />
         </PCard>
         <div className="ps-col">

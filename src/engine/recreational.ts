@@ -2,7 +2,7 @@
  * Recreational (no-decompression) planning: the dive must stay within the no-deco limit,
  * with a direct ascent and a safety stop. Rock-bottom gas reserve for two divers.
  */
-import { ndl } from './buhlmann';
+import { TissueState, ndl } from './buhlmann';
 import { Gas, depthToAmbient, end, gasName, ppO2 } from './gas';
 import { Cylinder, roundBar } from './gasPlan';
 import { Msg, msg } from './messages';
@@ -27,6 +27,10 @@ export interface RecInput {
   maxDepthLimit?: number;
   /** pressure the diver must surface with, bar (default 50) */
   surfaceReserveBar?: number;
+  /** surface pressure in bar (altitude); default sea level */
+  surfacePressureBar?: number;
+  /** tissues at the start (repetitive dive / not acclimatised); default saturated at the surface */
+  initialTissues?: TissueState;
 }
 
 export interface RecPlan {
@@ -64,7 +68,7 @@ export function planRecreational(i: RecInput): RecPlan {
   const blockers: Msg[] = []; const warnings: Msg[] = [];
 
   // NDL at depth on this gas; bottom time includes the descent (loading during descent is smaller, so this is conservative)
-  const n = ndl(i.gas, i.maxDepth, i.gfHigh);
+  const n = ndl(i.gas, i.maxDepth, i.gfHigh, i.initialTissues, i.surfacePressureBar);
   const ndlMinutes = Number.isFinite(n) ? n : 999;
   const maxBottomTime = ndlMinutes;
   if (i.bottomTime > ndlMinutes) blockers.push(msg('recOverNdl', { bottom: i.bottomTime, ndl: ndlMinutes, over: i.bottomTime - ndlMinutes }));

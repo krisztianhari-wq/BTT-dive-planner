@@ -285,6 +285,10 @@ button.row:disabled { cursor: default; }
 .range td.bad small { color: var(--err-text); }
 @media (max-width: 360px) { .range td b { font-size: 11.5px; } .range { border-spacing: 2px; } }
 
+.ctx-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.ctx-pill { border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font: 500 12px var(--mono); color: var(--muted); background: var(--card); }
+.ctx-pill.warn { border-color: color-mix(in srgb, var(--warn) 45%, transparent); background: var(--warn-bg); color: var(--warn); }
+
 /* footer */
 .footer2 { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 18px; text-align: center; font: 500 11px/1.4 var(--sans); color: var(--faint); }
 .footer2 img { width: 34px; height: 34px; filter: var(--logo-filter); opacity: .8; }

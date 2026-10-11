@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { CYLINDERS, GENERIC_STANDARD, Gas, gasName, mod, planRecreational, ppO2, end, recreationalItinerary, recreationalProfile, RecInput, RecEvent, gasDensity } from '../engine';
+import { ReactNode, useMemo } from 'react';
+import { CYLINDERS, GENERIC_STANDARD, Gas, gasName, mod, planRecreational, ppO2, end, recreationalItinerary, recreationalProfile, RecInput, RecEvent, gasDensity, TissueState } from '../engine';
 import { Dict } from './i18n';
 import { Units } from './units';
 import { DensityVal, densityTone, Card, KV, Label, Note, NumRow, Primary, ProfileCard, SelectRow, Stat, Stats, Stepper, Timeline, Verdict, Warnings } from './kit';
@@ -11,21 +11,25 @@ export const defaultRecState = (): RecState => ({ maxDepth: 18, bottomTime: 30, 
 
 const REC_GASES = GENERIC_STANDARD.bottomGases.filter((g) => g.gas.he === 0); // Air, EAN28/32/36/40
 
-export function useRecreationalPlan(s: RecState, gfHigh: number) {
+/** Dive environment shared with the other modes: surface pressure (altitude) and start tissues (repetitive dive). */
+export interface RecEnv { surfacePressureBar?: number; initialTissues?: TissueState }
+
+export function useRecreationalPlan(s: RecState, gfHigh: number, env: RecEnv = {}) {
+  const envKey = JSON.stringify(env);
   return useMemo(() => {
     const auto = GENERIC_STANDARD.bottomGasFor(Math.min(s.maxDepth, 40));
     const gas: Gas = s.gasIdx === 'auto' ? (auto?.gas ?? REC_GASES[REC_GASES.length - 1].gas) : REC_GASES[s.gasIdx].gas;
     const cyl = REC_CYLINDERS[s.cylIdx] ?? REC_CYLINDERS[0];
-    const input: RecInput = { maxDepth: s.maxDepth, bottomTime: s.bottomTime, gas, cylinder: cyl, startBar: s.startBar, sacLpm: s.sac, gfHigh: gfHigh / 100 };
+    const input: RecInput = { maxDepth: s.maxDepth, bottomTime: s.bottomTime, gas, cylinder: cyl, startBar: s.startBar, sacLpm: s.sac, gfHigh: gfHigh / 100, ...env };
     const plan = planRecreational(input);
     return { input, plan, events: recreationalItinerary(input, plan), profile: recreationalProfile(input, plan), gas, cyl, auto };
-  }, [s, gfHigh]);
+  }, [s, gfHigh, envKey]);
 }
 
-export function RecreationalView({ t, u, lang, gfHigh, tab, state: s, setState, onShowPlan }: { t: Dict; u: Units; lang: 'hu' | 'en'; gfHigh: number; tab: 'setup' | 'plan' | 'time'; state: RecState; setState: (s: RecState) => void; onShowPlan: () => void }) {
+export function RecreationalView({ t, u, lang, gfHigh, tab, state: s, setState, onShowPlan, env, extra }: { t: Dict; u: Units; lang: 'hu' | 'en'; gfHigh: number; tab: 'setup' | 'plan' | 'time'; state: RecState; setState: (s: RecState) => void; onShowPlan: () => void; env?: RecEnv; extra?: { setup?: ReactNode; plan?: ReactNode } }) {
   const set = (p: Partial<RecState>) => setState({ ...s, ...p });
   const fmt = (v: number, d = 0) => v.toLocaleString(lang === 'hu' ? 'hu-HU' : 'en-GB', { maximumFractionDigits: d, minimumFractionDigits: d });
-  const { input, plan, events, profile, gas, auto } = useRecreationalPlan(s, gfHigh);
+  const { input, plan, events, profile, gas, auto } = useRecreationalPlan(s, gfHigh, env);
   const evText = (e: RecEvent): string => { switch (e.kind) { case 'start': return t.itStart(gasName(input.gas)); case 'arriveBottom': return t.itArrive; case 'leaveBottom': return t.recEvLeave; case 'safetyStop': return t.recEvSafety(Math.round(e.duration ?? 0), u.depth(e.depth)); case 'surface': return t.itSurface; } };
 
   if (tab === 'setup') {
@@ -44,6 +48,7 @@ export function RecreationalView({ t, u, lang, gfHigh, tab, state: s, setState, 
           <NumRow label={t.penSac(u)} min={0} step={u.sacStep} decimals={u.sys === 'metric' ? 0 : 2} value={u.sacN(s.sac)} onChange={(v) => set({ sac: u.toLpm(v) })} />
         </Card>
         <Note>{t.recNote}</Note>
+        {extra?.setup}
         <Primary onClick={onShowPlan}>{t.showPlan}</Primary>
       </>
     );
@@ -63,6 +68,7 @@ export function RecreationalView({ t, u, lang, gfHigh, tab, state: s, setState, 
         {!plan.feasible && <ul>{plan.blockers.map((b, i) => <li key={i}>{t.msg(b, u)}</li>)}</ul>}
         <div>{t.recMaxBottom(plan.maxBottomTime)}</div>
       </Verdict>
+      {extra?.plan}
       <Stats>
         <Stat v={plan.ndlMinutes >= 999 ? '∞' : plan.ndlMinutes} l={t.recNdl} />
         <Stat v={fmt(s.bottomTime)} l={t.bottomTime} />
