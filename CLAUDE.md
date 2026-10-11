@@ -70,7 +70,6 @@ Dekompressziós és gáztervező (Bühlmann ZH-L16C + GF) a BTT Explorers Hungar
 - PDF oldaltörés `.pb` blokkokon (`renderPages`/`pageBreaks` a `pdf.ts`-ben).
 - A tervező első megállója a fenéken számolt plafonból jön (Subsurface-konvenció), így odaérve a vezető szövet GF-je kicsit
   a GF low fölött lehet (pl. 50 m/25′ 21/35, GF 20/85: ~27%) – ismert, nem hiba; a túltelítettség-grafikon ezt mutatja.
-- `features-0.11` ág (`../gue-dive-planner-features`): a v0.11 funkciók fejlesztése; vizuális teszthez launch: `dive-planner-features` (5181).
 - `kiserlet` ág külön git worktree-ben (`../gue-dive-planner-kiserlet`, launch: `dive-planner-kiserlet` 5175, preview 4175): kísérletezésre, a `main` csak kiadásra; onnan soha ne pusholj `v*` taget.
 
 ## Nyitott
