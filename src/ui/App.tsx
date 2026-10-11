@@ -5,7 +5,7 @@ import {
   roundBar, stopTable, itinerary, ItineraryEvent, sidemountSwitchesOnProfile, worstSingleCylinderLitres, defaultSwitchStep, msg,
 } from '../engine';
 import { PrintSheet } from './PrintSheet';
-import { Card, Chevron, Chip, Disclaimer, IconShare, IconSliders, KV, Label, Note, NumRow, Primary, ProfileCard, Seg, SelectRow, Sheet, Stat, Stats, Stepper, StopRows, Timeline, Toast, Toggle, Verdict, Warnings } from './kit';
+import { Card, Chevron, Chip, Disclaimer, IconHome, IconShare, IconSliders, KV, Label, Note, NumRow, Primary, ProfileCard, Seg, SelectRow, Sheet, Stat, Stats, Stepper, StopRows, Timeline, Toast, Toggle, Verdict, Warnings } from './kit';
 import { PenetrationView, PenState, defaultPenState, usePenetrationPlan, penEventText } from './PenetrationView';
 import { RecreationalView, RecState, defaultRecState, useRecreationalPlan } from './RecreationalView';
 import { RecPrintSheet, PenPrintSheet } from './PrintSheets';
@@ -16,6 +16,8 @@ import logoUrl from '../assets/btt-logo.png';
 import sadrobotUrl from '../assets/sadrobot.png';
 
 type Mode = 'standard' | 'inventory';
+/** Beágyazott build (pl. a sadrobot merülésnapló /terv/ modulja): vissza-link a közös kezdőlapra. Pages/app buildben üres. */
+const HOME_URL = import.meta.env.VITE_HOME_URL as string | undefined;
 type Theme = 'light' | 'dark';
 
 function initialTheme(): Theme {
@@ -23,7 +25,7 @@ function initialTheme(): Theme {
     const saved = localStorage.getItem('btt-theme');
     if (saved === 'light' || saved === 'dark') return saved;
   } catch { /* ignore */ }
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return 'dark'; // a sadrobot napló-rendszer alapja a sötét téma
 }
 function stored<T extends string>(key: string, allowed: T[], fallback: T): T {
   try { const v = localStorage.getItem(key); if (v && (allowed as string[]).includes(v)) return v as T; } catch { /* ignore */ }
@@ -468,6 +470,7 @@ export function App() {
       <header className={compact ? 'hdr compact' : 'hdr'}>
         <div className="hdr-inner">
           <div className="hdr-row">
+            {HOME_URL && <a className="icon-btn home" href={HOME_URL} aria-label={t.homeLink} title={t.homeLink}><IconHome /></a>}
             <img className="logo" src={logoUrl} alt="BTT Explorers Hungary" />
             <div className="hdr-title">
               <h1>{t.appTitle}</h1>

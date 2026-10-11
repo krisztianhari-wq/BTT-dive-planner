@@ -42,8 +42,8 @@ export default defineConfig({
         scope: base,
         display: 'standalone',
         orientation: 'any',
-        background_color: '#f2f2f7',
-        theme_color: '#f2f2f7',
+        background_color: '#0B0F14',
+        theme_color: '#0B0F14',
         categories: ['utilities', 'sports'],
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
