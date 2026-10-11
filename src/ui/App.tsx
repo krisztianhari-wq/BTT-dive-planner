@@ -64,7 +64,9 @@ export function App() {
     if (el && window.matchMedia?.('(min-width: 1024px)').matches) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     else window.scrollTo({ top: 0 });
   };
-  const [sheet, setSheet] = useState<null | 'settings' | 'export' | 'blend' | 'share'>(null);
+  const [sheet, setSheet] = useState<null | 'settings' | 'export' | 'blend' | 'share' | 'save'>(null);
+  const [saveDate, setSaveDate] = useState('');
+  const [saveState, setSaveState] = useState<'idle' | 'busy' | 'login' | 'error'>('idle');
   const [briefOpen, setBriefOpen] = useState(false);
   const [planName, setPlanName] = useState('');
   const [algoOpen, setAlgoOpen] = useState(false);
@@ -467,6 +469,36 @@ export function App() {
     };
   };
 
+  /* ---------- save to the logbook (embedded only): POST /api/plans ---------- */
+  const todayLocal = () => localNow().slice(0, 10);
+  const openSave = () => { if (!planName.trim()) setPlanName(defaultName); setSaveDate(todayLocal()); setSaveState('idle'); setSheet('save'); };
+  const profilePlan: DivePlan | null = env === 'rec' ? recData.profile : env === 'pen' ? (penData.plan?.deco ?? null) : plan;
+  const savePlan = async () => {
+    if (!profilePlan) return;
+    const p = buildPlan();
+    const pts: { t: number; d: number }[] = [{ t: 0, d: 0 }];
+    let rt = 0;
+    for (const sg of profilePlan.segments) { rt += sg.duration; pts.push({ t: Math.round(rt * 60), d: Math.round(sg.endDepth * 10) / 10 }); }
+    const gasesUsed = [p.bottomGas, ...p.decoGases].map((g) => ({ o2: Math.round(g.o2 * 1000) / 10, he: Math.round(g.he * 1000) / 10 }));
+    const runtime = env === 'rec' ? recData.plan.runtime : profilePlan.runtime;
+    const body = {
+      name: (planName.trim() || defaultName).slice(0, 80),
+      planned_for: /^\d{4}-\d{2}-\d{2}$/.test(saveDate) ? saveDate : null,
+      plan: p,
+      summary: { env: p.env, maxDepth: p.maxDepth, bottomTime: p.bottomTime, runtime: Math.round(runtime * 10) / 10, decoTime: Math.round(profilePlan.decoTime * 10) / 10, gfLow: p.gfLow, gfHigh: p.gfHigh, gases: gasesUsed },
+      profile: pts,
+    };
+    setSaveState('busy');
+    try {
+      const r = await fetch(`${(HOME_URL ?? '/').replace(/\/$/, '')}/api/plans`, {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'dive' }, body: JSON.stringify(body),
+      });
+      if (r.status === 401) { setSaveState('login'); return; }
+      if (!r.ok) throw new Error(String(r.status));
+      setSaveState('idle'); setSheet(null); setToast(t.saveLogSaved);
+    } catch (err) { console.error(err); setSaveState('error'); }
+  };
+
   /** context badges (altitude, repetitive dive) shown under the page head in every mode */
   const ctxPills: { text: string; tone?: 'warn' }[] = [];
   if (altitudeM > 0) ctxPills.push({ text: `⛰ ${t.altitudeBadge(u.depth(altitudeM), fmt(surfaceBar, 3))}`, tone: 'warn' });
@@ -756,6 +788,7 @@ export function App() {
     <div className="actions">
       <button onClick={() => setBriefOpen(true)}>{t.briefOpen}</button>
       <button onClick={() => setSheet('share')}>{t.shareAction}</button>
+      {HOME_URL && <button onClick={openSave}>{t.saveLogAction}</button>}
     </div>
   ) : null;
 
@@ -921,6 +954,19 @@ export function App() {
           <button onClick={() => { setSheet(null); setBriefOpen(true); }}>{t.briefOpen}</button>
         </div>
         <Note>{t.shareNote}</Note>
+      </Sheet>
+      <Sheet open={sheet === 'save'} onClose={closeSheet} label={t.saveLogTitle}>
+        <div className="sheet-head"><h2>{t.saveLogTitle}</h2><button className="pill" onClick={closeSheet}>{t.done}</button></div>
+        <div className="sheet-field"><span>{t.planNameLabel}</span>
+          <input className="text-field" value={planName} placeholder={defaultName} maxLength={80} onChange={(e) => setPlanName(e.target.value)} />
+        </div>
+        <div className="sheet-field"><span>{t.saveLogDate}</span>
+          <input className="text-field" type="date" value={saveDate} onChange={(e) => setSaveDate(e.target.value)} />
+        </div>
+        {saveState === 'login' && <Verdict tone="bad" title={t.saveLogLogin}>{LOG_URL && <a href={LOG_URL}>{t.navLog} →</a>}</Verdict>}
+        {saveState === 'error' && <Verdict tone="bad" title={t.saveLogError} />}
+        <Primary disabled={saveState === 'busy' || !profilePlan} onClick={savePlan}>{saveState === 'busy' ? '…' : t.saveLogSave}</Primary>
+        <Note>{t.saveLogNote}</Note>
       </Sheet>
       {briefOpen && (() => { const b = buildBrief(); return b ? <Brief t={t} data={b} onClose={closeBrief} /> : null; })()}
       <Toast text={toast} />
